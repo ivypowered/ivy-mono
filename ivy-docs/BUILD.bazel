@@ -1,0 +1,32 @@
+genrule(
+    name = "install_requirements",
+    srcs = ["requirements.txt"],
+    local = True,
+    cmd = """
+        python3 -m pip install -r $(location requirements.txt) --break-system-packages
+        date +%s.%N > "$@"
+    """,
+    outs = ["install_requirements.marker"],
+)
+
+genrule(
+    name = "build",
+    srcs = glob(["src/**"]) + [
+        "build.py",
+        "mkdocs.yml",
+        ":install_requirements",
+    ],
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location build.py))
+        python3 build.py \
+            --src-dir=./src \
+            --dst-dir=./dist \
+            --public-root=/docs
+        cd dist
+        zip -r $${ROOT_DIR}/$(location docs.zip) .
+    """,
+    outs = ["docs.zip"],
+    visibility = ["//visibility:public"],
+)

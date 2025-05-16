@@ -1,0 +1,39 @@
+{
+    "name": "ivy-backend",
+    "version": "1.0.0",
+    "description": "",
+    "main": "dist/index.js",
+    "scripts": {
+        "dev": "ts-node src/index.ts",
+        "cli": "ts-node src/cli.ts",
+        "build": "npm run build:index && npm run build:cli",
+        "build:index": "esbuild src/index.ts --bundle --platform=node --target=node16 --outfile=dist/index.js --minify --tree-shaking=true",
+        "build:cli": "esbuild src/cli.ts --bundle --platform=node --target=node16 --outfile=dist/cli.js --minify --tree-shaking=true",
+        "build:prod": "NODE_ENV=production npm run build",
+        "start": "node dist/index.js",
+        "start:cli": "node dist/cli.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "commonjs",
+    "devDependencies": {
+        "@types/cors": "^2.8.17",
+        "@types/express": "^4.17.21",
+        "@types/node": "^22.13.13",
+        "esbuild": "^0.20.2",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.8.2"
+    },
+    "dependencies": {
+        "@coral-xyz/anchor": "^0.31.0",
+        "@solana/spl-token": "^0.4.13",
+        "@solana/web3.js": "^1.98.0",
+        "commander": "^13.1.0",
+        "dotenv": "^16.4.7",
+        "express": "^4.21.2",
+        "pinata": "^2.1.0",
+        "tweetnacl": "^1.0.3"
+    }
+}

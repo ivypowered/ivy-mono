@@ -1,0 +1,100 @@
+genrule(
+    name = "import",
+    srcs = [
+        "BUILD.bazel",
+        "//ivy-docs:docs.zip",
+        "//ivy-react:ivy-react.js",
+        "//ivy-react:ivy-react-tw-input.tsx",
+    ],
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location BUILD.bazel))
+
+        # react
+        cp --no-preserve=mode $$ROOT_DIR/$(location //ivy-react:ivy-react.js) public/assets/js/ivy-react.js
+        cp --no-preserve=mode $$ROOT_DIR/$(location //ivy-react:ivy-react-tw-input.tsx) import/ivy-react-tw-input.tsx
+
+        # docs
+        rm -rf docs_build
+        mkdir docs_build
+        cd docs_build
+        unzip -o $$ROOT_DIR/$(location //ivy-docs:docs.zip)
+
+        date +%s.%N > $$ROOT_DIR/$@
+    """,
+    outs = ["import.marker"]
+)
+
+genrule(
+    name = "build",
+    srcs = [
+        "tailwind.css",
+        "tailwind.config.js",
+        ":import",
+    ] + glob(["includes/**/*.php", "public/**/*.php"]),
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location tailwind.css))
+        if [ ! -f ./tailwindcss-linux-x64 ]; then
+            echo "Tailwind CSS executable not found. Downloading..."
+            curl -O -L https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.17/tailwindcss-linux-x64
+            chmod +x ./tailwindcss-linux-x64
+            echo "Download complete."
+        fi
+        ./tailwindcss-linux-x64 -m -i ./tailwind.css -o public/assets/css/styles.css
+        zip -r $$ROOT_DIR/$@ docs_build icons includes public
+    """,
+    outs = ["frontend.zip"]
+)
+
+genrule(
+    name = "dev",
+    srcs = [":build", "dev_router.php"],
+    local = True,
+    cmd = """
+        EXEC_DIR=$$(pwd)/$$(dirname $(location dev_router.php))
+
+        cat > "$@" << EOF
+#!/bin/sh
+
+# Go to execution directory
+cd $${EXEC_DIR}
+
+# Define cleanup function
+cleanup() {
+    echo "Cleaning up temporary database..."
+    rm -f tmp.sqlite
+    exit 0
+}
+
+# Set trap for multiple signals
+trap cleanup INT TERM HUP QUIT EXIT
+
+# Initialize database
+php -r '
+\\$$db = new PDO("sqlite:./tmp.sqlite");
+\\$$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+\\$$db->exec("CREATE TABLE IF NOT EXISTS transactions (
+    id CHAR(36) PRIMARY KEY,
+    state VARCHAR(10) NOT NULL,
+    fn VARCHAR(32) NOT NULL,
+    tx_base64 VARCHAR(1644) NOT NULL,
+    last_valid_block_height BIGINT NOT NULL,
+    signature VARCHAR(88) NOT NULL,
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
+)");'
+
+# Start the development server
+php -S 127.0.0.1:3000 dev_router.php
+EOF
+
+        # Make the created script executable
+        chmod +x "$@"
+    """,
+    outs = ["dev.sh"],
+    executable = True,
+    tags = ["manual"],
+)

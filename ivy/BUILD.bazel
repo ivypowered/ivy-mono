@@ -1,0 +1,123 @@
+genrule(
+    name = "install_requirements",
+    srcs = ["idl/requirements.txt"],
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location idl/requirements.txt))
+        python3 -m pip install -r requirements.txt --break-system-packages
+        date +%s.%N > $$ROOT_DIR/$@
+    """,
+    outs = ["install_requirements.marker"],
+)
+
+genrule(
+    name = "import",
+    srcs = ["//ivy-r128:r128.h", "BUILD.bazel"],
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location BUILD.bazel))
+        mkdir -p ./src/import
+        cp --no-preserve=mode $$ROOT_DIR/$(location //ivy-r128:r128.h) ./src/import
+        date +%s.%N > $$ROOT_DIR/$@
+    """,
+    outs = ["import.marker"],
+)
+
+genrule(
+    name = "build",
+    srcs = glob([
+        "src/**/*.c",
+        "src/**/*.h",
+        "idl/**/*.py",
+    ]) + [
+        ":install_requirements",
+        ":import",
+        "BUILD.bazel",
+        "//ivy-r128:libr128.a",
+    ],
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        HOME="/home/$$(echo "$$ROOT_DIR" | cut -d'/' -f3)"
+
+        cd $$(dirname $(location BUILD.bazel))
+
+        PROGRAM_NAME="ivy"
+
+        # Exit on failure
+        set -e
+
+        # Define common paths
+        SOLANA_PATH="$$HOME/.local/share/solana/install/active_release/bin"
+        SDK_PATH="$${SOLANA_PATH}/sdk/sbf/c"
+        LLVM_PATH="$${SDK_PATH}/../dependencies/platform-tools/llvm"
+        RUST_PATH="$${SDK_PATH}/../dependencies/platform-tools/rust"
+        TARGET_DIR="./target/deploy"
+        KEYPAIR_PATH="$${TARGET_DIR}/$${PROGRAM_NAME}-keypair.json"
+
+        # Make our target directory
+        mkdir -p $$TARGET_DIR
+
+        # Install C toolchain if we haven't already
+        bash $$SOLANA_PATH/sdk/sbf/scripts/install.sh
+
+        # Compilation step
+        $${LLVM_PATH}/bin/clang \\
+            -Werror -O3 -fno-builtin -std=c17 \\
+            -isystem$${SDK_PATH}/inc \\
+            -isystem$${LLVM_PATH}/lib/clang/17/include \\
+            -I$${LLVM_PATH}/include \\
+            -target sbf -fPIC \\
+            -o $${TARGET_DIR}/$${PROGRAM_NAME}.o \\
+            -c ./src/main.c
+
+        # Linking step
+        $${LLVM_PATH}/bin/ld.lld \\
+            -O3 \\
+            -z notext -shared --Bdynamic \\
+            --gc-sections \\
+            --strip-all \\
+            $${SDK_PATH}/sbf.ld \\
+            --entry entrypoint \\
+            -L $${LLVM_PATH}/lib -lc \\
+            -o $${TARGET_DIR}/$${PROGRAM_NAME}.so \\
+            $${TARGET_DIR}/$${PROGRAM_NAME}.o \\
+            $${RUST_PATH}/lib/rustlib/sbf-solana-solana/lib/libcompiler_builtins-*.rlib \\
+            $${ROOT_DIR}/$(location //ivy-r128:libr128.a)
+
+        # Remove object file
+        rm $${TARGET_DIR}/$${PROGRAM_NAME}.o
+
+        # Generate keypair if it doesn't exist
+        if [ ! -f "$${KEYPAIR_PATH}" ]; then
+            echo "Generating new keypair at $${KEYPAIR_PATH}"
+            solana-keygen new \\
+                -o "$${KEYPAIR_PATH}" \\
+                --no-bip39-passphrase
+        fi
+
+        # Get program ID
+        PROGRAM_ID=$$(solana-keygen pubkey "$${KEYPAIR_PATH}")
+
+        # Build IDL
+        python3 idl/main.py $$PROGRAM_NAME $$PROGRAM_ID
+
+        # Generate Typescript types from IDL
+        mkdir -p ./target/types
+        anchor idl type "./target/idl/$${PROGRAM_NAME}.json" > "./target/types/$${PROGRAM_NAME}.ts"
+
+        cp target/deploy/ivy.so $$ROOT_DIR/$(location deploy/ivy.so)
+        cp target/deploy/ivy-keypair.json $$ROOT_DIR/$(location deploy/ivy-keypair.json)
+        cp target/idl/ivy.json $$ROOT_DIR/$(location idl/ivy.json)
+        cp target/types/ivy.ts $$ROOT_DIR/$(location types/ivy.ts)
+    """,
+    outs = [
+        "deploy/ivy.so",
+        "deploy/ivy-keypair.json",
+        "idl/ivy.json",
+        "types/ivy.ts"
+    ],
+    visibility = ["//visibility:public"]
+)

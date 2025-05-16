@@ -1,0 +1,15 @@
+site_name: Ivy Documentation
+docs_dir: src
+nav:
+    - Introduction: index.md
+    - Token: token.md
+    - Amounts: amounts.md
+    - Games: games.md
+    - Identifiers: identifiers.md
+    - Authentication: authentication.md
+    - Deposits: deposits.md
+    - Withdrawals: withdrawals.md
+    - Example: example.md
+theme:
+    name: mkdocs
+    highlightjs: true
