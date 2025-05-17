@@ -6,8 +6,17 @@ import {
     SendTransactionError,
     Transaction,
     VersionedTransaction,
+    VersionedTransactionResponse,
 } from "@solana/web3.js";
-import { getEvents, Game, GAME_DECIMALS, IVY_MINT, Auth, Id } from "ivy-sdk";
+import {
+    getEvents,
+    Game,
+    GAME_DECIMALS,
+    IVY_MINT,
+    Auth,
+    Id,
+    World,
+} from "ivy-sdk";
 import { confirmTransaction } from "./functions/confirmTransaction";
 import {
     EVENTS_MAX_CONCURRENT_REQUESTS,
@@ -40,7 +49,35 @@ import {
 // --- Setup ---
 const app = express();
 const connection = new Connection(RPC_URL, "confirmed");
-const cache = new Cache(connection);
+const cache = {
+    blockhash: new Cache({
+        f: () => connection.getLatestBlockhash(),
+        updateInterval: 5,
+        expiryInterval: 30,
+    }),
+    slot: new Cache({
+        f: () => connection.getSlot(),
+        updateInterval: 2,
+        expiryInterval: 5,
+    }),
+    fee: new Cache({
+        f: () => getReasonablePriorityFee(connection),
+        updateInterval: 60,
+        expiryInterval: 120,
+    }),
+    gameAlt: new Cache({
+        f: async () => {
+            const world = await World.loadState(connection);
+            const gameAlt = (
+                await connection.getAddressLookupTable(world.game_alt)
+            ).value;
+            if (!gameAlt) throw new Error("Can't find game alt");
+            return gameAlt;
+        },
+        updateInterval: Number.MAX_SAFE_INTEGER,
+        expiryInterval: Number.MAX_SAFE_INTEGER,
+    }),
+};
 
 // --- Middleware ---
 app.use(express.json({ limit: "5mb" }));
@@ -85,8 +122,7 @@ async function prepareTransaction(
         program_id: PublicKey;
     }[],
 ): Promise<PreparedTransaction> {
-    const { lastValidBlockHeight, blockhash } =
-        await cache.getLatestBlockhash();
+    const { lastValidBlockHeight, blockhash } = await cache.blockhash.get();
     let signature: string | null = null;
     let txData: Buffer;
     if (tx instanceof Transaction) {
@@ -249,8 +285,8 @@ app.post(
 
         const user_wallet = Keypair.generate();
         const seed = Game.generateSeed();
-        const recent_slot = (await cache.getSlot()) - 1;
-        const game_alt = await cache.getGameAlt();
+        const recent_slot = (await cache.slot.get()) - 1;
+        const game_alt = await cache.gameAlt.get();
         const tx = await Game.create(
             seed,
             data.name,
@@ -760,9 +796,18 @@ app.post(
             );
         }
 
-        const result = await connection.getTransaction(signature, {
-            maxSupportedTransactionVersion: 1,
-        });
+        let result: VersionedTransactionResponse | null = null;
+        // Fetch TX with retry logic - transaction might not have
+        // propagated to this node yet
+        for (let i = 0; i < 10; i++) {
+            result = await connection.getTransaction(signature, {
+                maxSupportedTransactionVersion: 1,
+            });
+            if (result) {
+                break;
+            }
+            await new Promise((res) => setTimeout(res, 1000));
+        }
         if (!result) {
             throw new Error("Can't find signature " + signature);
         }
@@ -795,8 +840,8 @@ app.post(
 app.get(
     "/ctx",
     handleAsync(async (req, res) => {
-        const glb = await cache.getLatestBlockhash();
-        const reasonablePriorityFee = await cache.getReasonablePriorityFee();
+        const glb = await cache.blockhash.get();
+        const reasonablePriorityFee = await cache.fee.get();
         return res.status(200).json({
             status: "ok",
             data: {

@@ -110,9 +110,10 @@ $game_explorer_link = $game_address
 
             <div class="flex justify-center space-x-4">
                 <?php if ($game_address): ?>
-                <a href="/edit.php?game=<?= urlencode(
-                    $game_address
-                ) ?>" class="bg-emerald-400 text-emerald-950 px-6 py-3 font-bold hover:bg-emerald-300 transition-colors">Try Again</a>
+                <a href="<?= isset($_SERVER["HTTP_REFERER"])
+                    ? $_SERVER["HTTP_REFERER"]
+                    : "/edit?address=" .
+                        $game_address ?>" class="bg-emerald-400 text-emerald-950 px-6 py-3 font-bold hover:bg-emerald-300 transition-colors">Try Again</a>
                 <?php else: ?>
                 <a href="/dashboard.php" class="bg-emerald-400 text-emerald-950 px-6 py-3 font-bold hover:bg-emerald-300 transition-colors">Return to Dashboard</a>
                 <?php endif; ?>
