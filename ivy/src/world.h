@@ -91,7 +91,8 @@ typedef struct {
     /// The world's game ALT
     /// We need this to make `game_create()`
     /// fit within 1232 bytes
-    address game_alt;
+    /// It also helps with composite IVY swap transactions
+    address world_alt;
 
     /// The owner of Ivy
     address owner;
@@ -239,7 +240,7 @@ typedef struct {
     // #idl readonly
     SolAccountInfo rent;
     // #idl writable
-    SolAccountInfo game_alt;
+    SolAccountInfo world_alt;
 } WorldCreateAccounts;
 
 // #idl instruction data world_create
@@ -251,8 +252,8 @@ typedef struct {
     u64 ivy_vesting_supply;
     u32 input_scale_num;
     u32 input_scale_den;
-    u64 game_alt_slot;
-    u8 game_alt_nonce;
+    u64 world_alt_slot;
+    u8 world_alt_nonce;
 } WorldCreateData;
 
 // #idl instruction discriminator world_create
@@ -477,7 +478,8 @@ static void world_create(
 
     // Set up game ALT
     // This allows `game_create()` calls to fit in 1232 bytes
-    address entries[8] = {
+    // It also helps with composite IVY swap transactions
+    address entries[12] = {
         ivy_mint,
         METAPLEX_PROGRAM_ID,
         world_address,
@@ -486,23 +488,28 @@ static void world_create(
         SYSTEM_PROGRAM_ID,
         TOKEN_PROGRAM_ID,
         ATA_PROGRAM_ID,
+        usdc_wallet,
+        curve_wallet,
+        USDC_MINT,
+        WSOL_MINT,
     };
 
     // Set up the ALT
     setup_alt(
         /* ctx */ ctx,
-        /* lookup_table */ *accounts->game_alt.key,
+        /* lookup_table */ *accounts->world_alt.key,
         /* authority */ world_address,
         /* payer */ user,
         /* entries */ entries,
         /* entries_len */ SOL_ARRAY_SIZE(entries),
-        /* recent_slot */ data->game_alt_slot,
-        /* bump_seed */ data->game_alt_nonce,
+        /* recent_slot */ data->world_alt_slot,
+        /* bump_seed */ data->world_alt_nonce,
         /* authority_seeds */ world_seeds,
         /* authority_seeds_len */ SOL_ARRAY_SIZE(world_seeds)
     );
-    // Store world ALT address in state
-    w->game_alt = *accounts->game_alt.key;
+
+    // Store game ALT address in state
+    w->world_alt = *accounts->world_alt.key;
 
     // Output world create event
     WorldCreateEvent create_event = {
@@ -905,9 +912,9 @@ static void world_swap(
         /* amount */ user_pays
     );
 
-    if (data->create_dest) {
+    if (data->create_dest && !token_exists(&accounts->destination)) {
         // Create destination wallet
-        ata_create_idempotent(
+        ata_create(
             /* ctx */ ctx,
             /* payer_address */ user,
             /* associated_token_address */ destination_addr,

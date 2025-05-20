@@ -115,10 +115,7 @@ static void metadata_create(
         .data_len = w.offset
     };
 
-    require(
-        sol_invoke(&instruction, ctx->ka, ctx->ka_num) == SUCCESS,
-        "Metadata Create CPI failed"
-    );
+    context_invoke(ctx, &instruction, "Metadata Create CPI failed");
 }
 
 static void metadata_update_signed(
@@ -207,10 +204,8 @@ static void metadata_update_signed(
         .addr = update_authority_seeds, .len = update_authority_seeds_len
     };
 
-    require(
-        sol_invoke_signed(&instruction, ctx->ka, ctx->ka_num, &signer_seeds, 1) ==
-            SUCCESS,
-        "Metadata Update CPI failed"
+    context_invoke_signed(
+        ctx, &instruction, signer_seeds, "Metadata Update CPI failed"
     );
 }
 

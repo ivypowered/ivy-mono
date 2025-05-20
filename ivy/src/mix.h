@@ -4,7 +4,9 @@
 #include "game.h"
 #include "safe_math.h"
 #include "world.h"
+#include "lib/ata.h"
 #include "lib/context.h"
+#include "lib/token.h"
 #include "lib/types.h"
 
 /** Functions to perform mixed swaps. */
@@ -14,25 +16,26 @@ static const address JUP_PROGRAM_ID = {
     .x = {4,   121, 213, 91,  242, 49,  192, 110, 238, 116, 197, 110, 206, 104, 21, 7,
           253, 177, 178, 222, 163, 244, 142, 81,  2,   177, 205, 162, 86,  188, 19, 143}
 }; // JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4
+static const u64 JUP_IX_ROUTE_TAG = UINT64_C(0x2aade37a97cb17e5);
+static const u64 JUP_IX_SHARED_ACCOUNTS_ROUTE_TAG = UINT64_C(0x819cd641339b20c1);
 
 /// Safely patch a Jupiter instruction to change `in_amount` to the specified value.
 static void jup_patch_instruction(u8* jup_data, u64 jup_data_len, u64 in_amount) {
     require(jup_data_len >= sizeof(u64), "Jupiter data does not contain discriminator");
     u64 jup_discriminator = *(const u64*)jup_data;
     require(
-        jup_discriminator == UINT64_C(0x2aade37a97cb17e5),
-        "Jupiter instruction must be `route`"
+        jup_discriminator == JUP_IX_ROUTE_TAG ||
+            jup_discriminator == JUP_IX_SHARED_ACCOUNTS_ROUTE_TAG,
+        "Jupiter instruction must be `route` or `shared_accounts_route`"
     );
-    // `in_amount` is at offset -19 in `route`
-    require(
-        jup_data_len >= 19,
-        "Jupiter data for `route` too small; must be at least 19 bytes"
-    );
+    // `in_amount` is at offset -19 in `route` / `shared_accounts_route`
+    require(jup_data_len >= 19, "Jupiter data too small; must be at least 19 bytes");
     *(u64*)(&jup_data[jup_data_len - 19]) = in_amount;
 }
 
 /// Call Jupiter with the provided accounts
 static void jup_call(
+    const Context* ctx,
     const SolAccountInfo* jup_accounts,
     u64 jup_accounts_len,
     u8* jup_data,
@@ -56,11 +59,7 @@ static void jup_call(
                                          .account_len = jup_accounts_len,
                                          .data = jup_data,
                                          .data_len = jup_data_len};
-
-    require(
-        !sol_invoke(&ix, jup_accounts, jup_accounts_len),
-        "Error executing Jupiter program"
-    );
+    context_invoke(ctx, &ix, "Error executing Jupiter program");
 }
 
 /* ------------------------------ */
@@ -111,8 +110,8 @@ static const u64 MIX_USDC_TO_GAME_DISCRIMINATOR = UINT64_C(0xed79b7930664ca70);
 
 // #idl instruction data mix_usdc_to_game
 typedef struct {
-    u64 usdc_amount;
-    u64 game_threshold;
+    bytes8 usdc_amount_bytes;
+    bytes8 game_threshold_bytes;
     bool create_ivy_account;
     bool create_game_account;
 } MixUsdcToGameData;
@@ -143,7 +142,7 @@ static void mix_usdc_to_game(
         };
 
         WorldSwapData world_swap_data = {
-            .amount = data->usdc_amount,
+            .amount = bytes8_to_u64(data->usdc_amount_bytes),
             // no slippage checks until the end
             .threshold = 0,
             .is_buy = true, // true = USDC -> IVY
@@ -177,7 +176,7 @@ static void mix_usdc_to_game(
         GameSwapData game_swap_data = {
             // Swap all the IVY we just acquired
             .amount = safe_sub_64(ending_ivy_balance, starting_ivy_balance),
-            .threshold = data->game_threshold,
+            .threshold = bytes8_to_u64(data->game_threshold_bytes),
             .is_buy = true, // true = IVY -> GAME
             .create_dest = data->create_game_account
         };
@@ -233,7 +232,7 @@ typedef struct {
 } MixGameToUsdcAccounts;
 
 /// Create a dummy AccountInfo
-static SolAccountInfo dummy_info() {
+static SolAccountInfo mix_dummy_info() {
     void* buf = heap_alloc(sizeof(address));
     return (SolAccountInfo){.key = (address*)buf,
                             .lamports = (u64*)buf,
@@ -251,8 +250,8 @@ static const u64 MIX_GAME_TO_USDC_DISCRIMINATOR = UINT64_C(0x7c9b81c234b72e58);
 
 // #idl instruction data mix_game_to_usdc
 typedef struct {
-    u64 game_amount;
-    u64 usdc_threshold;
+    bytes8 game_amount_bytes;
+    bytes8 usdc_threshold_bytes;
     bool create_ivy_account;
     bool create_usdc_account;
 } MixGameToUsdcData;
@@ -280,13 +279,13 @@ static void mix_game_to_usdc(
             .game_mint = accounts->game_mint,
             .event_authority = accounts->event_authority,
             .this_program = accounts->this_program,
-            .token_program = dummy_info(),
+            .token_program = mix_dummy_info(),
             .ata_program = accounts->ata_program,
             .system_program = accounts->system_program
         };
 
         GameSwapData game_swap_data = {
-            .amount = data->game_amount,
+            .amount = bytes8_to_u64(data->game_amount_bytes),
             // no slippage checks until the end
             .threshold = 0,
             .is_buy = false, // false = GAME -> IVY
@@ -309,7 +308,7 @@ static void mix_game_to_usdc(
             .event_authority = accounts->event_authority,
             .destination_mint = accounts->usdc_mint,
             .this_program = accounts->this_program,
-            .token_program = dummy_info(),
+            .token_program = mix_dummy_info(),
             .ata_program = accounts->ata_program,
             .system_program = accounts->system_program
         };
@@ -317,7 +316,7 @@ static void mix_game_to_usdc(
         WorldSwapData world_swap_data = {
             // Swap all the IVY we just acquired
             .amount = safe_sub_64(ending_ivy_balance, starting_ivy_balance),
-            .threshold = data->usdc_threshold,
+            .threshold = bytes8_to_u64(data->usdc_threshold_bytes),
             .is_buy = false, // false = IVY -> USDC
             .create_dest = data->create_usdc_account,
         };
@@ -340,11 +339,9 @@ static const u64 MIX_ANY_TO_GAME_DISCRIMINATOR = UINT64_C(0x0b243faf1bf7de05);
 
 // #idl instruction data mix_any_to_game
 typedef struct {
-    // order fields this way to prevent
-    // padding ambiguity
+    bytes8 game_threshold_bytes;
     bool create_ivy_account;
     bool create_game_account;
-    u64 game_threshold;
     // Jup data for the * -> USDC swap must follow
 } MixAnyToGameData;
 
@@ -378,15 +375,16 @@ static void mix_any_to_game(const Context* ctx, const u8* data, u64 data_len) {
     u64 starting_usdc_balance = token_get_balance(&utg_accounts->usdc_account);
 
     // Call JUP to perform * -> USDC swap
-    jup_call(jup_accounts, jup_accounts_len, jup_data, jup_data_len);
+    jup_call(ctx, jup_accounts, jup_accounts_len, jup_data, jup_data_len);
 
     // Get ending USDC balance
     u64 ending_usdc_balance = token_get_balance(&utg_accounts->usdc_account);
 
     // Swap USDC -> IVY -> GAME
     MixUsdcToGameData utg_data = {
-        .usdc_amount = safe_sub_64(ending_usdc_balance, starting_usdc_balance),
-        .game_threshold = mtg_data.game_threshold,
+        .usdc_amount_bytes =
+            bytes8_from_u64(safe_sub_64(ending_usdc_balance, starting_usdc_balance)),
+        .game_threshold_bytes = mtg_data.game_threshold_bytes,
         .create_ivy_account = mtg_data.create_ivy_account,
         .create_game_account = mtg_data.create_game_account,
     };
@@ -408,11 +406,9 @@ static const u64 MIX_GAME_TO_ANY_DISCRIMINATOR =
 
 // #idl instruction data mix_game_to_any
 typedef struct {
-    // order fields this way to prevent
-    // padding ambiguity
+    bytes8 game_amount_bytes;
     bool create_ivy_account;
     bool create_usdc_account;
-    u64 game_amount;
     // Jup data for the USDC -> * swap must follow
 } MixGameToAnyData;
 
@@ -443,9 +439,9 @@ static void mix_game_to_any(const Context* ctx, const u8* data, u64 data_len) {
 
     // Step 1: Swap GAME -> IVY -> USDC
     MixGameToUsdcData gtu_data = {
-        .game_amount = mga_data.game_amount,
+        .game_amount_bytes = mga_data.game_amount_bytes,
         // Jupiter performs slippage check
-        .usdc_threshold = 0,
+        .usdc_threshold_bytes = bytes8_from_u64(0),
         .create_ivy_account = mga_data.create_ivy_account,
         .create_usdc_account = mga_data.create_usdc_account
     };
@@ -464,7 +460,7 @@ static void mix_game_to_any(const Context* ctx, const u8* data, u64 data_len) {
     );
 
     // Step 3: Call JUP to perform USDC -> * swap
-    jup_call(jup_accounts, jup_accounts_len, jup_data, jup_data_len);
+    jup_call(ctx, jup_accounts, jup_accounts_len, jup_data, jup_data_len);
 }
 
 /* ------------------------------ */
@@ -503,8 +499,8 @@ static const u64 MIX_ANY_TO_IVY_DISCRIMINATOR = UINT64_C(0x3a61c3f4f2ec5d1b);
 
 // #idl instruction data mix_any_to_ivy
 typedef struct {
+    bytes8 ivy_threshold_bytes;
     bool create_ivy_account;
-    u64 ivy_threshold;
     // Jup data for the * -> USDC swap must follow
 } MixAnyToIvyData;
 
@@ -538,7 +534,7 @@ static void mix_any_to_ivy(const Context* ctx, const u8* data, u64 data_len) {
     u64 starting_usdc_balance = token_get_balance(&base_accounts->usdc_account);
 
     // Call JUP to perform * -> USDC swap
-    jup_call(jup_accounts, jup_accounts_len, jup_data, jup_data_len);
+    jup_call(ctx, jup_accounts, jup_accounts_len, jup_data, jup_data_len);
 
     // Get ending USDC balance
     u64 ending_usdc_balance = token_get_balance(&base_accounts->usdc_account);
@@ -562,7 +558,7 @@ static void mix_any_to_ivy(const Context* ctx, const u8* data, u64 data_len) {
 
     WorldSwapData world_swap_data = {
         .amount = usdc_amount,
-        .threshold = mti_data.ivy_threshold,
+        .threshold = bytes8_to_u64(mti_data.ivy_threshold_bytes),
         .is_buy = true, // true = USDC -> IVY
         .create_dest = mti_data.create_ivy_account
     };
@@ -606,8 +602,8 @@ static const u64 MIX_IVY_TO_ANY_DISCRIMINATOR = UINT64_C(0x2f8a2e718bf6c149);
 
 // #idl instruction data mix_ivy_to_any
 typedef struct {
+    bytes8 ivy_amount_bytes;
     bool create_usdc_account;
-    u64 ivy_amount;
     // Jup data for the USDC -> * swap must follow
 } MixIvyToAnyData;
 
@@ -656,7 +652,7 @@ static void mix_ivy_to_any(const Context* ctx, const u8* data, u64 data_len) {
     };
 
     WorldSwapData world_swap_data = {
-        .amount = mia_data.ivy_amount,
+        .amount = bytes8_to_u64(mia_data.ivy_amount_bytes),
         // Jupiter performs slippage check
         .threshold = 0,
         .is_buy = false, // false = IVY -> USDC
@@ -676,7 +672,7 @@ static void mix_ivy_to_any(const Context* ctx, const u8* data, u64 data_len) {
     );
 
     // Step 3: Call JUP to perform USDC -> * swap
-    jup_call(jup_accounts, jup_accounts_len, jup_data, jup_data_len);
+    jup_call(ctx, jup_accounts, jup_accounts_len, jup_data, jup_data_len);
 }
 
 #endif // IVY_MIX_H

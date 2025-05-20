@@ -7,7 +7,12 @@ import {
     TransactionMessage,
     VersionedTransaction,
 } from "@solana/web3.js";
-import { JUP_PROGRAM_ID, USDC_MINT } from "./constants";
+import {
+    JUP_IX_ROUTE_TAG,
+    JUP_IX_SHARED_ACCOUNTS_ROUTE_TAG,
+    JUP_PROGRAM_ID,
+    USDC_MINT,
+} from "./constants";
 import { Api } from "./api";
 import {
     Game,
@@ -43,32 +48,54 @@ async function fetchAltAccounts(
 }
 
 async function getPatchedJupiterTransaction(
-    user: PublicKey,
     alt: PublicKey | null,
     txBase64: string,
     patch: (ix: TransactionInstruction) => Promise<TransactionInstruction[]>,
     additionalComputeUnits: number,
+    transformMessage: (msg: TransactionMessage) => void,
+    useWorldAlt: boolean,
 ): Promise<VersionedTransaction> {
     const tx = VersionedTransaction.deserialize(
         Buffer.from(txBase64, "base64"),
     );
-    const altAccounts = await fetchAltAccounts([
-        ...tx.message.addressTableLookups.map((x) => x.accountKey),
-        ...(alt ? [alt] : []),
-    ]);
-    const jupAltAccounts = alt
-        ? altAccounts.slice(0, altAccounts.length - 1)
-        : altAccounts;
+    const altKeys = tx.message.addressTableLookups.map((x) => x.accountKey);
+    if (alt) {
+        altKeys.push(alt);
+    }
+    let altAccounts: AddressLookupTableAccount[];
+    if (!useWorldAlt) {
+        altAccounts = await fetchAltAccounts(altKeys);
+    } else {
+        const [altAccountsPre, worldAlt] = await Promise.all([
+            fetchAltAccounts(altKeys),
+            Api.getWorldAlt(),
+        ]);
+        altAccountsPre.push(worldAlt);
+        altAccounts = altAccountsPre;
+    }
     const message = TransactionMessage.decompile(tx.message, {
-        addressLookupTableAccounts: jupAltAccounts,
+        addressLookupTableAccounts: altAccounts.slice(
+            0,
+            tx.message.addressTableLookups.length,
+        ),
     });
+    transformMessage(message);
 
-    // Find Jupiter instruction
-    const jupInstructionIndex = message.instructions.findIndex((ix) =>
-        ix.programId.equals(JUP_PROGRAM_ID),
+    // Find Jupiter `route` / `shared_accounts_route` instruction
+    // (We must filter for those instructions specifically, as Jupiter also includes
+    // a `create_account` instruction that is called to create destination
+    // associated token accounts)
+    const jupInstructionIndex = message.instructions.findIndex(
+        (ix) =>
+            ix.programId.equals(JUP_PROGRAM_ID) &&
+            ix.data.length >= 8 &&
+            (JUP_IX_ROUTE_TAG.equals(ix.data.subarray(0, 8)) ||
+                JUP_IX_SHARED_ACCOUNTS_ROUTE_TAG.equals(
+                    ix.data.subarray(0, 8),
+                )),
     );
     if (jupInstructionIndex < 0) {
-        throw new Error("can't find jup instruction index");
+        throw new Error("can't find jup route instruction index");
     }
     const jupInstruction = message.instructions[jupInstructionIndex];
     const patchedInstructions = await patch(jupInstruction);
@@ -87,7 +114,7 @@ async function getPatchedJupiterTransaction(
         if (
             !ins.programId.equals(ComputeBudgetProgram.programId) ||
             ins.data.length < 5 ||
-            ins.data[0] === 2 // SetComputeUnitLimit
+            ins.data[0] !== 2 // SetComputeUnitLimit
         ) {
             continue;
         }
@@ -101,8 +128,9 @@ async function getPatchedJupiterTransaction(
     return tx;
 }
 
-// How many additional compute units we think Ivy consumes when swapping.
-const IVY_CU_ESTIMATE = 75_000;
+// How many additional compute units we think Ivy consumes:
+const IVY_CU_ESTIMATE_ONLY = 75_000; // just Ivy LP
+const IVY_CU_ESTIMATE_WITH_GAME = 100_000; // both Ivy LP + Game LP
 
 /**
  * Creates a transaction to buy a specific GAME token using various input tokens
@@ -136,7 +164,6 @@ export async function createBuyTransaction(
         throw new Error("Jupiter txBase64 required for non-IVY/USDC inputs");
     }
     return getPatchedJupiterTransaction(
-        user,
         gameSwapAlt,
         txBase64,
         (jupInstruction) =>
@@ -147,7 +174,9 @@ export async function createBuyTransaction(
                 jupInstruction.keys,
                 jupInstruction.data,
             ).then((tx) => tx.instructions),
-        IVY_CU_ESTIMATE,
+        IVY_CU_ESTIMATE_WITH_GAME,
+        () => {},
+        false, // don't need world ALT, already have game swap ALT
     );
 }
 
@@ -163,6 +192,7 @@ export async function createSellTransaction(
     minOutput: number,
     outputDecimals: number,
     txBase64: string | null,
+    transformMessage: (msg: TransactionMessage) => void,
 ): Promise<Transaction | VersionedTransaction> {
     const inputRaw = toRaw(input, GAME_DECIMALS);
     const minOutputRaw = toRaw(minOutput, outputDecimals);
@@ -184,7 +214,6 @@ export async function createSellTransaction(
     }
 
     return getPatchedJupiterTransaction(
-        user,
         gameSwapAlt,
         txBase64,
         (jupInstruction) =>
@@ -195,7 +224,9 @@ export async function createSellTransaction(
                 jupInstruction.keys,
                 jupInstruction.data,
             ).then((tx) => tx.instructions),
-        IVY_CU_ESTIMATE,
+        IVY_CU_ESTIMATE_WITH_GAME,
+        transformMessage,
+        false, // don't need world ALT, already have game swap ALT
     );
 }
 
@@ -225,7 +256,6 @@ export async function createBuyIvyTransaction(
     }
 
     return getPatchedJupiterTransaction(
-        user,
         null,
         txBase64,
         (jupInstruction) =>
@@ -235,7 +265,9 @@ export async function createBuyIvyTransaction(
                 jupInstruction.keys,
                 jupInstruction.data,
             ).then((tx) => tx.instructions),
-        IVY_CU_ESTIMATE,
+        IVY_CU_ESTIMATE_ONLY,
+        () => {},
+        true, // need world ALT
     );
 }
 
@@ -249,6 +281,7 @@ export async function createSellIvyTransaction(
     minOutput: number,
     outputDecimals: number,
     txBase64: string | null,
+    transformMessage: (msg: TransactionMessage) => void,
 ): Promise<Transaction | VersionedTransaction> {
     const inputRaw = toRaw(input, IVY_DECIMALS);
     const minOutputRaw = toRaw(minOutput, outputDecimals);
@@ -265,7 +298,6 @@ export async function createSellIvyTransaction(
     }
 
     return getPatchedJupiterTransaction(
-        user,
         null,
         txBase64,
         (jupInstruction) =>
@@ -275,6 +307,8 @@ export async function createSellIvyTransaction(
                 jupInstruction.keys,
                 jupInstruction.data,
             ).then((tx) => tx.instructions),
-        IVY_CU_ESTIMATE,
+        IVY_CU_ESTIMATE_ONLY,
+        transformMessage,
+        true, // need world ALT
     );
 }

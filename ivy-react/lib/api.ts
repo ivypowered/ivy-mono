@@ -1,4 +1,9 @@
-import { PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
+import {
+    AddressLookupTableAccount,
+    PublicKey,
+    Transaction,
+    VersionedTransaction,
+} from "@solana/web3.js";
 import { API_BASE } from "./constants";
 
 // --- Interfaces ---
@@ -26,6 +31,11 @@ interface ApiQuoteData {
     input_amount_usd: number;
     output_amount_usd: number;
     price_impact_bps: number;
+}
+
+interface WorldAltResponse {
+    key: string;
+    data: string;
 }
 
 interface SendTransactionResponse {
@@ -62,6 +72,18 @@ export class Api {
         }
 
         return r.data;
+    }
+
+    /** Fetches the world's Address Lookup Table */
+    static async getWorldAlt(): Promise<AddressLookupTableAccount> {
+        const { key, data } =
+            await Api.fetchApi<WorldAltResponse>("/world-alt");
+        return new AddressLookupTableAccount({
+            key: new PublicKey(key),
+            state: AddressLookupTableAccount.deserialize(
+                Buffer.from(data, "base64"),
+            ),
+        });
     }
 
     /** Fetches IVY swap quote */

@@ -26,6 +26,7 @@ export enum Btn {
     InsufficientBalance,
     QuoteError,
     ReadyToSwap,
+    SwapRetrieving,
     SwapSigning,
     SwapSending,
     SwapConfirming,

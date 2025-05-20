@@ -532,17 +532,17 @@ program
 
             // Create the transaction using the Game library
             const recent_slot = (await connection.getSlot()) - 1;
-            const game_alt_address = (await World.loadState(connection))
-                .game_alt;
-            const game_alt_data = (
-                await connection.getAccountInfo(game_alt_address)
+            const world_alt_address = (await World.loadState(connection))
+                .world_alt;
+            const world_alt_data = (
+                await connection.getAccountInfo(world_alt_address)
             )?.data;
-            if (!game_alt_data) {
+            if (!world_alt_data) {
                 throw new Error("can't find game alt");
             }
-            const game_alt = new AddressLookupTableAccount({
-                key: new PublicKey(game_alt_address),
-                state: AddressLookupTableAccount.deserialize(game_alt_data),
+            const world_alt = new AddressLookupTableAccount({
+                key: new PublicKey(world_alt_address),
+                state: AddressLookupTableAccount.deserialize(world_alt_data),
             });
             const transaction = await Game.create(
                 seed,
@@ -557,7 +557,7 @@ program
                 recent_slot,
                 "0",
                 "0",
-                game_alt,
+                world_alt,
             );
 
             // Add recent blockhash and sign
@@ -734,17 +734,17 @@ program
                 gameAddresses: [] as string[],
             };
 
-            const game_alt_address = (await World.loadState(connection))
-                .game_alt;
-            const game_alt_data = (
-                await connection.getAccountInfo(game_alt_address)
+            const world_alt_address = (await World.loadState(connection))
+                .world_alt;
+            const world_alt_data = (
+                await connection.getAccountInfo(world_alt_address)
             )?.data;
-            if (!game_alt_data) {
+            if (!world_alt_data) {
                 throw new Error("can't find game alt");
             }
-            const game_alt = new AddressLookupTableAccount({
-                key: new PublicKey(game_alt_address),
-                state: AddressLookupTableAccount.deserialize(game_alt_data),
+            const world_alt = new AddressLookupTableAccount({
+                key: new PublicKey(world_alt_address),
+                state: AddressLookupTableAccount.deserialize(world_alt_data),
             });
 
             await Promise.all(
@@ -791,7 +791,7 @@ program
                             recent_slot,
                             "0",
                             "0",
-                            game_alt,
+                            world_alt,
                         );
 
                         // Add recent blockhash and sign

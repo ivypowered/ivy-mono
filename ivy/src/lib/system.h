@@ -51,10 +51,7 @@ static void system_create_account(
         .len = seeds_len,
     };
 
-    require(
-        sol_invoke_signed(&ix, ctx->ka, ctx->ka_num, &signer_seeds, 1) == SUCCESS,
-        "System Create Account CPI failed"
-    );
+    context_invoke_signed(ctx, &ix, signer_seeds, "System Create Account CPI failed");
 }
 
 static void system_create_account_with_seed(
@@ -104,13 +101,11 @@ static void system_create_account_with_seed(
         .data_len = w.offset
     };
 
-    const SolSignerSeeds seeds[1] = {{.addr = base_seeds, .len = base_seeds_len}};
+    const SolSignerSeeds seeds = {.addr = base_seeds, .len = base_seeds_len};
 
     // Execute the instruction
-    require(
-        sol_invoke_signed(&ix, ctx->ka, ctx->ka_num, seeds, SOL_ARRAY_SIZE(seeds)) ==
-            SUCCESS,
-        "System CreateAccountWithSeed CPI failed"
+    context_invoke_signed(
+        ctx, &ix, seeds, "System Create Account With Seed CPI failed"
     );
 }
 
@@ -139,9 +134,7 @@ static void system_transfer(
         .data_len = w.offset
     };
 
-    require(
-        sol_invoke(&ix, ctx->ka, ctx->ka_num) == SUCCESS, "System Transfer CPI failed"
-    );
+    context_invoke(ctx, &ix, "System Transfer CPI failed");
 }
 
 #endif

@@ -20,6 +20,7 @@ export function SwapButton() {
             }}
             disabled={[
                 Btn.Loading,
+                Btn.SwapRetrieving,
                 Btn.SwapSigning,
                 Btn.SwapSending,
                 Btn.SwapConfirming,
@@ -36,6 +37,8 @@ export function SwapButton() {
                         return "enter an amount";
                     case Btn.Loading:
                         return "loading";
+                    case Btn.SwapRetrieving:
+                        return "retrieving";
                     case Btn.SwapSigning:
                         return "signing";
                     case Btn.SwapSending:

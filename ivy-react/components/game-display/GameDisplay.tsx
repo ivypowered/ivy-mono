@@ -15,7 +15,7 @@ import ReactMarkdown from "react-markdown";
 import {
     DEFAULT_SLIPPAGE_BPS,
     IVY_MINT_B58,
-    SOL_MINT,
+    WSOL_MINT,
     TRANSPARENT_1X1,
     USDC_MINT_B58,
     USDT_MINT,
@@ -62,11 +62,12 @@ import {
     CheckCircle,
     Wallet,
 } from "lucide-react";
+import { useTokens } from "@/lib/hooks";
 
 // Mock tokens
 const COMMON_TOKENS = [
     {
-        mint: SOL_MINT.toBase58(),
+        mint: WSOL_MINT.toBase58(),
         symbol: "SOL",
         name: "Solana",
         decimals: 9,
@@ -293,6 +294,7 @@ async function fetchQuoteInternal(
                 /* minOutput */ q.minOutput,
                 /* outputDecimals */ outputToken.decimals,
                 /* txBase64 */ q.txBase64,
+                /* transformMessage */ q.transformMessage,
             );
         quote = q;
     } else if (outputToken.mint === gameMint) {
@@ -341,6 +343,7 @@ async function fetchQuoteInternal(
                 /* minOutput */ q.minOutput,
                 /* outputDecimals */ outputToken.decimals,
                 /* txBase64 */ q.txBase64,
+                /* transformMessage */ q.transformMessage,
             );
         quote = q;
     }
@@ -714,6 +717,7 @@ export function TreasuryManager({
 export function GameDisplay({ game }: { game: GameObject }) {
     const { publicKey, signTransaction, signMessage, setShowModal } =
         useWallet();
+    const tokens = useTokens();
     const [metadata, setMetadata] = useState<WebMetadata | undefined>(
         game.metadata_override,
     );
@@ -1058,7 +1062,7 @@ export function GameDisplay({ game }: { game: GameObject }) {
                             );
                         })
                     }
-                    tokens={COMMON_TOKENS}
+                    tokens={tokens}
                     initialInputToken={SOL}
                     initialOutputToken={gameToken}
                     user={publicKey || undefined}

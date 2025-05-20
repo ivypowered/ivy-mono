@@ -64,6 +64,11 @@ static const address COMPUTE_BUDGET_PROGRAM_ID =
            186, 114, 195, 155, 231, 188, 140, 229, 187, 197, 247,
            18,  107, 44,  67,  155, 58,  64,  0,   0,   0
      }};
+static const address WSOL_MINT =
+    {.x = {//So11111111111111111111111111111111111111112
+           6,   155, 136, 87,  254, 171, 129, 132, 251, 104, 127, 99, 70, 24, 192, 53,
+           218, 196, 57,  220, 26,  235, 59,  85,  152, 160, 240, 0,  0,  0,  0,   1
+     }};
 
 static bool address_equal(const address* lhs, const address* rhs) {
     const u64* a = (const u64*)lhs->x;
@@ -108,6 +113,18 @@ static NOINLINE void require(bool condition, const char* msg) {
     // Unreachable code
     while (true) {
     }
+}
+
+typedef struct {
+    u8 x[8];
+} bytes8;
+static u64 bytes8_to_u64(bytes8 b) {
+    return *(u64*)b.x;
+}
+static bytes8 bytes8_from_u64(u64 v) {
+    bytes8 b;
+    *(u64*)b.x = v;
+    return b;
 }
 
 typedef struct {

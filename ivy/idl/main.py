@@ -55,7 +55,8 @@ known_accounts = {
     "thisprogram": program_id,
     "eventauthority": event_authority,
     "ixsysvar": "Sysvar1nstructions1111111111111111111111111",
-    "instructionsysvar": "Sysvar1nstructions1111111111111111111111111"
+    "instructionsysvar": "Sysvar1nstructions1111111111111111111111111",
+    "wsolmint": "So11111111111111111111111111111111111111112"
 }
 
 # 1. Create target directories
@@ -87,6 +88,13 @@ def parse_u64(s: str) -> int:
 
 def to_u64_list(n: int) -> list[int]:
     return [(n >> (8 * i)) & 0xFF for i in range(8)]
+
+def to_pascal_case(s: str) -> str:
+    # Split the string by non-alphanumeric characters
+    words = ''.join(c if c.isalnum() else ' ' for c in s).split()
+
+    # Capitalize each word and join them together
+    return ''.join(word.capitalize() for word in words)
 
 idl_accounts_by_struct_name: dict[str, list[Any]] = {}
 ins_accounts = {}
@@ -292,7 +300,7 @@ for file in all_files:
             ins_disc_bytes = to_u64_list(ins_disc)
 
             instruction = {
-                "name": ins_name,
+                "name": to_pascal_case(ins_name),
                 "discriminator": ins_disc_bytes,
                 "accounts": ins_accounts.get(ins_name, []),
                 "args": ins_args.get(ins_name, [])

@@ -4,21 +4,21 @@
 #include "context.h"
 #include "types.h"
 
-static const u8 ATA_CREATE_IDEMPOTENT = 1;
+static const u8 ATA_CREATE = 0;
 
-/// Call `createTokenAccountIdempotent`.
+/// Call `createTokenAccount`.
 /// Requires the given accounts,
 /// plus the system + token program
 /// to exist in the account list.
-static void ata_create_idempotent(
+static void ata_create(
     const Context* ctx,
     address payer_address,
     address associated_token_address,
     address owner_address,
     address mint_address
 ) {
-    // Prepare instruction data - just a single byte (1)
-    u8 instruction_data[1] = {ATA_CREATE_IDEMPOTENT};
+    // Prepare instruction data - just a single byte
+    u8 instruction_data[1] = {ATA_CREATE};
 
     // Get system program ID and token program ID
     address system_program_id = SYSTEM_PROGRAM_ID;
@@ -45,10 +45,7 @@ static void ata_create_idempotent(
     };
 
     // Invoke the instruction
-    require(
-        sol_invoke(&ix, ctx->ka, ctx->ka_num) == SUCCESS,
-        "ATA Create Idempotent CPI failed"
-    );
+    context_invoke(ctx, &ix, "ATA Create CPI failed");
 }
 
 #endif

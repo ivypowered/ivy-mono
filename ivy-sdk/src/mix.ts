@@ -8,6 +8,7 @@ import {
     ivy_program,
     mkpad,
     getAssociatedTokenAddressSync,
+    str2u64bytes,
 } from "./interface";
 import { BN } from "@coral-xyz/anchor";
 import { Game } from "./game";
@@ -38,11 +39,10 @@ export class Mix {
         // Create the mix transaction
         const tx = await ivy_program.methods
             .mixUsdcToGame(
-                new BN(usdcAmount),
-                new BN(gameThreshold),
+                str2u64bytes(usdcAmount),
+                str2u64bytes(gameThreshold),
                 true,
                 true,
-                mkpad(6),
             )
             .accounts({
                 game: game,
@@ -85,11 +85,10 @@ export class Mix {
         // Create the mix transaction
         const tx = await ivy_program.methods
             .mixGameToUsdc(
-                new BN(gameAmount),
-                new BN(usdcThreshold),
+                str2u64bytes(gameAmount),
+                str2u64bytes(usdcThreshold),
                 true,
                 true,
-                mkpad(6),
             )
             .accounts({
                 game: game,
@@ -133,7 +132,7 @@ export class Mix {
 
         // Create the mix transaction
         const ins = await ivy_program.methods
-            .mixAnyToGame(true, true, mkpad(6), new BN(gameThreshold))
+            .mixAnyToGame(str2u64bytes(gameThreshold), true, true)
             .accounts({
                 game: game,
                 user: user,
@@ -182,7 +181,7 @@ export class Mix {
 
         // Create the mix transaction
         const ins = await ivy_program.methods
-            .mixGameToAny(true, true, mkpad(6), new BN(gameAmount))
+            .mixGameToAny(str2u64bytes(gameAmount), true, true)
             .accounts({
                 game: game,
                 user: user,
@@ -224,7 +223,7 @@ export class Mix {
 
         // Create the mix transaction
         const ins = await ivy_program.methods
-            .mixAnyToIvy(true, mkpad(7), new BN(ivyThreshold))
+            .mixAnyToIvy(str2u64bytes(ivyThreshold), true)
             .accounts({
                 world: WORLD_ADDRESS,
                 user: user,
@@ -262,7 +261,7 @@ export class Mix {
 
         // Create the mix transaction
         const ins = await ivy_program.methods
-            .mixIvyToAny(true, mkpad(7), new BN(ivyAmount))
+            .mixIvyToAny(str2u64bytes(ivyAmount), true)
             .accounts({
                 world: WORLD_ADDRESS,
                 user: user,

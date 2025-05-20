@@ -1,10 +1,29 @@
-import { PublicKey } from "@solana/web3.js";
+import { PublicKey, TransactionMessage } from "@solana/web3.js";
 import { Quote } from "@/components/swap/swapTypes";
-import { USDC_MINT } from "./constants";
-import { IVY_MINT, GAME_DECIMALS } from "@/import/ivy-sdk";
+import {
+    JUP_IX_CREATE_TOKEN_ACCOUNT_TAG,
+    JUP_IX_ROUTE_TAG,
+    JUP_IX_SHARED_ACCOUNTS_ROUTE_TAG,
+    JUP_PROGRAM_ID,
+    WSOL_MINT,
+    TOKEN_PROGRAM_ID,
+    USDC_MINT,
+} from "./constants";
+import {
+    IVY_MINT,
+    GAME_DECIMALS,
+    getAssociatedTokenAddressSync,
+} from "@/import/ivy-sdk";
 import { Api } from "./api";
-import { Jup } from "./jup";
+import { Jup, JupiterOrderResponse } from "./jup";
+import { createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";
 
+/// The maximum Jupiter TX size in bytes
+const MAX_JUP_TX_SIZE = 950;
+
+/// Fetch an ExactIn order from Jupiter
+/// The `user` must have the required `inAmountRaw`
+/// tokens, or this function will fail.
 async function fetchJupiterExactIn(
     user: PublicKey | undefined,
     inputToken: PublicKey,
@@ -12,25 +31,65 @@ async function fetchJupiterExactIn(
     inAmountRaw: number,
     slippageBps: number,
 ) {
-    // Use the new Jup.fetchQuote method with ExactIn swapMode
-    const orderResponse = await Jup.fetchOrder(
-        inputToken,
-        outputToken,
-        inAmountRaw,
-        slippageBps,
-        {
-            swapMode: "ExactIn",
-            onlyDirectRoutes: false,
-            asLegacyTransaction: false,
-            minimizeSlippage: false,
-            // When composing mixed transactions,
-            // the maximum total # of unique accounts used is 18.
-            // (Note - if we change the smart contract, we'll
-            // have to recalculate this value.)
-            maxAccounts: 46, // Solana maximum is 64 locked per tx
-            taker: user ? user.toBase58() : undefined,
-        },
-    );
+    let orderResponse: JupiterOrderResponse;
+    // When composing mixed transactions,
+    // the maximum total # of unique accounts used is 18.
+    // So, Jupiter can technically use up to 46
+    // accounts before hitting the max of 64 locked per tx.
+    // But, this results in us frequently exceeding the
+    // 1232 byte limit after the Ivy stuff is added.
+    // (Also, at least while we're still waiting on
+    // Blowfish to approve our application, we have to leave
+    // space for Lighthouse assertions, or else users will
+    // receive the dangerous dApp warning.)
+    // So, we'll be conservative and limit Jupiter
+    // to 32 accounts, so we have a comfortable buffer
+    // of space.
+    let maxAccounts = 32;
+    while (true) {
+        orderResponse = await Jup.fetchOrder(
+            inputToken,
+            outputToken,
+            inAmountRaw,
+            slippageBps,
+            {
+                swapMode: "ExactIn",
+                onlyDirectRoutes: false,
+                asLegacyTransaction: false,
+                minimizeSlippage: false,
+                maxAccounts,
+                taker: user ? user.toBase58() : undefined,
+                // only support Metis (jupiter aggregator v6)
+                excludeRouters: [
+                    "jupiterz",
+                    "hashflow",
+                    "dflow",
+                    "pyth",
+                    "okx",
+                ],
+                // for some reason, Obric V2 fails in all transactions
+                // with the error "Rejected". so, we won't use it here
+                excludeDexes: ["Obric V2"],
+            },
+        );
+        if (
+            !orderResponse.transaction ||
+            orderResponse.transaction.length <
+                Math.ceil(MAX_JUP_TX_SIZE * (4 / 3))
+        ) {
+            break;
+        }
+        // try again, sometimes tx goes outside limits anyway!
+        // so we've got to make sure it's within our bounds
+        // (decrease max accounts as we keep going to ensure
+        // we get a different route that's closer to our goal)
+        maxAccounts -= 2;
+        if (maxAccounts < 2) {
+            throw new Error(
+                "can't find good jup route, already decreased max accounts to 2...",
+            );
+        }
+    }
 
     // Extract required data from response
     const inputRaw = parseInt(orderResponse.inAmount);
@@ -52,6 +111,144 @@ async function fetchJupiterExactIn(
         priceImpactBps,
         txBase64: orderResponse.transaction,
     };
+}
+
+// Binance 3, ~891M USDC
+const BIG_USDC_HOLDER = new PublicKey(
+    "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+);
+const BIG_USDC_HOLDER_B58 = BIG_USDC_HOLDER.toBase58();
+const BIG_USDC_TOKEN_ACCOUNT_B58 = getAssociatedTokenAddressSync(
+    USDC_MINT,
+    BIG_USDC_HOLDER,
+).toBase58();
+const BIG_USDC_WSOL_ACCOUNT = getAssociatedTokenAddressSync(
+    WSOL_MINT,
+    BIG_USDC_HOLDER,
+);
+const BIG_USDC_WSOL_ACCOUNT_B58 = BIG_USDC_WSOL_ACCOUNT.toBase58();
+
+/// Transforms a Jupiter transaction message that has been constructed
+/// with `BIG_USDC_HOLDER` as the user to have `user` as the user.
+///
+/// Why do we need to do this? When creating a transaction,
+/// Jupiter requires the provided user to have the input token amount
+/// that they're swapping in their wallet.
+///
+/// This is problematic when trying to create transactions along the lines of
+/// GAME -> IVY -> USDC -> *, because when we request the USDC -> * leg of the
+/// journey from Jupiter, an error will be returned since the user doesn't
+/// actually have the required USDC.
+///
+/// To solve this issue, we:
+/// - 1. Use `BIG_USDC_HOLDER` as our user when fetching the order.
+/// - 2. Analyze all `closeAccount` instructions created by Jupiter,
+///      collecting the accounts for `BIG_USDC_HOLDER` and computing
+///      equivalents for our `user`.
+/// - 3. Remove all `createAccount` instructions created by Jupiter.
+///      We choose to use information from `closeAccount` because
+///      there's a chance that `BIG_USDC_HOLDER` might already have
+///      accounts that Jupiter needs, resulting in there being less
+///      `createAccount`s than are necessary for the `user`.
+///      This algorithm will still break if Jupiter uses a
+///      `BIG_USDC_HOLDER` account without either creating or closing it,
+///      but our hope is that this will not happen.
+///      (So far, I have only observed Jupiter creating/deleting `WSOL`
+///      accounts and the destination token account.)
+/// - 4. Loop through all remaining instructions and replace all
+///      collected `BIG_USDC_HOLDER` token accounts with their equivalent
+///      for `user`.
+/// - 5. Where the `createAccount` instructions used to be, insert
+///      `CreateAssociatedTokenAccountIdempotent` instructions for
+///      each token observed in `closeAccount` as well as the destination
+///      token.
+function transformMessage(
+    msg: TransactionMessage,
+    user: PublicKey,
+    mint: PublicKey,
+) {
+    const userMintAccount = getAssociatedTokenAddressSync(mint, user);
+    const userWsolAccount = getAssociatedTokenAddressSync(WSOL_MINT, user);
+    const accountMap: Record<string, PublicKey | undefined> = {
+        [BIG_USDC_HOLDER_B58]: user,
+        [BIG_USDC_TOKEN_ACCOUNT_B58]: getAssociatedTokenAddressSync(
+            USDC_MINT,
+            user,
+        ),
+        [getAssociatedTokenAddressSync(mint, BIG_USDC_HOLDER).toBase58()]:
+            userMintAccount,
+        [BIG_USDC_WSOL_ACCOUNT_B58]: userWsolAccount,
+    };
+
+    const newInstructions = [];
+    let requiresWsol = false;
+    let routeIndex = -1;
+
+    for (const ins of msg.instructions) {
+        // Check for CloseAccount instructions
+        if (
+            ins.programId.equals(TOKEN_PROGRAM_ID) &&
+            ins.data.length &&
+            ins.data[0] === 9
+        ) {
+            const account = ins.keys[0];
+            if (!account.pubkey.equals(BIG_USDC_WSOL_ACCOUNT)) {
+                throw new Error(
+                    "Jupiter instruction closes unknown token account: only WSOL is supported by this algorithm",
+                );
+            }
+            requiresWsol = true;
+        }
+
+        if (ins.programId.equals(JUP_PROGRAM_ID) && ins.data.length >= 8) {
+            const tag = ins.data.subarray(0, 8);
+            if (JUP_IX_CREATE_TOKEN_ACCOUNT_TAG.equals(tag)) {
+                continue; // Filter out create token account instructions
+            }
+            if (
+                JUP_IX_ROUTE_TAG.equals(tag) ||
+                JUP_IX_SHARED_ACCOUNTS_ROUTE_TAG.equals(tag)
+            ) {
+                routeIndex = newInstructions.length;
+            }
+        }
+
+        // Update pubkeys in the instruction
+        for (const k of ins.keys) {
+            const equivalent = accountMap[k.pubkey.toBase58()];
+            if (equivalent) {
+                k.pubkey = equivalent;
+            }
+        }
+
+        newInstructions.push(ins);
+    }
+
+    if (routeIndex < 0) {
+        throw new Error("can't find jup route ix");
+    }
+
+    msg.instructions = [
+        ...newInstructions.slice(0, routeIndex),
+        ...(requiresWsol && !mint.equals(WSOL_MINT)
+            ? [
+                  createAssociatedTokenAccountIdempotentInstruction(
+                      user,
+                      userWsolAccount,
+                      user,
+                      WSOL_MINT,
+                  ),
+              ]
+            : []),
+        createAssociatedTokenAccountIdempotentInstruction(
+            user,
+            userMintAccount,
+            user,
+            mint,
+        ),
+        ...newInstructions.slice(routeIndex),
+    ];
+    msg.payerKey = user;
 }
 
 export async function fetchBuyQuote(
@@ -164,7 +361,12 @@ export async function fetchSellQuote(
     inputAmount: number,
     outputDecimals: number,
     slippageBps: number,
-): Promise<Quote & { txBase64: string | null }> {
+): Promise<
+    Quote & {
+        txBase64: string | null;
+        transformMessage: (msg: TransactionMessage) => void;
+    }
+> {
     const inputRaw = inputAmount * Math.pow(10, GAME_DECIMALS);
 
     if (outputToken.equals(IVY_MINT)) {
@@ -187,6 +389,7 @@ export async function fetchSellQuote(
             priceImpactBps: quoteData.price_impact_bps,
             slippageBps,
             txBase64: null,
+            transformMessage: () => {},
         };
     }
 
@@ -215,6 +418,7 @@ export async function fetchSellQuote(
             priceImpactBps: ivyQuote.price_impact_bps,
             slippageBps,
             txBase64: null,
+            transformMessage: () => {},
         };
     }
 
@@ -225,11 +429,11 @@ export async function fetchSellQuote(
     // Second hop: IVY -> USDC
     const usdcQuote = await Api.getIvyQuote(ivyQuote.output_amount, false);
 
-    // Third hop: USDC -> * through Jupiter
+    // Third hop: USDC -> * through Jupiter (requires transformation)
     // Get Jupiter quote and token price concurrently
     const [jupiterQuote, outputTokenPrices] = await Promise.all([
         fetchJupiterExactIn(
-            user,
+            user ? BIG_USDC_HOLDER : undefined,
             USDC_MINT,
             outputToken,
             usdcQuote.output_amount,
@@ -259,6 +463,9 @@ export async function fetchSellQuote(
         priceImpactBps: ivyQuote.price_impact_bps,
         slippageBps,
         txBase64: jupiterQuote.txBase64,
+        transformMessage: user
+            ? (msg) => transformMessage(msg, user, outputToken)
+            : () => {},
     };
 }
 
@@ -268,7 +475,11 @@ export async function fetchBuyIvyQuote(
     inputAmount: number,
     inputDecimals: number,
     slippageBps: number,
-): Promise<Quote & { txBase64: string | null }> {
+): Promise<
+    Quote & {
+        txBase64: string | null;
+    }
+> {
     const inputRaw = inputAmount * Math.pow(10, inputDecimals);
 
     if (inputToken.equals(USDC_MINT)) {
@@ -338,7 +549,12 @@ export async function fetchSellIvyQuote(
     ivyAmount: number,
     outputDecimals: number,
     slippageBps: number,
-): Promise<Quote & { txBase64: string | null }> {
+): Promise<
+    Quote & {
+        txBase64: string | null;
+        transformMessage: (msg: TransactionMessage) => void;
+    }
+> {
     const inputRaw = ivyAmount * Math.pow(10, 9); // IVY decimals is 9
 
     if (outputToken.equals(USDC_MINT)) {
@@ -361,16 +577,17 @@ export async function fetchSellIvyQuote(
             priceImpactBps: usdcQuote.price_impact_bps,
             slippageBps,
             txBase64: null,
+            transformMessage: () => {},
         };
     } else {
         // IVY -> USDC -> * (via Jupiter for second hop)
         // First hop: IVY -> USDC
         const usdcQuote = await Api.getIvyQuote(inputRaw, false);
 
-        // Second hop: USDC -> *
+        // Second hop: USDC -> * (requires transformation)
         const [jupiterQuote, outputTokenPrices] = await Promise.all([
             fetchJupiterExactIn(
-                user,
+                user ? BIG_USDC_HOLDER : undefined,
                 USDC_MINT,
                 outputToken,
                 usdcQuote.output_amount,
@@ -399,6 +616,9 @@ export async function fetchSellIvyQuote(
             priceImpactBps: usdcQuote.price_impact_bps,
             slippageBps,
             txBase64: jupiterQuote.txBase64,
+            transformMessage: user
+                ? (msg) => transformMessage(msg, user, outputToken)
+                : () => {},
         };
     }
 }

@@ -23,7 +23,7 @@ export interface WorldState {
     usdc_wallet: PublicKey;
     curve_wallet: PublicKey;
     vesting_wallet: PublicKey;
-    game_alt: PublicKey;
+    world_alt: PublicKey;
     usdc_balance: string;
     ivy_curve_sold: string;
     ivy_curve_max: string;
@@ -66,7 +66,7 @@ export class World {
             usdc_wallet: w.usdcWallet,
             curve_wallet: w.curveWallet,
             vesting_wallet: w.vestingWallet,
-            game_alt: w.gameAlt,
+            world_alt: w.worldAlt,
             usdc_balance: w.usdcBalance.toString(),
             ivy_curve_sold: w.ivyCurveSold.toString(),
             ivy_curve_max: w.ivyCurveMax.toString(),
@@ -130,7 +130,7 @@ export class World {
             METADATA_PROGRAM_ID,
         )[0];
 
-        const [gameAlt, gameAltNonce] = deriveAddressLookupTableAddress(
+        const [worldAlt, worldAltNonce] = deriveAddressLookupTableAddress(
             WORLD_ADDRESS,
             recentSlot,
         );
@@ -145,7 +145,7 @@ export class World {
                 inputScaleNum,
                 inputScaleDen,
                 new BN(recentSlot),
-                gameAltNonce,
+                worldAltNonce,
                 mkpad(7),
             )
             .accounts({
@@ -156,7 +156,7 @@ export class World {
                 usdcWallet: usdc_wallet,
                 curveWallet: curve_wallet,
                 vestingWallet: vesting_wallet,
-                gameAlt,
+                worldAlt,
             })
             .transaction();
 

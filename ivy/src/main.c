@@ -225,7 +225,7 @@ extern u64 entrypoint(const u8* input) {
 
         case MIX_ANY_TO_IVY_DISCRIMINATOR:
             sol_log("Instruction: MixAnyToIvy");
-            mix_ivy_to_any(&ctx, data, data_len);
+            mix_any_to_ivy(&ctx, data, data_len);
             return 0;
 
         case MIX_IVY_TO_ANY_DISCRIMINATOR:

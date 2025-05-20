@@ -209,7 +209,7 @@ typedef struct {
     u64 min_game_received;
     u64 swap_alt_slot;
     u8 swap_alt_nonce;
-    bool create_destination;
+    bool create_dest;
 } GameCreateData;
 
 // #idl instruction discriminator game_create
@@ -400,9 +400,9 @@ static void game_create(
     );
 
     if (game_received > 0) {
-        if (data->create_destination) {
+        if (data->create_dest && !token_exists(&accounts->destination)) {
             // Create destination wallet
-            ata_create_idempotent(
+            ata_create(
                 /* ctx */ ctx,
                 /* payer_address */ user,
                 /* associated_token_address */ *accounts->destination.key,
@@ -435,7 +435,7 @@ static void game_create(
     address swap_alt = *accounts->swap_alt.key;
 
     // Prepare entries for ALT
-    address entries[12] = {
+    address entries[13] = {
         // Accounts directly required by game swaps
         game_address,
         ivy_wallet,
@@ -452,6 +452,8 @@ static void game_create(
         // (helps composite swaps)
         world->usdc_wallet,
         world->curve_wallet,
+        // WSOL mint (helps when swapping SOL)
+        WSOL_MINT,
     };
 
     // Set up the ALT
@@ -693,9 +695,9 @@ static void game_swap(
         );
     }
 
-    if (data->create_dest) {
+    if (data->create_dest && !token_exists(&accounts->destination)) {
         // Create destination account
-        ata_create_idempotent(
+        ata_create(
             /* ctx */ ctx,
             /* payer_address */ user,
             /* associated_token_address */ destination_addr,
@@ -956,9 +958,9 @@ static void game_debit(
         slice_from_str(GAME_TREASURY_WALLET_PREFIX), slice_from_address(&game_addr)
     };
 
-    if (data->create_dest) {
+    if (data->create_dest && !token_exists(&accounts->destination)) {
         // Create destination account
-        ata_create_idempotent(
+        ata_create(
             /* ctx */ ctx,
             /* payer_address */ game->owner,
             /* associated_token_address */ *accounts->destination.key,
@@ -1103,9 +1105,9 @@ static void game_withdraw_claim(
         slice_from_address(accounts->game.key)
     };
 
-    if (data->create_dest) {
+    if (data->create_dest && !token_exists(&accounts->destination)) {
         // Create user's destination ATA if needed
-        ata_create_idempotent(
+        ata_create(
             /* ctx */ ctx,
             /* payer_address */ *accounts->user.key,
             /* associated_token_address */ *accounts->destination.key,

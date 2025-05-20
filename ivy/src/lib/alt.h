@@ -52,7 +52,7 @@ static void alt_create(
         .data_len = w.offset
     };
 
-    require(sol_invoke(&ix, ctx->ka, ctx->ka_num) == SUCCESS, "ALT Create CPI failed");
+    context_invoke(ctx, &ix, "ALT Create CPI failed");
 }
 
 static void alt_freeze_signed(
@@ -84,10 +84,7 @@ static void alt_freeze_signed(
 
     SolSignerSeeds signer_seeds = {.addr = authority_seeds, .len = authority_seeds_len};
 
-    require(
-        sol_invoke_signed(&ix, ctx->ka, ctx->ka_num, &signer_seeds, 1) == SUCCESS,
-        "ALT Freeze CPI failed"
-    );
+    context_invoke_signed(ctx, &ix, signer_seeds, "ALT Freeze CPI failed");
 }
 
 static void alt_extend_signed(
@@ -135,8 +132,7 @@ static void alt_extend_signed(
 
     SolSignerSeeds signer_seeds = {.addr = authority_seeds, .len = authority_seeds_len};
 
-    u64 result = sol_invoke_signed(&ix, ctx->ka, ctx->ka_num, &signer_seeds, 1);
-    require(result == SUCCESS, "ALT Extend CPI failed");
+    context_invoke_signed(ctx, &ix, signer_seeds, "ALT Extend CPI failed");
 }
 
 #endif // IVY_ALT_H

@@ -203,7 +203,7 @@ export class Game {
         recent_slot: number,
         ivy_purchase: string,
         min_game_received: string,
-        game_alt: AddressLookupTableAccount,
+        world_alt: AddressLookupTableAccount,
     ): Promise<VersionedTransaction> {
         if (icon_url.length > MAX_TEXT_LEN) {
             throw new Error(`Icon URL too long (max ${MAX_TEXT_LEN} chars)`);
@@ -271,7 +271,7 @@ export class Game {
             payerKey: user,
             recentBlockhash: NULL_RECENT_BLOCKHASH,
             instructions: [ins],
-        }).compileToV0Message([game_alt]);
+        }).compileToV0Message([world_alt]);
 
         return new VersionedTransaction(msg);
     }

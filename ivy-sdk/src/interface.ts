@@ -229,6 +229,28 @@ export function mkpad(len: number): number[] {
     return a;
 }
 
+/// Converts the provided number string to
+/// an 8-number array representing the amount encoded
+/// as a little-endian u64.
+const MAX_U64_BIGINT = BigInt("18446744073709551615");
+const MAX_U8_BIGINT = BigInt(255);
+const EIGHT_BIGINT = BigInt(8);
+export function str2u64bytes(s: string): number[] {
+    const result: number[] = new Array(8).fill(0);
+    let num: bigint = BigInt(s);
+    if (num > MAX_U64_BIGINT) {
+        throw new Error("provided value greater than largest u64");
+    }
+
+    // Fill the array with bytes in little-endian order
+    for (let i = 0; i < 8; i++) {
+        result[i] = Number(num & MAX_U8_BIGINT);
+        num >>= EIGHT_BIGINT;
+    }
+
+    return result;
+}
+
 export const NULL_RECENT_BLOCKHASH =
     "1111111111111111111111111111111111111111111111111111111111111111";
 

@@ -1,6 +1,7 @@
 #ifndef IVY_TOKEN_H
 #define IVY_TOKEN_H
 
+#include "context.h"
 #include "rw.h"
 #include "system.h"
 #include "types.h"
@@ -123,10 +124,7 @@ static void token_create_mint(
         .data_len = w.offset
     };
 
-    require(
-        sol_invoke(&instruction, ctx->ka, ctx->ka_num) == SUCCESS,
-        "Token Initialize Mint CPI failed"
-    );
+    context_invoke(ctx, &instruction, "Token Initialize Mint CPI failed");
 }
 
 static void token_create_account(
@@ -135,8 +133,8 @@ static void token_create_account(
     address token_account,
     address mint_address,
     address owner,
-    const slice* token_account_seeds, // No change needed, already uses slice*/len
-    u64 token_account_seeds_len // No change needed
+    const slice* token_account_seeds,
+    u64 token_account_seeds_len
 ) {
     const u64 size = 165; // spl_token::state::Account::LEN
 
@@ -175,10 +173,7 @@ static void token_create_account(
         .data_len = w.offset
     };
 
-    require(
-        sol_invoke(&instruction, ctx->ka, ctx->ka_num) == SUCCESS,
-        "Token Initialize Account CPI failed"
-    );
+    context_invoke(ctx, &instruction, "Token Initialize Account CPI failed");
 }
 
 static void token_mint(
@@ -213,10 +208,7 @@ static void token_mint(
         .data_len = w.offset
     };
 
-    require(
-        sol_invoke(&instruction, ctx->ka, ctx->ka_num) == SUCCESS,
-        "Token Mint CPI failed"
-    );
+    context_invoke(ctx, &instruction, "Token Mint CPI failed");
 }
 
 static void token_mint_signed(
@@ -258,15 +250,8 @@ static void token_mint_signed(
         .addr = mint_authority_seeds, .len = mint_authority_seeds_len
     };
 
-    require(
-        sol_invoke_signed(
-            &instruction,
-            ctx->ka,
-            ctx->ka_num,
-            &signer_seeds,
-            1 // Pass constructed seeds
-        ) == SUCCESS,
-        "Token Mint Signed CPI failed"
+    context_invoke_signed(
+        ctx, &instruction, signer_seeds, "Token Mint Signed CPI failed"
     );
 }
 
@@ -302,10 +287,7 @@ static void token_burn(
         .data_len = w.offset
     };
 
-    require(
-        sol_invoke(&instruction, ctx->ka, ctx->ka_num) == SUCCESS,
-        "Token Burn CPI failed"
-    );
+    context_invoke(ctx, &instruction, "Token Burn CPI failed");
 }
 
 static void token_burn_signed(
@@ -345,12 +327,8 @@ static void token_burn_signed(
     // Construct SolSignerSeeds for invoke_signed
     SolSignerSeeds signer_seeds = {.addr = owner_seeds, .len = owner_seeds_len};
 
-    require(
-        sol_invoke_signed(
-            &instruction, ctx->ka, ctx->ka_num, &signer_seeds, 1
-        ) == // Pass constructed seeds
-            SUCCESS,
-        "Token Burn Signed CPI failed"
+    context_invoke_signed(
+        ctx, &instruction, signer_seeds, "Token Burn Signed CPI failed"
     );
 }
 
@@ -395,10 +373,7 @@ static void token_set_authority(
         .data_len = w.offset
     };
 
-    require(
-        sol_invoke(&instruction, ctx->ka, ctx->ka_num) == SUCCESS,
-        "Token Set Authority CPI failed"
-    );
+    context_invoke(ctx, &instruction, "Token Set Authority CPI failed");
 }
 
 static void token_set_authority_signed(
@@ -447,12 +422,8 @@ static void token_set_authority_signed(
     // Construct SolSignerSeeds for invoke_signed
     SolSignerSeeds signer_seeds = {.addr = authority_seeds, .len = authority_seeds_len};
 
-    require(
-        sol_invoke_signed(
-            &instruction, ctx->ka, ctx->ka_num, &signer_seeds, 1
-        ) == // Pass constructed seeds
-            SUCCESS,
-        "Token Set Authority Signed CPI failed"
+    context_invoke_signed(
+        ctx, &instruction, signer_seeds, "Token Set Authority Signed CPI failed"
     );
 }
 
@@ -484,10 +455,7 @@ static void token_transfer(
         .data_len = w.offset
     };
 
-    require(
-        sol_invoke(&instruction, ctx->ka, ctx->ka_num) == SUCCESS,
-        "Token Transfer CPI failed"
-    );
+    context_invoke(ctx, &instruction, "Token Transfer CPI failed");
 }
 
 static void token_transfer_signed(
@@ -527,13 +495,17 @@ static void token_transfer_signed(
     // Construct SolSignerSeeds for invoke_signed
     SolSignerSeeds signer_seeds = {.addr = owner_seeds, .len = owner_seeds_len};
 
-    require(
-        sol_invoke_signed(
-            &instruction, ctx->ka, ctx->ka_num, &signer_seeds, 1
-        ) == // Pass constructed seeds
-            SUCCESS,
-        "Token Transfer Signed CPI failed"
+    context_invoke_signed(
+        ctx, &instruction, signer_seeds, "Token Transfer Signed CPI failed"
     );
+}
+
+/// Does the given token account exist, and is it valid?
+static bool token_exists(const SolAccountInfo* info) {
+    return info != NULL // valid ptr
+        && info->data_len == 165 // right length
+        && address_equal(info->owner, &TOKEN_PROGRAM_ID) // right owner
+        && info->data[108] == 1; // state == Initialized
 }
 
 /// A lighter version of `token_unpack` that just gets the token balance.
@@ -650,16 +622,33 @@ static void token_freeze_signed(
         .addr = freeze_authority_seeds, .len = freeze_authority_seeds_len
     };
 
-    require(
-        sol_invoke_signed(
-            &instruction,
-            ctx->ka,
-            ctx->ka_num,
-            &signer_seeds,
-            1 // Pass constructed seeds
-        ) == SUCCESS,
-        "Token Freeze Signed CPI failed"
+    context_invoke_signed(
+        ctx, &instruction, signer_seeds, "Token Freeze Signed CPI failed"
     );
+}
+
+static void token_close_account(
+    const Context* ctx, address account, address destination, address owner
+) {
+    // Create instruction data - only contains the instruction type
+    u8 data[1] = {TOKEN_INSTRUCTION_CLOSE_ACCOUNT};
+
+    SolAccountMeta metas[3] = {
+        {.pubkey = &account, .is_writable = true, .is_signer = false},
+        {.pubkey = &destination, .is_writable = true, .is_signer = false},
+        {.pubkey = &owner, .is_writable = false, .is_signer = true}
+    };
+
+    address token_program_id = TOKEN_PROGRAM_ID;
+    const SolInstruction instruction = {
+        .program_id = &token_program_id,
+        .accounts = metas,
+        .account_len = SOL_ARRAY_SIZE(metas),
+        .data = data,
+        .data_len = sizeof(data),
+    };
+
+    context_invoke(ctx, &instruction, "Token Close Account CPI failed");
 }
 
 #endif // IVY_TOKEN_H

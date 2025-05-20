@@ -1,5 +1,6 @@
 import express from "express";
 import {
+    AddressLookupTableAccount,
     Connection,
     Keypair,
     PublicKey,
@@ -65,14 +66,19 @@ const cache = {
         updateInterval: 60,
         expiryInterval: 120,
     }),
-    gameAlt: new Cache({
+    worldAlt: new Cache({
         f: async () => {
             const world = await World.loadState(connection);
-            const gameAlt = (
-                await connection.getAddressLookupTable(world.game_alt)
-            ).value;
-            if (!gameAlt) throw new Error("Can't find game alt");
-            return gameAlt;
+            const data = (await connection.getAccountInfo(world.world_alt))
+                ?.data;
+            if (!data) {
+                throw new Error("Can't find world ALT");
+            }
+            const alt = new AddressLookupTableAccount({
+                key: world.world_alt,
+                state: AddressLookupTableAccount.deserialize(data),
+            });
+            return { data, alt };
         },
         updateInterval: Number.MAX_SAFE_INTEGER,
         expiryInterval: Number.MAX_SAFE_INTEGER,
@@ -286,7 +292,7 @@ app.post(
         const user_wallet = Keypair.generate();
         const seed = Game.generateSeed();
         const recent_slot = (await cache.slot.get()) - 1;
-        const game_alt = await cache.gameAlt.get();
+        const world_alt = (await cache.worldAlt.get()).alt;
         const tx = await Game.create(
             seed,
             data.name,
@@ -300,7 +306,7 @@ app.post(
             recent_slot,
             data.ivy_purchase,
             data.min_game_received,
-            game_alt,
+            world_alt,
         );
 
         const game = Game.deriveAddress(seed);
@@ -694,14 +700,14 @@ app.post(
             throw new Error("Accounts must be an array");
         }
 
-        if (data.accounts.length > 100) {
-            throw new Error("Maximum of 100 accounts allowed");
-        }
-
         // Convert string accounts to PublicKey objects
         const publicKeys = data.accounts.map((account) =>
             parsePublicKey(account, "account"),
         );
+
+        if (data.accounts.length > 100) {
+            throw new Error("Maximum of 100 accounts allowed");
+        }
 
         // Fetch the accounts data
         const accountsData =
@@ -840,14 +846,31 @@ app.post(
 app.get(
     "/ctx",
     handleAsync(async (req, res) => {
-        const glb = await cache.blockhash.get();
-        const reasonablePriorityFee = await cache.fee.get();
+        const [glb, reasonablePriorityFee] = await Promise.all([
+            cache.blockhash.get(),
+            cache.fee.get(),
+        ]);
         return res.status(200).json({
             status: "ok",
             data: {
                 blockhash: glb.blockhash,
                 lastValidBlockHeight: glb.lastValidBlockHeight,
                 reasonablePriorityFee,
+            },
+        });
+    }),
+);
+
+// Get world ALT info
+app.get(
+    "/world-alt",
+    handleAsync(async (_, res) => {
+        const { alt, data } = await cache.worldAlt.get();
+        return res.status(200).json({
+            status: "ok",
+            data: {
+                key: alt.key.toBase58(),
+                data: data.toString("base64"),
             },
         });
     }),

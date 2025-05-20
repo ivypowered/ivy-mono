@@ -116,8 +116,29 @@ export function SwapProvider({
         return () => clearTimeout(id);
     }, []);
 
-    const quoteResult = useQuoteResult(
+    const [balanceReloadKey, setBalanceReloadKey] = useState<number>(0);
+    const [inBalance, setInBalance] = useBalance(
         user,
+        state.inputToken,
+        refreshKey,
+        balanceReloadKey,
+        fetchBalance,
+    );
+    const [outBalance, setOutBalance] = useBalance(
+        user,
+        state.outputToken,
+        refreshKey,
+        balanceReloadKey,
+        fetchBalance,
+    );
+    const quoteResult = useQuoteResult(
+        // jupiter API does not support amount > balance
+        (state.activeSide === ActiveSide.Input &&
+            (state.inputAmount || 0) > (inBalance || 0)) ||
+            (state.activeSide === ActiveSide.Output &&
+                (state.outputAmount || 0) > (outBalance || 0))
+            ? undefined
+            : user,
         state.inputToken,
         state.outputToken,
         state.activeSide === ActiveSide.Input ? state.inputAmount || 0 : 0,
@@ -175,21 +196,6 @@ export function SwapProvider({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [quoteResult]);
 
-    const [balanceReloadKey, setBalanceReloadKey] = useState<number>(0);
-    const [inBalance, setInBalance] = useBalance(
-        user,
-        state.inputToken,
-        refreshKey,
-        balanceReloadKey,
-        fetchBalance,
-    );
-    const [outBalance, setOutBalance] = useBalance(
-        user,
-        state.outputToken,
-        refreshKey,
-        balanceReloadKey,
-        fetchBalance,
-    );
     useEffect(() => {
         updateBalanceRef.current = (mint: string, amount: number) => {
             if (state.inputToken.mint === mint) {
@@ -202,10 +208,13 @@ export function SwapProvider({
     }, [updateBalanceRef]);
 
     const [swapState, setSwapState] = useState<
-        "none" | "signing" | "sending" | "confirming"
+        "none" | "retrieving" | "signing" | "sending" | "confirming"
     >("none");
     useEffect(() => {
         const newBtn = (() => {
+            if (swapState === "retrieving") {
+                return Btn.SwapRetrieving;
+            }
             if (swapState === "signing") {
                 return Btn.SwapSigning;
             }
@@ -348,16 +357,37 @@ export function SwapProvider({
                 if (!user) throw new Error("Wallet not connected");
                 const inputMint = state.inputToken.mint;
                 const outputMint = state.outputToken.mint;
-                setSwapState("signing");
+                setSwapState("retrieving");
                 const { tx, lastValidBlockHeight } =
                     await quote.getTransaction();
                 if (tx instanceof Transaction) {
                     tx.feePayer = user;
                 }
-                const txSigned = await signTransaction(tx);
+                const w = window as {
+                    phantom?: {
+                        solana?: {
+                            isPhantom: boolean;
+                            signAndSendTransaction: (
+                                tx: Transaction | VersionedTransaction,
+                            ) => Promise<{
+                                signature: string;
+                            }>;
+                        };
+                    };
+                };
                 const start = Math.floor(new Date().getTime() / 1000);
-                setSwapState("sending");
-                const signature = await sendTransaction(txSigned);
+                let signature: string;
+                if (w.phantom?.solana?.isPhantom) {
+                    setSwapState("sending");
+                    const result =
+                        await w.phantom.solana.signAndSendTransaction(tx);
+                    signature = result.signature;
+                } else {
+                    setSwapState("signing");
+                    const txSigned = await signTransaction(tx);
+                    setSwapState("sending");
+                    signature = await sendTransaction(txSigned);
+                }
                 setSwapState("confirming");
                 await confirmTransaction(signature, lastValidBlockHeight);
                 const { input, output } = await fetchTransactionEffects(

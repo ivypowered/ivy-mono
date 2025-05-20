@@ -67,16 +67,7 @@ static void emit_event(
     };
     const SolSignerSeeds signers_seeds = {.addr = seeds, .len = 2};
 
-    require(
-        !sol_invoke_signed(
-            /* ix */ &instruction,
-            /* account_infos */ ctx->ka,
-            /* account_infos_len */ ctx->ka_num,
-            /* signers_seeds */ &signers_seeds,
-            /* signers_seeds_len */ 1
-        ),
-        "Could not invoke event"
-    );
+    context_invoke_signed(ctx, &instruction, signers_seeds, "Could not invoke event");
 }
 
 /// Set up an Address Lookup Table
