@@ -2,8 +2,8 @@
 
 use core::cmp::Ordering;
 
+use ethnum::U256;
 use fixed::types::U64F64;
-use uint::construct_uint;
 
 #[cfg(not(test))]
 #[no_mangle]
@@ -41,10 +41,6 @@ fn require(condition: bool, _: &str) {
     loop {}
 }
 
-construct_uint!(
-    pub struct U256(4);
-);
-
 /// Calculates the binary logarithm (log base 2) of a number using binary search approach.
 ///
 /// This implementation requires exactly 8 iterations for U256 input.
@@ -62,7 +58,7 @@ fn u256_log2(n: U256) -> u16 {
 
     // Exactly 8 iterations (for U256)
     for s in [128, 64, 32, 16, 8, 4, 2, 1] {
-        if n >= U256::from(1) << s {
+        if n >= U256::new(1) << s {
             n >>= s;
             out |= s;
         }
@@ -77,9 +73,6 @@ fn u256_log2(n: U256) -> u16 {
 /// binary logarithm with Newton-Raphson iterations.
 /// The initial estimate is set to 2^(log2(n)/3 + 1), then refined iteratively.
 ///
-/// In a simple Rust benchmark, this function is faster than the bitwise method
-/// in https://github.com/maurolacy/integer-cbrt-rs for values roughly greater than 2**32.
-///
 /// This function cannot cause an arithmetic overflow.
 ///
 /// # Arguments
@@ -89,20 +82,24 @@ fn u256_log2(n: U256) -> u16 {
 /// # Returns
 ///
 /// The cube root of x as U256, rounded down
-fn u256_cbrt(x: U256) -> U256 {
+fn u256_cbrt(x: U256) -> u128 {
     // Handle edge cases cheaply
-    if x <= U256::from(1) {
-        return x;
+    if *x.high() == 0 && *x.low() <= 1 {
+        return *x.low();
     }
 
     // Initial estimate: 2^(log2(n) / 3 + 1)
-    let mut r = U256::from(1) << ((u256_log2(x) / 3) + 1);
+    // Max value: 2^86
+    let mut r = 1u128 << ((u256_log2(x) / 3) + 1);
 
     // Newton-Raphson iterations
     // r_new = (2/3)r + (1/3)(x/(r ** 2))
     loop {
+        // `r` as a u256
+        let r_256 = U256::new(r);
+
         // Newton's update
-        let r_new = ((r << 1) + x / (r * r)) / U256::from(3);
+        let r_new = ((r << 1) + *(x / (r_256 * r_256)).low()) / 3;
 
         // Check convergence
         if r_new >= r {
@@ -367,8 +364,8 @@ pub extern "C" fn r128_cbrt_internal(dst: *mut R128, x: *const R128) {
     let x_256 = U256::from(x_fixed.to_bits());
     // cbrt(x * 2^64 * C) = cbrt(x) * 2^64
     // C = 2^128, since cbrt(2^192) = 2^64
-    let r_256 = u256_cbrt(x_256 << 128);
-    let r_fixed = U64F64::from_bits(r_256.low_u128());
+    let r_128 = u256_cbrt(x_256 << 128);
+    let r_fixed = U64F64::from_bits(r_128);
     unsafe {
         *dst = R128::from(r_fixed);
     }

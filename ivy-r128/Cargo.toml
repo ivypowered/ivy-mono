@@ -16,9 +16,9 @@ opt-level = "z"
 strip = true
 
 [dependencies]
+ethnum = "1.5.1"
 fixed = "=1.28.0"
 num-integer = "=0.1.46"
-uint = { version = "=0.10.0", default-features = false }
 
 [dependencies.half]
 version = "=2.4.0"
