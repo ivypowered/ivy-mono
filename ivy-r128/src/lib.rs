@@ -55,7 +55,7 @@ construct_uint!(
 ///
 /// # Returns
 ///
-/// The floor of the binary logarithm of n (log2(n))
+/// The floor of log2(n)
 fn u256_log2(n: U256) -> u16 {
     let mut out = 0;
     let mut n = n;
@@ -77,48 +77,43 @@ fn u256_log2(n: U256) -> u16 {
 /// binary logarithm with Newton-Raphson iterations.
 /// The initial estimate is set to 2^(log2(n)/3 + 1), then refined iteratively.
 ///
+/// In a simple Rust benchmark, this function is faster than the bitwise method
+/// in https://github.com/maurolacy/integer-cbrt-rs for values roughly greater than 2**32.
+///
+/// This function cannot cause an arithmetic overflow.
+///
 /// # Arguments
 ///
-/// * `n` - The U256 input value to find the cube root of.
+/// * `x` - The U256 input value to find the cube root of.
 ///
 /// # Returns
 ///
-/// The cube root of n as U256, rounded down
-fn u256_cbrt(n: U256) -> Option<U256> {
-    // Handle edge cases
-    if n.is_zero() {
-        return Some(U256::zero());
-    }
-    if n <= U256::from(1) {
-        return Some(n);
+/// The cube root of x as U256, rounded down
+fn u256_cbrt(x: U256) -> U256 {
+    // Handle edge cases cheaply
+    if x <= U256::from(1) {
+        return x;
     }
 
-    // Initial estimate: 2^(log2_n / 3 + 1)
-    let mut y = U256::from(1) << ((u256_log2(n) / 3) + 1);
-    let mut x = n;
+    // Initial estimate: 2^(log2(n) / 3 + 1)
+    let mut r = U256::from(1) << ((u256_log2(x) / 3) + 1);
 
     // Newton-Raphson iterations
-    while x > y {
-        x = y;
+    // r_new = (2/3)r + (1/3)(x/(r ** 2))
+    loop {
+        // Newton's update
+        let r_new = ((r << 1) + x / (r * r)) / U256::from(3);
 
-        // Calculate (x * x) safely with overflow check
-        let x_squared = x.checked_mul(x)?;
+        // Check convergence
+        if r_new >= r {
+            break;
+        }
 
-        // Calculate n / (x * x) safely
-        let n_div_x_squared = n.checked_div(x_squared)?;
-
-        // Calculate (x << 1) = 2*x safely
-        let x_doubled = x.checked_mul(U256::from(2))?;
-
-        // Calculate sum = (x << 1) + n / (x * x) safely
-        let sum = x_doubled.checked_add(n_div_x_squared)?;
-
-        // Calculate y = sum / 3
-        y = sum / U256::from(3);
+        // Set `r` for the next iteration
+        r = r_new;
     }
 
-    // Result is rounded down by default in integer division
-    Some(x)
+    return r;
 }
 
 fn unwrap<T>(t: Option<T>, msg: &str) -> T {
@@ -365,13 +360,14 @@ pub extern "C" fn r128_sqrt_ceil_internal(dst: *mut R128, x: *const R128) {
 
 /// Takes the cubed root of a r128, rounding towards zero.
 #[no_mangle]
+#[inline(never)]
 pub extern "C" fn r128_cbrt_internal(dst: *mut R128, x: *const R128) {
     let x_val = unsafe { *x };
     let x_fixed = U64F64::from(x_val);
     let x_256 = U256::from(x_fixed.to_bits());
     // cbrt(x * 2^64 * C) = cbrt(x) * 2^64
     // C = 2^128, since cbrt(2^192) = 2^64
-    let r_256 = unwrap(u256_cbrt(x_256 << 128), "Error: overflow in r128_cbrt");
+    let r_256 = u256_cbrt(x_256 << 128);
     let r_fixed = U64F64::from_bits(r_256.low_u128());
     unsafe {
         *dst = R128::from(r_fixed);
