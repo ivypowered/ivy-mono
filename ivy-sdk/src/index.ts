@@ -35,3 +35,6 @@ export { Id } from "./id";
 
 // Auth exports
 export { Auth } from "./auth";
+
+// Comment exports
+export { Comment, CommentIndex } from "./comment";

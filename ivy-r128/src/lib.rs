@@ -52,7 +52,7 @@ fn require(condition: bool, _: &str) {
 /// # Returns
 ///
 /// The floor of log2(n)
-fn u256_log2(n: U256) -> u16 {
+fn u256_log2(n: U256) -> u8 {
     let mut out = 0;
     let mut n = n;
 

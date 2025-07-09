@@ -19,12 +19,12 @@ $sort = isset($_GET["sort"]) && $_GET["sort"] === "new" ? "new" : "top"; // Defa
 // --- Address Check ---
 if (!empty($search_query_raw)) {
     $address_check_result = call_aggregator(
-        "/is_address?address=" . urlencode($search_query_raw),
+        "/validate/address/" . urlencode($search_query_raw),
         "GET"
     );
 
     if ($address_check_result === true) {
-        header("Location: /game.php?address=" . urlencode($search_query_raw));
+        header("Location: /game?address=" . urlencode($search_query_raw));
         exit();
     }
 }
@@ -40,7 +40,7 @@ $ivy_price = 0;
 $api_error = false;
 
 // Fetch IVY price
-$ivy_price_data = call_aggregator("/ivy_price", "GET");
+$ivy_price_data = call_aggregator("/ivy/price", "GET");
 if ($ivy_price_data !== null && is_numeric($ivy_price_data)) {
     $ivy_price = $ivy_price_data;
 } else {
@@ -56,10 +56,7 @@ if (!empty($search_query_raw)) {
         "sort" => $sort,
     ]);
 
-    $fetched_games_data = call_aggregator(
-        "/games/search?" . $search_params,
-        "GET"
-    );
+    $fetched_games_data = call_aggregator("/games?" . $search_params, "GET");
 
     if ($fetched_games_data === null) {
         $api_error = true;
@@ -72,6 +69,8 @@ if (!empty($search_query_raw)) {
 }
 
 // --- Page Rendering ---
+$title = "ivy | search: $search_query_raw";
+$description = "View search results on Ivy, where games come to life";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

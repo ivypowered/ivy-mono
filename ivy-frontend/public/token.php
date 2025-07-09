@@ -20,6 +20,8 @@ try {
 }
 
 // Include the header
+$title = "ivy | token";
+$description = "Trade IVY, the native token of the Ivy protocol";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

@@ -75,11 +75,15 @@
     }
 
     .markdown ul {
-        @apply list-disc space-y-2 mb-6 pl-8;
+        @apply list-disc space-y-2 pl-7;
+    }
+
+    .markdown ul li {
+        @apply pl-1;
     }
 
     .markdown ol {
-        @apply list-decimal space-y-2 mb-6 pl-8;
+        @apply list-decimal space-y-2 pl-8;
     }
 
     .markdown li {
@@ -156,6 +160,10 @@
 
     .markdown input[type="text"] {
         @apply bg-transparent border-2 border-emerald-400 px-2 py-1 text-emerald-200 placeholder:text-emerald-700 focus:outline-none focus:border-emerald-300;
+    }
+
+    .markdown img {
+        @apply block mx-auto max-w-full h-auto border-2 border-emerald-400;
     }
 
     button {

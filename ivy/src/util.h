@@ -115,4 +115,11 @@ static void setup_alt(
     );
 }
 
+// Extract the amount field from a 32-byte identifier
+// It's serialized as a little-endian u64 in the last 8
+// bytes
+static u64 id_extract_amount(bytes32 id) {
+    return *(u64*)(&id.x[24]);
+}
+
 #endif // IVY_UTIL_H

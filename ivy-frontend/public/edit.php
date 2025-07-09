@@ -246,6 +246,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $game !== null) {
     }
 }
 
+$title = "ivy | edit";
+$description = "Edit your game on Ivy, where games come to life";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

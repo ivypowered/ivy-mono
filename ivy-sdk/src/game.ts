@@ -16,17 +16,14 @@ import {
     ivy_program,
     decodeGame,
     deriveMetadataAddress,
-    METADATA_PROGRAM_ID,
     loadChainMetadata,
     ChainMetadata,
     deriveAddressLookupTableAddress,
-    USDC_MINT,
     zt2str,
     str2zt,
     mkpad,
     NULL_RECENT_BLOCKHASH,
     getAssociatedTokenAddressSync,
-    TEXT_ENCODER,
 } from "./interface";
 import { MAX_TEXT_LEN } from "./interface";
 import { BN } from "@coral-xyz/anchor";
@@ -386,6 +383,45 @@ export class Game {
     }
 
     /**
+     * Creates a transaction to complete a burn to the game's treasury
+     */
+    static async burnComplete(
+        game_address: PublicKey,
+        id: Uint8Array,
+        user: PublicKey,
+    ): Promise<Transaction> {
+        if (id.length !== 32) {
+            throw new Error("Deposit ID must be 32 bytes");
+        }
+
+        // Get the mint for the game
+        const { mint } = this.deriveAddresses(game_address);
+
+        // Get the user's token account for the game token
+        const source_account = getAssociatedTokenAddressSync(mint, user);
+
+        // Get the burn PDA
+        const burn = PublicKey.findProgramAddressSync(
+            [GAME_PREFIXES.burn, game_address.toBuffer(), id],
+            IVY_PROGRAM_ID,
+        )[0];
+
+        // Create the complete burn transaction
+        const tx = await ivy_program.methods
+            .gameBurnComplete(Array.from(id))
+            .accounts({
+                game: game_address,
+                user: user,
+                burn,
+                source: source_account,
+                world: WORLD_ADDRESS,
+            })
+            .transaction();
+
+        return tx;
+    }
+
+    /**
      * Creates a transaction to complete a deposit to the game's treasury
      */
     static async depositComplete(
@@ -537,7 +573,7 @@ export class Game {
         if (!info) {
             return false;
         }
-        return info.data.length > 0;
+        return info.lamports > 0;
     }
 
     /** Check if a withdraw has been claimed. */
@@ -557,7 +593,7 @@ export class Game {
         if (!info) {
             return false;
         }
-        return info.data.length > 0;
+        return info.lamports > 0;
     }
 
     /**

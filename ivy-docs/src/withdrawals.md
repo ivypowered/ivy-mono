@@ -104,6 +104,8 @@ To allow users to claim their funds, you'll provide them with:
 Users can then claim their tokens by visiting:
 `https://ivypowered.com/withdraw?game=[game_address]&id=[withdraw_id_in_hex]&signature=[signature_in_hex]`. They'll submit a transaction to the blockchain. The Ivy smart contract will verify the withdraw and disburse the funds from the game's treasury.
 
+You can also add `&redirect=[any URL]` to the end of the withdraw URL to redirect the user upon successful withdrawal.
+
 ## Step 4: Verifying a Withdraw
 
 Technically, your job is done once you provide the user with the information in step 3. However, if you want to provide confirmation to the user or simply to track server-side that a withdraw has been claimed, you can check whether a withdraw has been claimed using either the REST API or the JS SDK.

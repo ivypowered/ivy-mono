@@ -3,25 +3,34 @@
 import Head from "next/head";
 import Link from "next/link";
 import { Search, User } from "lucide-react";
-//import { GameDisplay } from "@/components/game-display/GameDisplay";
-//import { GameObject } from "@/lib/game";
 import { WalletProvider } from "@/components/wallet/WalletProvider";
+import { GameObject } from "@/lib/game";
+import { GameDisplay } from "@/components/game-display/GameDisplay";
 
 export default function Home() {
-    /*const exampleGame: GameObject = {
-        name: "Flip495",
-        symbol: "F495",
-        address: "2Ek5AZwJiCn7N8TT1pknwEZKo5TdJC9YWnrfro5DeHnv",
-        swap_alt: "EWok9Tbxre6GvifQm2VjH8kQ1rnNnQ8uyHctM1n2aPRP",
-        owner: "48RyrPrUCQDJ1dfZqWQMYQMPvnHM7TRrEYg6XhGGksU3",
-        game_url: "http://127.0.0.1:5578",
+    const exampleGame: unknown = {
+        name: "Test Game 4",
+        symbol: "TG4",
+        short_desc:
+            "This is test game #4. It was automatically generated for testing purposes.",
+        address: "BAPLVSH3ucQpVVHBt24xa4vnB6jTttGHQbtA8Pm4eaz",
+        mint: "yxbP1DAXmXtxwRELL1oFhH1EXdxFQ92i2Q9CBVzkFrD",
+        swap_alt: "85yScYa2uJPYbeSxNH2bagFcGg2ghtxXSkeiTj7RnpFD",
+        owner: "G5TeV4cHwSU8aGeZrgMPrwMsXsLX8qNvRsrGK7gvn7S",
+        withdraw_authority: "11111111111111111111111111111111",
+        game_url: "https://example.com/games/game_4",
+        cover_url: "/assets/images/placeholder_800x400.svg",
         metadata_url:
-            "http://127.0.0.1:4000/tmp/1c5c85a2c3c27b6d8d370aaab7c9fa749e3baccc70ad9dd17c34a34a449f08b1.json",
-        create_timestamp: 1746951008,
+            "http://127.0.0.1:4000/tmp/ad7eb37abe2ebb06c900ec31c3548dea7166532c8c827f1f75fd59e8ee37676a.json",
+        create_timestamp: 1752007321,
+        ivy_balance: "612745098039",
+        game_balance: "1000000000000000000",
+        starting_ivy_balance: "612745098039",
+        comment_buf_index: 0,
         last_price_usd: 0.000003896064,
         mkt_cap_usd: 3896.064,
         change_pct_24h: 0,
-    };*/
+    };
 
     return (
         <div className="min-h-screen bg-zinc-900 text-white font-mono">
@@ -109,7 +118,7 @@ export default function Home() {
             {/* Main Content - Game */}
             <WalletProvider autoConnect={true}>
                 <></>
-                {/* <GameDisplay game={exampleGame} /> */}
+                {<GameDisplay game={exampleGame as GameObject} />}
             </WalletProvider>
 
             {/* Footer */}

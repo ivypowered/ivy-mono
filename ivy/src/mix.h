@@ -123,14 +123,16 @@ static void mix_usdc_to_game(
     const MixUsdcToGameAccounts* accounts,
     const MixUsdcToGameData* data
 ) {
+    SolAccountInfo ivy_account = accounts->ivy_account;
+
     // Step 1: Swap USDC to IVY using world_swap
-    u64 starting_ivy_balance = token_get_balance(&accounts->ivy_account);
+    u64 starting_ivy_balance = token_get_balance(&ivy_account);
     {
         WorldSwapAccounts world_swap_accounts = {
             .world = accounts->world,
             .user = accounts->user,
             .source = accounts->usdc_account,
-            .destination = accounts->ivy_account,
+            .destination = ivy_account,
             .usdc_wallet = accounts->world_usdc_wallet,
             .curve_wallet = accounts->world_curve_wallet,
             .event_authority = accounts->event_authority,
@@ -150,15 +152,21 @@ static void mix_usdc_to_game(
         };
 
         world_swap(ctx, &world_swap_accounts, &world_swap_data);
+
+        // We have to refresh `ivy_account`'s data_len, which will
+        // go from 0 to 165 on-chain if it didn't exist before `world_swap`
+        // was called, otherwise token account access functions on
+        // `ivy_account` will fail.
+        sol_refresh_data_len(&ivy_account);
     }
 
     // Step 2: Swap IVY to GAME using game_swap
-    u64 ending_ivy_balance = token_get_balance(&accounts->ivy_account);
+    u64 ending_ivy_balance = token_get_balance(&ivy_account);
     {
         GameSwapAccounts game_swap_accounts = {
             .game = accounts->game,
             .user = accounts->user,
-            .source = accounts->ivy_account,
+            .source = ivy_account,
             .destination = accounts->game_account,
             .ivy_wallet = accounts->game_ivy_wallet,
             .curve_wallet = accounts->game_curve_wallet,
@@ -263,14 +271,16 @@ static void mix_game_to_usdc(
     const MixGameToUsdcAccounts* accounts,
     const MixGameToUsdcData* data
 ) {
+    SolAccountInfo ivy_account = accounts->ivy_account;
+
     // Step 1: Swap GAME to IVY using game_swap
-    u64 starting_ivy_balance = token_get_balance(&accounts->ivy_account);
+    u64 starting_ivy_balance = token_get_balance(&ivy_account);
     {
         GameSwapAccounts game_swap_accounts = {
             .game = accounts->game,
             .user = accounts->user,
             .source = accounts->game_account,
-            .destination = accounts->ivy_account,
+            .destination = ivy_account,
             .ivy_wallet = accounts->game_ivy_wallet,
             .curve_wallet = accounts->game_curve_wallet,
             .treasury_wallet = accounts->game_treasury_wallet,
@@ -293,15 +303,21 @@ static void mix_game_to_usdc(
         };
 
         game_swap(ctx, &game_swap_accounts, &game_swap_data);
+
+        // We have to refresh `ivy_account`'s data_len, which will
+        // go from 0 to 165 on-chain if it didn't exist before `world_swap`
+        // was called, otherwise token account access functions on
+        // `ivy_account` will fail.
+        sol_refresh_data_len(&ivy_account);
     }
 
     // Step 2: Swap IVY to USDC using world_swap
-    u64 ending_ivy_balance = token_get_balance(&accounts->ivy_account);
+    u64 ending_ivy_balance = token_get_balance(&ivy_account);
     {
         WorldSwapAccounts world_swap_accounts = {
             .world = accounts->world,
             .user = accounts->user,
-            .source = accounts->ivy_account,
+            .source = ivy_account,
             .destination = accounts->usdc_account,
             .usdc_wallet = accounts->world_usdc_wallet,
             .curve_wallet = accounts->world_curve_wallet,
@@ -367,7 +383,7 @@ static void mix_any_to_game(const Context* ctx, const u8* data, u64 data_len) {
         ctx->ka_num >= utg_accounts_len,
         "Not enough accounts to deserialize into MixUsdcToGameAccounts"
     );
-    const MixUsdcToGameAccounts* utg_accounts = (const MixUsdcToGameAccounts*)ctx->ka;
+    MixUsdcToGameAccounts* utg_accounts = (MixUsdcToGameAccounts*)ctx->ka;
     const SolAccountInfo* jup_accounts = &ctx->ka[utg_accounts_len];
     u64 jup_accounts_len = ctx->ka_num - utg_accounts_len;
 
@@ -376,6 +392,9 @@ static void mix_any_to_game(const Context* ctx, const u8* data, u64 data_len) {
 
     // Call JUP to perform * -> USDC swap
     jup_call(ctx, jup_accounts, jup_accounts_len, jup_data, jup_data_len);
+
+    // Refresh USDC account `data_len` (which might have changed from 0 -> 165)
+    sol_refresh_data_len(&utg_accounts->usdc_account);
 
     // Get ending USDC balance
     u64 ending_usdc_balance = token_get_balance(&utg_accounts->usdc_account);
@@ -433,7 +452,7 @@ static void mix_game_to_any(const Context* ctx, const u8* data, u64 data_len) {
         ctx->ka_num >= gtu_accounts_len,
         "Not enough accounts to deserialize into MixGameToUsdcAccounts"
     );
-    const MixGameToUsdcAccounts* gtu_accounts = (const MixGameToUsdcAccounts*)ctx->ka;
+    MixGameToUsdcAccounts* gtu_accounts = (MixGameToUsdcAccounts*)ctx->ka;
     const SolAccountInfo* jup_accounts = &ctx->ka[gtu_accounts_len];
     u64 jup_accounts_len = ctx->ka_num - gtu_accounts_len;
 
@@ -449,6 +468,8 @@ static void mix_game_to_any(const Context* ctx, const u8* data, u64 data_len) {
     u64 starting_usdc_balance = token_get_balance(&gtu_accounts->usdc_account);
     // Perform the swap. USDC will end up in gtu_accounts->usdc_account
     mix_game_to_usdc(ctx, gtu_accounts, &gtu_data);
+    // Refresh the USDC account `data_len` (which might have gone from 0 -> 165)
+    sol_refresh_data_len(&gtu_accounts->usdc_account);
     // Get ending balance
     u64 ending_usdc_balance = token_get_balance(&gtu_accounts->usdc_account);
 
@@ -526,7 +547,7 @@ static void mix_any_to_ivy(const Context* ctx, const u8* data, u64 data_len) {
         ctx->ka_num >= base_accounts_len,
         "Not enough accounts to deserialize into MixAnyToIvyAccounts"
     );
-    const MixAnyToIvyAccounts* base_accounts = (const MixAnyToIvyAccounts*)ctx->ka;
+    MixAnyToIvyAccounts* base_accounts = (MixAnyToIvyAccounts*)ctx->ka;
     const SolAccountInfo* jup_accounts = &ctx->ka[base_accounts_len];
     u64 jup_accounts_len = ctx->ka_num - base_accounts_len;
 
@@ -535,6 +556,9 @@ static void mix_any_to_ivy(const Context* ctx, const u8* data, u64 data_len) {
 
     // Call JUP to perform * -> USDC swap
     jup_call(ctx, jup_accounts, jup_accounts_len, jup_data, jup_data_len);
+
+    // Refresh USDC account `data_len`, which might have gone from 0 -> 165
+    sol_refresh_data_len(&base_accounts->usdc_account);
 
     // Get ending USDC balance
     u64 ending_usdc_balance = token_get_balance(&base_accounts->usdc_account);
@@ -628,7 +652,7 @@ static void mix_ivy_to_any(const Context* ctx, const u8* data, u64 data_len) {
         ctx->ka_num >= base_accounts_len,
         "Not enough accounts to deserialize into MixIvyToAnyAccounts"
     );
-    const MixIvyToAnyAccounts* base_accounts = (const MixIvyToAnyAccounts*)ctx->ka;
+    MixIvyToAnyAccounts* base_accounts = (MixIvyToAnyAccounts*)ctx->ka;
     const SolAccountInfo* jup_accounts = &ctx->ka[base_accounts_len];
     u64 jup_accounts_len = ctx->ka_num - base_accounts_len;
 
@@ -660,6 +684,9 @@ static void mix_ivy_to_any(const Context* ctx, const u8* data, u64 data_len) {
     };
 
     world_swap(ctx, &world_swap_accounts, &world_swap_data);
+
+    // Refresh usdc_account's data_len (which might have gone 0 -> 165)
+    sol_refresh_data_len(&base_accounts->usdc_account);
 
     // Get ending USDC balance
     u64 ending_usdc_balance = token_get_balance(&base_accounts->usdc_account);

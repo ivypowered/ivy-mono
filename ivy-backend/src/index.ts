@@ -110,9 +110,7 @@ app.use((req, res, next) => {
 // --- Helper Functions ---
 interface PreparedTransaction {
     base64: string;
-    lastValidBlockHeight: number;
     feePayer: string;
-    signature: string | null;
     derived: {
         seeds: string[];
         programId: string;
@@ -122,44 +120,22 @@ interface PreparedTransaction {
 async function prepareTransaction(
     tx: Transaction | VersionedTransaction,
     feePayer: PublicKey,
-    signer?: Keypair | null,
     derived?: {
         seeds: PublicKey[];
         program_id: PublicKey;
     }[],
 ): Promise<PreparedTransaction> {
-    const { lastValidBlockHeight, blockhash } = await cache.blockhash.get();
-    let signature: string | null = null;
     let txData: Buffer;
     if (tx instanceof Transaction) {
-        tx.recentBlockhash = blockhash;
-        tx.lastValidBlockHeight = lastValidBlockHeight;
         tx.feePayer = feePayer;
-        if (signer) {
-            tx.sign(signer);
-            if (!tx.signature) {
-                throw new Error("signed, but no signature!");
-            }
-            signature = bs58.encode(tx.signature);
-        }
         txData = tx.serialize({ requireAllSignatures: false });
     } else {
-        tx.message.recentBlockhash = blockhash;
-        if (signer) {
-            tx.sign([signer]);
-            if (!tx.signatures || !tx.signatures.length) {
-                throw new Error("signed, but no signature!");
-            }
-            signature = bs58.encode(tx.signatures[0]);
-        }
         txData = Buffer.from(tx.serialize());
     }
 
     return {
         base64: txData.toString("base64"),
-        lastValidBlockHeight,
         feePayer: feePayer.toBase58(),
-        signature,
         derived:
             derived?.map((x) => ({
                 seeds: x.seeds.map((s) => s.toBase58()),
@@ -183,7 +159,7 @@ if (!PINATA_JWT || !PINATA_GATEWAY) {
 ***********************************/
 
 // Generate an ID
-app.post(
+app.get(
     "/id",
     handleAsync(async (req, res) => {
         const { amountRaw } = req.query;
@@ -311,23 +287,18 @@ app.post(
 
         const game = Game.deriveAddress(seed);
         const { mint } = Game.deriveAddresses(game);
-        const prepared = await prepareTransaction(
-            tx,
-            user_wallet.publicKey,
-            user_wallet,
-            [
-                // src
-                {
-                    seeds: [user_wallet.publicKey, TOKEN_PROGRAM_ID, IVY_MINT],
-                    program_id: ASSOCIATED_TOKEN_PROGRAM_ID,
-                },
-                // dst
-                {
-                    seeds: [user_wallet.publicKey, TOKEN_PROGRAM_ID, mint],
-                    program_id: ASSOCIATED_TOKEN_PROGRAM_ID,
-                },
-            ],
-        );
+        const prepared = await prepareTransaction(tx, user_wallet.publicKey, [
+            // src
+            {
+                seeds: [user_wallet.publicKey, TOKEN_PROGRAM_ID, IVY_MINT],
+                program_id: ASSOCIATED_TOKEN_PROGRAM_ID,
+            },
+            // dst
+            {
+                seeds: [user_wallet.publicKey, TOKEN_PROGRAM_ID, mint],
+                program_id: ASSOCIATED_TOKEN_PROGRAM_ID,
+            },
+        ]);
 
         return res.status(200).json({
             status: "ok",
@@ -377,9 +348,7 @@ app.post(
 
         return res.status(200).json({
             status: "ok",
-            data: {
-                tx: prepared,
-            },
+            data: prepared,
         });
     }),
 );
@@ -456,7 +425,7 @@ app.post(
             signature_bytes,
         );
 
-        const prepared = await prepareTransaction(tx, user_public_key, null);
+        const prepared = await prepareTransaction(tx, user_public_key);
 
         return res.status(200).json({
             status: "ok",
@@ -472,20 +441,63 @@ app.post(
         const data = validateRequestBody(req.body, [
             { name: "game", type: "string" },
             { name: "deposit_id", type: "string" },
-            { name: "user", type: "string" },
         ]);
 
         const game_public_key = parsePublicKey(data.game, "game");
-        const user_public_key = parsePublicKey(data.user, "user");
         const deposit_id_bytes = parseHex(data.deposit_id, "deposit_id");
+
+        const user = Keypair.generate().publicKey;
 
         const tx = await Game.depositComplete(
             game_public_key,
             deposit_id_bytes,
-            user_public_key,
+            user,
         );
 
-        const prepared = await prepareTransaction(tx, user_public_key, null);
+        const { mint } = Game.deriveAddresses(game_public_key);
+        const prepared = await prepareTransaction(tx, user, [
+            {
+                // user source ATA
+                seeds: [user, TOKEN_PROGRAM_ID, mint],
+                program_id: ASSOCIATED_TOKEN_PROGRAM_ID,
+            },
+        ]);
+
+        return res.status(200).json({
+            status: "ok",
+            data: prepared,
+        });
+    }),
+);
+
+// Complete a game burn
+app.post(
+    "/tx/game/burn-complete",
+    handleAsync(async (req, res) => {
+        const data = validateRequestBody(req.body, [
+            { name: "game", type: "string" },
+            { name: "burn_id", type: "string" },
+        ]);
+
+        const game_public_key = parsePublicKey(data.game, "game");
+        const burn_id_bytes = parseHex(data.burn_id, "burn_id");
+
+        const user = Keypair.generate().publicKey;
+
+        const tx = await Game.burnComplete(
+            game_public_key,
+            burn_id_bytes,
+            user,
+        );
+
+        const { mint } = Game.deriveAddresses(game_public_key);
+        const prepared = await prepareTransaction(tx, user, [
+            {
+                // user source ATA
+                seeds: [user, TOKEN_PROGRAM_ID, mint],
+                program_id: ASSOCIATED_TOKEN_PROGRAM_ID,
+            },
+        ]);
 
         return res.status(200).json({
             status: "ok",
@@ -495,61 +507,68 @@ app.post(
 );
 
 /// Test for TX expiration or failure
-app.get(
-    "/tx/is-expired-or-failed/:signature",
-    handleAsync(async (req, res) => {
-        const { signature } = req.params;
-        const { lastValidBlockHeight } = req.query;
+// (we don't need this anymore; still useful code)
+if ((() => false)()) {
+    app.get(
+        "/tx/is-expired-or-failed/:signature",
+        handleAsync(async (req, res) => {
+            const { signature } = req.params;
+            const { lastValidBlockHeight } = req.query;
 
-        if (!signature) {
-            throw new Error("Missing required parameter: signature");
-        }
-        if (!lastValidBlockHeight || typeof lastValidBlockHeight !== "string") {
-            throw new Error(
-                "Missing or invalid required query param: lastValidBlockHeight",
+            if (!signature) {
+                throw new Error("Missing required parameter: signature");
+            }
+            if (
+                !lastValidBlockHeight ||
+                typeof lastValidBlockHeight !== "string"
+            ) {
+                throw new Error(
+                    "Missing or invalid required query param: lastValidBlockHeight",
+                );
+            }
+
+            const lastValidBlockHeightInteger = parseInt(
+                lastValidBlockHeight as string,
             );
-        }
+            if (isNaN(lastValidBlockHeightInteger)) {
+                throw new Error("lastValidBlockHeight must be a valid number");
+            }
 
-        const lastValidBlockHeightInteger = parseInt(
-            lastValidBlockHeight as string,
-        );
-        if (isNaN(lastValidBlockHeightInteger)) {
-            throw new Error("lastValidBlockHeight must be a valid number");
-        }
+            // 1. Fetch block height
+            const currentBlockHeight =
+                await connection.getBlockHeight("confirmed");
 
-        // 1. Fetch block height
-        const currentBlockHeight = await connection.getBlockHeight("confirmed");
+            // 2. Get signature status (this MUST happen after).
+            const tx = await connection.getSignatureStatus(signature, {
+                // Solana node will search its full TX history for the Transaction
+                // This is necessary for correctness
+                searchTransactionHistory: true,
+            });
 
-        // 2. Get signature status (this MUST happen after).
-        const tx = await connection.getSignatureStatus(signature, {
-            // Solana node will search its full TX history for the Transaction
-            // This is necessary for correctness
-            searchTransactionHistory: true,
-        });
+            // We are expired if:
+            // - At time t2, the transaction does not exist on the blockchain.
+            // - At time t1 < t2, the block height surpassed the last valid block height.
+            // This is because a Solana transaction will not be included in
+            // a block height greater than its last valid block height.
+            //
+            // Note that we cannot switch t1 and t2, otherwise,
+            // if (block height) < (last valid block height),
+            // we could fetch the tx from the blockchain, it could not exist,
+            // some time could pass, and a (block height) > (last valid block height)
+            // could be returned. Then, `isExpired` would be true, and we would be cooked!
+            const isExpired =
+                !tx.value && currentBlockHeight > lastValidBlockHeightInteger;
 
-        // We are expired if:
-        // - At time t2, the transaction does not exist on the blockchain.
-        // - At time t1 < t2, the block height surpassed the last valid block height.
-        // This is because a Solana transaction will not be included in
-        // a block height greater than its last valid block height.
-        //
-        // Note that we cannot switch t1 and t2, otherwise,
-        // if (block height) < (last valid block height),
-        // we could fetch the tx from the blockchain, it could not exist,
-        // some time could pass, and a (block height) > (last valid block height)
-        // could be returned. Then, `isExpired` would be true, and we would be cooked!
-        const isExpired =
-            !tx.value && currentBlockHeight > lastValidBlockHeightInteger;
+            // If the TX has an error, it's failed.
+            const isFailed = tx.value && tx.value.err ? true : false;
 
-        // If the TX has an error, it's failed.
-        const isFailed = tx.value && tx.value.err ? true : false;
-
-        return res.status(200).json({
-            status: "ok",
-            data: isExpired || isFailed,
-        });
-    }),
-);
+            return res.status(200).json({
+                status: "ok",
+                data: isExpired || isFailed,
+            });
+        }),
+    );
+}
 
 // Get the game balance for a user
 app.get(

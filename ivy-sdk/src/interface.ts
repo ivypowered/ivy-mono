@@ -29,6 +29,7 @@ export const GAME_PREFIXES = {
     game: Buffer.from("game"),
     mint: Buffer.from("game_mint"),
     withdraw: Buffer.from("game_withdraw"),
+    burn: Buffer.from("game_burn"),
     deposit: Buffer.from("game_deposit"),
     ivy_wallet: Buffer.from("game_ivy_wallet"),
     curve_wallet: Buffer.from("game_curve_wallet"),

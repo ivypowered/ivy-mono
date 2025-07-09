@@ -30,6 +30,7 @@ export function useBalance(
         // retry infinitely w/ exp. backoff until inactive
         infinitely(
             /* f */ () => fetchBalance(user, token),
+            /* desc */ "fetch " + token.symbol + " balance",
             /* continue_ */ () => active,
         ).then((b) => active && setBalance(b));
         return () => {

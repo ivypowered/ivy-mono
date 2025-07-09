@@ -14,11 +14,13 @@
 #include "lib/system.h"
 #include "lib/token.h"
 #include "lib/types.h"
+#include "lib/utf8.h"
 #include <solana_sdk.h>
 
 // === Constants ===
 
 static const char* const GAME_PREFIX = "game";
+static const char* const GAME_BURN_PREFIX = "game_burn";
 static const char* const GAME_DEPOSIT_PREFIX = "game_deposit";
 static const char* const GAME_WITHDRAW_PREFIX = "game_withdraw";
 static const char* const GAME_MINT_PREFIX = "game_mint";
@@ -72,6 +74,16 @@ typedef struct {
 
 // #idl event discriminator GameSwapEvent
 static const u64 GAME_SWAP_EVENT_DISCRIMINATOR = UINT64_C(0x5772818798527af3);
+
+// #idl event declaration
+typedef struct {
+    u64 discriminator;
+    address game;
+    bytes32 id;
+} GameBurnEvent;
+
+// #idl event discriminator GameBurnEvent
+static const u64 GAME_BURN_EVENT_DISCRIMINATOR = UINT64_C(0x2829c52d51c0a753);
 
 // #idl event declaration
 typedef struct {
@@ -349,6 +361,32 @@ static void game_create(
         /* token_account_seeds_len */ SOL_ARRAY_SIZE(treasury_wallet_seeds)
     );
 
+    // UTF-8 validation
+    require(
+        utf8_validate_zt(&data->name, sizeof(data->name)),
+        "game name is not valid UTF-8"
+    );
+    require(
+        utf8_validate_zt(&data->symbol, sizeof(data->symbol)),
+        "game symbol is not valid UTF-8"
+    );
+    require(
+        utf8_validate_zt(&data->short_desc, sizeof(data->short_desc)),
+        "game short description is not valid UTF-8"
+    );
+    require(
+        utf8_validate_zt(&data->game_url, sizeof(data->game_url)),
+        "game URL is not valid UTF-8"
+    );
+    require(
+        utf8_validate_zt(&data->cover_url, sizeof(data->cover_url)),
+        "game cover URL is not valid UTF-8"
+    );
+    require(
+        utf8_validate_zt(&data->metadata_url, sizeof(data->metadata_url)),
+        "game metadata URL is not valid UTF-8"
+    );
+
     // Create token metadata with game as update authority
     MetadataDataV2 metadata_data = {
         .name = slice_from_str_safe(&data->name, sizeof(data->name)),
@@ -434,84 +472,90 @@ static void game_create(
     // This allows swap instructions to use less bytes
     address swap_alt = *accounts->swap_alt.key;
 
-    // Prepare entries for ALT
-    address entries[13] = {
-        // Accounts directly required by game swaps
-        game_address,
-        ivy_wallet,
-        curve_wallet,
-        treasury_wallet,
-        TOKEN_PROGRAM_ID,
-        ATA_PROGRAM_ID,
-        mint_address,
-        world->ivy_mint,
-        // Accounts required for emitting events
-        *accounts->world.key,
-        world->event_authority,
-        // Accounts required for world swaps
-        // (helps composite swaps)
-        world->usdc_wallet,
-        world->curve_wallet,
-        // WSOL mint (helps when swapping SOL)
-        WSOL_MINT,
-    };
+    {
+        // Prepare entries for ALT
+        address entries[13] = {
+            // Accounts directly required by game swaps
+            game_address,
+            ivy_wallet,
+            curve_wallet,
+            treasury_wallet,
+            TOKEN_PROGRAM_ID,
+            ATA_PROGRAM_ID,
+            mint_address,
+            world->ivy_mint,
+            // Accounts required for emitting events
+            *accounts->world.key,
+            world->event_authority,
+            // Accounts required for world swaps
+            // (helps composite swaps)
+            world->usdc_wallet,
+            world->curve_wallet,
+            // WSOL mint (helps when swapping SOL)
+            WSOL_MINT,
+        };
 
-    // Set up the ALT
-    setup_alt(
-        /* ctx */ ctx,
-        /* lookup_table */ swap_alt,
-        /* authority */ game_address,
-        /* payer */ user,
-        /* entries */ entries,
-        /* entries_len */ SOL_ARRAY_SIZE(entries),
-        /* recent_slot */ data->swap_alt_slot,
-        /* bump_seed */ data->swap_alt_nonce,
-        /* authority_seeds */ game_seeds,
-        /* authority_seeds_len */ SOL_ARRAY_SIZE(game_seeds)
-    );
+        // Set up the ALT
+        setup_alt(
+            /* ctx */ ctx,
+            /* lookup_table */ swap_alt,
+            /* authority */ game_address,
+            /* payer */ user,
+            /* entries */ entries,
+            /* entries_len */ SOL_ARRAY_SIZE(entries),
+            /* recent_slot */ data->swap_alt_slot,
+            /* bump_seed */ data->swap_alt_nonce,
+            /* authority_seeds */ game_seeds,
+            /* authority_seeds_len */ SOL_ARRAY_SIZE(game_seeds)
+        );
+    }
 
     // Store swap ALT in game
     g->swap_alt = swap_alt;
 
-    // Emit create event as if no swap has occurred
-    GameCreateEvent create_event = {
-        .discriminator = GAME_CREATE_EVENT_DISCRIMINATOR,
-        .game = game_address,
-        .mint = mint_address,
-        .swap_alt = swap_alt,
-        .name = data->name,
-        .symbol = data->symbol,
-        .ivy_balance = world->ivy_initial_liquidity,
-        .game_balance = world->game_initial_liquidity
-    };
+    {
+        // Emit create event as if no swap has occurred
+        GameCreateEvent create_event = {
+            .discriminator = GAME_CREATE_EVENT_DISCRIMINATOR,
+            .game = game_address,
+            .mint = mint_address,
+            .swap_alt = swap_alt,
+            .name = data->name,
+            .symbol = data->symbol,
+            .ivy_balance = world->ivy_initial_liquidity,
+            .game_balance = world->game_initial_liquidity
+        };
 
-    emit_event(
-        /* ctx */ ctx,
-        /* event_data */ slice_new((const u8*)&create_event, sizeof(create_event)),
-        /* data_address */ *accounts->world.key,
-        /* event_authority */ world->event_authority,
-        /* event_authority_nonce */ world->event_authority_nonce
-    );
+        emit_event(
+            /* ctx */ ctx,
+            /* event_data */ slice_new((const u8*)&create_event, sizeof(create_event)),
+            /* data_address */ *accounts->world.key,
+            /* event_authority */ world->event_authority,
+            /* event_authority_nonce */ world->event_authority_nonce
+        );
+    }
 
-    // Emit edit event
-    GameEditEvent edit_event = {
-        .discriminator = GAME_EDIT_EVENT_DISCRIMINATOR,
-        .game = game_address,
-        .owner = user,
-        .withdraw_authority = ADDRESS_ZERO,
-        .game_url = data->game_url,
-        .cover_url = data->cover_url,
-        .metadata_url = data->metadata_url,
-        .short_desc = data->short_desc,
-    };
+    {
+        // Emit edit event
+        GameEditEvent edit_event = {
+            .discriminator = GAME_EDIT_EVENT_DISCRIMINATOR,
+            .game = game_address,
+            .owner = user,
+            .withdraw_authority = ADDRESS_ZERO,
+            .game_url = data->game_url,
+            .cover_url = data->cover_url,
+            .metadata_url = data->metadata_url,
+            .short_desc = data->short_desc,
+        };
 
-    emit_event(
-        /* ctx */ ctx,
-        /* event_data */ slice_new((const u8*)&edit_event, sizeof(edit_event)),
-        /* data_address */ *accounts->world.key,
-        /* event_authority */ world->event_authority,
-        /* event_authority_nonce */ world->event_authority_nonce
-    );
+        emit_event(
+            /* ctx */ ctx,
+            /* event_data */ slice_new((const u8*)&edit_event, sizeof(edit_event)),
+            /* data_address */ *accounts->world.key,
+            /* event_authority */ world->event_authority,
+            /* event_authority_nonce */ world->event_authority_nonce
+        );
+    }
 
     if (game_received > 0) {
         // Emit swap event for initial purchase
@@ -589,9 +633,6 @@ static void game_swap(
     Game* game = game_load(ctx, &accounts->game);
     World* world = world_load(ctx, &accounts->world);
     u64 amount = data->amount;
-    if (amount == 0) {
-        return;
-    }
 
     address user = *accounts->user.key;
     address source_addr = *accounts->source.key;
@@ -803,6 +844,24 @@ static void game_edit(
 
     // Authorize
     authorize(&accounts->owner, game->owner);
+
+    // Validate UTF-8
+    require(
+        utf8_validate_zt(&data->new_game_url, sizeof(data->new_game_url)),
+        "new game URL is not valid UTF-8"
+    );
+    require(
+        utf8_validate_zt(&data->new_cover_url, sizeof(data->new_cover_url)),
+        "new cover URL is not valid UTF-8"
+    );
+    require(
+        utf8_validate_zt(&data->new_metadata_url, sizeof(data->new_metadata_url)),
+        "new metadata URL is not valid UTF-8"
+    );
+    require(
+        utf8_validate_zt(&data->short_desc, sizeof(data->short_desc)),
+        "new short description is not valid UTF-8"
+    );
 
     // Update all fields unconditionally
     game->owner = data->new_owner;
@@ -1092,12 +1151,7 @@ static void game_withdraw_claim(
     }
 
     // Extract amount from the ID (last 8 bytes, little endian u64)
-    u64 amount;
-    {
-        reader r = reader_new(data->id.x, sizeof(data->id.x));
-        reader_skip(&r, 24);
-        amount = reader_read_u64(&r);
-    }
+    u64 amount = id_extract_amount(data->id);
 
     // Get the seeds for the treasury wallet PDA
     slice wallet_seeds[2] = {
@@ -1140,7 +1194,7 @@ static void game_withdraw_claim(
         /* destination */ withdraw_pda.key,
         /* payer */ *accounts->user.key,
         /* owner */ *ctx->program_id,
-        /* size */ 1, // Minimal size, just for existence check
+        /* size */ 0,
         /* seeds */ withdraw_seeds,
         /* seeds_len */ SOL_ARRAY_SIZE(withdraw_seeds)
     );
@@ -1159,6 +1213,136 @@ static void game_withdraw_claim(
     emit_event(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&withdraw_event, sizeof(withdraw_event)),
+        /* data_address */ *accounts->world.key,
+        /* event_authority */ world->event_authority,
+        /* event_authority_nonce */ world->event_authority_nonce
+    );
+}
+
+/* ------------------------------ */
+
+// #idl instruction accounts game_burn_complete
+typedef struct {
+    // #idl readonly
+    SolAccountInfo game;
+    // #idl signer
+    SolAccountInfo user;
+    // #idl writable
+    SolAccountInfo source;
+    // #idl writable
+    SolAccountInfo burn;
+    // #idl readonly
+    SolAccountInfo world;
+    // #idl readonly
+    SolAccountInfo event_authority;
+    // #idl readonly
+    SolAccountInfo this_program;
+    // #idl readonly
+    SolAccountInfo token_program;
+    // #idl readonly
+    SolAccountInfo system_program;
+} GameBurnCompleteAccounts;
+
+// #idl instruction data game_burn_complete
+typedef struct {
+    bytes32 id;
+} GameBurnCompleteData;
+
+// #idl instruction discriminator game_burn_complete
+static const u64 GAME_BURN_COMPLETE_DISCRIMINATOR = UINT64_C(0x532671b53bb710e0);
+
+/// Called by the user to complete a burn of game tokens.
+/// To use this function:
+/// - Generate 24 cryptographically random bytes,
+///   and append the burn amount in raw game tokens
+///   to the end as a little endian u64, creating
+///   a 32-byte ID.
+/// - Give these bytes to the user, who will call this
+///   function.
+/// - Watch for the burn event, or, alternatively,
+///   derive the burn PDA as findProgramAddress(
+///       [GAME_BURN_PREFIX, game, id]
+///   ) and repeatedly check for its existence.
+/// - This function is idempotent; you can call it
+///   multiple times with the same result.
+// #idl instruction declaration
+static void game_burn_complete(
+    const Context* ctx,
+    const GameBurnCompleteAccounts* accounts,
+    const GameBurnCompleteData* data
+) {
+    // Load game
+    const Game* game = game_load(ctx, &accounts->game);
+
+    // Derive on-chain burn account
+    // (This account serves to mark whether the burn
+    //  has been completed, to protect against double-burns)
+    slice burn_seeds_pre[3] = {
+        slice_from_str(GAME_BURN_PREFIX),
+        slice_from_address(accounts->game.key),
+        slice_from_bytes32(&data->id)
+    };
+    ProgramDerivedAddress burn_pda = find_program_address(
+        /* seeds */ burn_seeds_pre,
+        /* seeds_len */ SOL_ARRAY_SIZE(burn_seeds_pre),
+        /* program_id */ *ctx->program_id,
+        /* msg */ "Can't find burn account address"
+    );
+    // Ensure the user hasn't given us the wrong account
+    require(
+        address_equal(accounts->burn.key, &burn_pda.key),
+        "Incorrect burn account provided"
+    );
+    // Idempotency: ensure we haven't done this burn before
+    if (account_exists(&accounts->burn)) {
+        // we're good
+        // (or there's a collision... not our fault!)
+        return;
+    }
+
+    // Extract amount from the ID (last 8 bytes, little endian u64)
+    u64 amount = id_extract_amount(data->id);
+
+    // Burn tokens from user's account
+    token_burn(
+        /* ctx */ ctx,
+        /* account */ *accounts->source.key,
+        /* mint */ game->mint,
+        /* owner */ *accounts->user.key,
+        /* amount */ amount
+    );
+
+    // Derive full burn seeds
+    slice burn_seeds[4] = {
+        burn_seeds_pre[0],
+        burn_seeds_pre[1],
+        burn_seeds_pre[2],
+        slice_new(&burn_pda.nonce, 1)
+    };
+    // Create burn account on-chain to prevent double burn
+    system_create_account(
+        /* ctx */ ctx,
+        /* destination */ burn_pda.key,
+        /* payer */ *accounts->user.key,
+        /* owner */ *ctx->program_id,
+        /* size */ 1,
+        /* seeds */ burn_seeds,
+        /* seeds_len */ SOL_ARRAY_SIZE(burn_seeds)
+    );
+
+    // Load world to get event authority + nonce
+    const World* world = world_load(ctx, &accounts->world);
+
+    // Emit burn event
+    GameBurnEvent burn_event = {
+        .discriminator = GAME_BURN_EVENT_DISCRIMINATOR,
+        .game = *accounts->game.key,
+        .id = data->id,
+    };
+
+    emit_event(
+        /* ctx */ ctx,
+        /* event_data */ slice_new((const u8*)&burn_event, sizeof(burn_event)),
         /* data_address */ *accounts->world.key,
         /* event_authority */ world->event_authority,
         /* event_authority_nonce */ world->event_authority_nonce
@@ -1249,12 +1433,7 @@ static void game_deposit_complete(
     }
 
     // Extract amount from the ID (last 8 bytes, little endian u64)
-    u64 amount;
-    {
-        reader r = reader_new(data->id.x, sizeof(data->id.x));
-        reader_skip(&r, 24);
-        amount = reader_read_u64(&r);
-    }
+    u64 amount = id_extract_amount(data->id);
 
     // Transfer tokens from user to treasury wallet
     token_transfer(
@@ -1278,7 +1457,7 @@ static void game_deposit_complete(
         /* destination */ deposit_pda.key,
         /* payer */ *accounts->user.key,
         /* owner */ *ctx->program_id,
-        /* size */ 1,
+        /* size */ 0,
         /* seeds */ deposit_seeds,
         /* seeds_len */ SOL_ARRAY_SIZE(deposit_seeds)
     );

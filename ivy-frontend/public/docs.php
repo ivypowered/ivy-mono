@@ -21,8 +21,16 @@ if (($pos = strpos($page, "?")) !== false) {
     $page = substr($page, 0, $pos);
 }
 
+// Take only last component of path
+$page = basename($page);
+
+// Get name of page
+$name = str_replace("-", " ", $page);
+$name = str_replace("_", " ", $name);
+$name = ucfirst($name);
+
 // Ensure we're using just the filename
-$page = basename($page) . ".html";
+$page = $page . ".html";
 
 // Create absolute path to the docs_build directory
 $file_path = __DIR__ . "/../docs_build/" . $page;
@@ -40,6 +48,8 @@ $extra_head = <<<HTML
 <script src="/assets/js/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
 HTML;
+$title = "ivy | docs: $name";
+$description = "View the $name page on the documentation for Ivy, where games come to life";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

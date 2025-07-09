@@ -94,10 +94,7 @@ export interface Quote {
     output: number;
     outputUSD: number;
     minOutput: number;
-    getTransaction: () => Promise<{
-        tx: Transaction | VersionedTransaction;
-        lastValidBlockHeight: number;
-    }>;
+    getTransaction: () => Promise<Transaction | VersionedTransaction>;
     stops: string[];
     priceImpactBps: number;
     slippageBps: number;

@@ -46,10 +46,23 @@ interface TokenDeltas {
     [mintAddress: string]: number;
 }
 
-interface Context {
+export interface Context {
     blockhash: string;
     lastValidBlockHeight: number;
     reasonablePriorityFee: number;
+}
+
+export interface CommentData {
+    index: number;
+    user: string;
+    timestamp: string;
+    text: string;
+}
+
+export interface CommentInfo {
+    total: number;
+    comment_buf_index: number;
+    comments: CommentData[];
 }
 
 type ApiResponse<T> =
@@ -72,6 +85,18 @@ export class Api {
         }
 
         return r.data;
+    }
+
+    /** Fetches comments from the backend */
+    static async getComments(
+        game: PublicKey,
+        count: number,
+        skip: number,
+        reverse: boolean,
+    ): Promise<CommentInfo> {
+        return this.fetchApi<CommentInfo>(
+            `/comments/${game.toBase58()}?count=${count}&skip=${skip}&reverse=${reverse}`,
+        );
     }
 
     /** Fetches the world's Address Lookup Table */

@@ -17,7 +17,7 @@ impl Math {
         }
     }
 
-    /// Given area under sqrt(cx) curve from a to b, compute the left bound a
+    /*/// Given area under sqrt(cx) curve from a to b, compute the left bound a
     pub fn get_sqrt_integral_left_bound(c: f64, area: f64, b: f64, round_up: bool) -> f64 {
         assert!(c > 0.0, "Scale cannot be 0");
 
@@ -41,7 +41,7 @@ impl Math {
         } else {
             result
         }
-    }
+    }*/
 
     /// Given area under sqrt(cx) curve from a to b, compute the right bound b
     pub fn get_sqrt_integral_right_bound(c: f64, area: f64, a: f64, round_up: bool) -> f64 {
@@ -78,7 +78,7 @@ impl SqrtCurve {
         (supply * input_scale).sqrt()
     }
 
-    /// Calculate the amount of reserve tokens deposited to receive a specific amount of tokens
+    /*/// Calculate the amount of reserve tokens deposited to receive a specific amount of tokens
     ///
     /// # Arguments
     ///
@@ -103,7 +103,7 @@ impl SqrtCurve {
 
         // Round up: user is depositing this amount
         Ok(Math::integrate_sqrt(input_scale, supply, new_supply, true))
-    }
+    }*/
 
     /// Calculate the amount of reserve received for a token deposit amount
     ///
@@ -164,7 +164,7 @@ impl SqrtCurve {
         Ok(new_supply - supply)
     }
 
-    /// Calculate the number of tokens that need to be provided to receive a specific amount of reserve tokens
+    /*/// Calculate the number of tokens that need to be provided to receive a specific amount of reserve tokens
     ///
     /// # Arguments
     ///
@@ -192,5 +192,5 @@ impl SqrtCurve {
 
         // Calculate tokens to be provided
         Ok(supply - new_supply)
-    }
+    }*/
 }

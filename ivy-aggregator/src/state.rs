@@ -8,8 +8,9 @@ use std::time::SystemTime;
 use crate::chart::Candle;
 use crate::charts::{ChartKind, Charts};
 use crate::event::{
-    Event, EventData, GameCreateEvent, GameDepositEvent, GameEditEvent, GameSwapEvent,
-    GameWithdrawEvent, WorldCreateEvent, WorldSwapEvent, WorldUpdateEvent, WorldVestingEvent,
+    CommentEvent, Event, EventData, GameBurnEvent, GameCreateEvent, GameDepositEvent,
+    GameEditEvent, GameSwapEvent, GameWithdrawEvent, WorldCreateEvent, WorldSwapEvent,
+    WorldUpdateEvent, WorldVestingEvent,
 };
 use crate::game::Game;
 use crate::jsonl::{JsonReader, JsonWriter};
@@ -110,6 +111,21 @@ fn create_hot_game_list(recent_games: &[Game]) -> Vec<usize> {
 // === Core Data Structs ===
 // ==========================
 
+/// Data for a game's comments
+#[derive(Clone, Serialize)]
+pub struct CommentInfo {
+    total: usize,
+    comment_buf_index: u64,
+    comments: Vec<Comment>,
+}
+
+/// Identifier for completed burns.
+#[derive(Hash, Clone, Copy, PartialEq, Eq)]
+struct Burn {
+    game: Public,
+    id: [u8; 32],
+}
+
 /// Identifier for completed deposits.
 #[derive(Hash, Clone, Copy, PartialEq, Eq)]
 struct Deposit {
@@ -131,10 +147,20 @@ struct TopGameEntry {
     index: usize,     // Game index in `game_list`
 }
 
+/// A comment on a game
+#[derive(Clone, Serialize)]
+pub struct Comment {
+    index: u64,
+    user: Public,
+    timestamp: u64,
+    text: String,
+}
+
 /// Metadata associated with each game, including charts and NFTs.
 struct GameMeta {
     index: usize,   // Index in the main `game_list` vector
     charts: Charts, // GAME/USDC charts
+    comments: Vec<Comment>,
 }
 
 /// Data related to the global IVY/USDC market.
@@ -154,6 +180,12 @@ struct WorldData {
     game_initial_liquidity: u64,
     ivy_fee_bps: u8,
     game_fee_bps: u8,
+}
+
+#[derive(Clone, Copy, Serialize)]
+pub struct BurnInfo {
+    signature: Signature,
+    timestamp: u64,
 }
 
 #[derive(Clone, Copy, Serialize)]
@@ -213,12 +245,13 @@ struct StateData {
     ivy_price: f32,     // Current IVY price in USDC
 
     // Other state
+    burns: HashMap<Burn, BurnInfo>, // Map of completed burns to info
     withdraws: HashMap<Withdraw, WithdrawInfo>, // Map of completed withdraws to info
-    deposits: HashMap<Deposit, DepositInfo>,    // Map of completed deposits to info
-    evt_writer: JsonWriter<Event>,              // For persisting events
-    last_signature: Option<Signature>,          // Signature of the last processed event
-    api_url: String,                            // For fetching new events
-    volume_24h: Volume,                         // Keeps track of volume
+    deposits: HashMap<Deposit, DepositInfo>, // Map of completed deposits to info
+    evt_writer: JsonWriter<Event>,  // For persisting events
+    last_signature: Option<Signature>, // Signature of the last processed event
+    api_url: String,                // For fetching new events
+    volume_24h: Volume,             // Keeps track of volume
 }
 
 impl StateData {
@@ -283,6 +316,7 @@ impl StateData {
             ivy_balance: create_data.ivy_balance,
             game_balance: create_data.game_balance,
             starting_ivy_balance: create_data.ivy_balance, // Store initial balance
+            comment_buf_index: 0,
             normalized_name,
             last_price_usd: game_price_usd,
             mkt_cap_usd: game_balance * game_price_usd,
@@ -296,8 +330,14 @@ impl StateData {
         let mut charts = Charts::new(MAX_CANDLES);
         _ = charts.append(timestamp, game_price_usd, 0.0);
 
-        self.address_to_game_meta
-            .insert(create_data.game, GameMeta { index, charts });
+        self.address_to_game_meta.insert(
+            create_data.game,
+            GameMeta {
+                index,
+                charts,
+                comments: Vec::new(),
+            },
+        );
 
         // Add to top games list
         self.update_top_games(index, None, create_data.ivy_balance);
@@ -392,6 +432,23 @@ impl StateData {
         self.volume_24h.append(usd_to_mil(usdc_value), timestamp);
     }
 
+    fn process_game_burn(
+        &mut self,
+        timestamp: u64,
+        signature: Signature,
+        burn_data: GameBurnEvent,
+    ) {
+        self.burns
+            .entry(Burn {
+                game: burn_data.game,
+                id: burn_data.id,
+            })
+            .or_insert(BurnInfo {
+                signature,
+                timestamp,
+            });
+    }
+
     fn process_game_deposit(
         &mut self,
         timestamp: u64,
@@ -481,6 +538,26 @@ impl StateData {
         self.world_data.ivy_vested = vesting_data.ivy_vested;
     }
 
+    fn process_comment_event(&mut self, comment_data: CommentEvent) {
+        let game_meta = match self.address_to_game_meta.get_mut(&comment_data.game) {
+            Some(meta) => meta,
+            None => {
+                eprintln!(
+                    "warning: Received CommentEvent for nonexistent game {}",
+                    comment_data.game
+                );
+                return;
+            }
+        };
+        game_meta.comments.push(Comment {
+            index: comment_data.comment_index,
+            user: comment_data.user,
+            timestamp: comment_data.timestamp,
+            text: comment_data.text,
+        });
+        self.game_list[game_meta.index].comment_buf_index = comment_data.buf_index;
+    }
+
     fn process_unknown(&mut self, name: &str) {
         eprintln!("warning: Received unknown event type '{}'", name);
     }
@@ -496,12 +573,14 @@ impl StateData {
             EventData::GameCreate(data) => self.process_game_create(timestamp, data),
             EventData::GameEdit(data) => self.process_game_edit(data),
             EventData::GameSwap(data) => self.process_game_swap(timestamp, signature, data),
+            EventData::GameBurn(data) => self.process_game_burn(timestamp, signature, data),
             EventData::GameDeposit(data) => self.process_game_deposit(timestamp, signature, data),
             EventData::GameWithdraw(data) => self.process_game_withdraw(timestamp, signature, data),
             EventData::WorldCreate(data) => self.process_world_create(timestamp, data),
             EventData::WorldUpdate(data) => self.process_world_update(data),
             EventData::WorldSwap(data) => self.process_world_swap(timestamp, signature, data),
             EventData::WorldVesting(data) => self.process_world_vesting(data),
+            EventData::CommentEvent(data) => self.process_comment_event(data),
             EventData::Unknown(name) => self.process_unknown(&name),
         }
         // Always update the last seen signature
@@ -537,6 +616,7 @@ impl State {
             evt_writer,
             last_signature: None,
             ivy_charts: Charts::new(MAX_CANDLES),
+            burns: HashMap::new(),
             deposits: HashMap::new(),
             withdraws: HashMap::new(),
             ivy_price: 0.0, // Will be updated by first WorldSwap event
@@ -669,6 +749,12 @@ impl State {
     }
 
     // --- Query Methods ---
+
+    /// Get burn info for a specified game and burn ID, or None if it does not exist
+    pub fn get_burn_info(&self, game: Public, id: [u8; 32]) -> Option<BurnInfo> {
+        let data = self.data.read().unwrap();
+        data.burns.get(&Burn { game, id }).map(|p| *p)
+    }
 
     /// Get deposit info for a specified game and deposit ID, or None if it does not exist
     pub fn get_deposit_info(&self, game: Public, id: [u8; 32]) -> Option<DepositInfo> {
@@ -944,6 +1030,50 @@ impl State {
             output_amount_usd,
             price_impact_bps,
         })
+    }
+
+    /// Query the comments
+    pub fn query_comments(
+        &self,
+        game: Public,
+        count: usize,
+        skip: usize,
+        reverse: bool,
+    ) -> CommentInfo {
+        let data = self.data.read().unwrap();
+        let game_meta = match data.address_to_game_meta.get(&game) {
+            Some(v) => v,
+            None => {
+                return CommentInfo {
+                    total: 0,
+                    comment_buf_index: 0,
+                    comments: Vec::new(),
+                }
+            }
+        };
+        let comments = if reverse {
+            game_meta
+                .comments
+                .iter()
+                .rev()
+                .skip(skip)
+                .take(count)
+                .cloned()
+                .collect()
+        } else {
+            game_meta
+                .comments
+                .iter()
+                .skip(skip)
+                .take(count)
+                .cloned()
+                .collect()
+        };
+        return CommentInfo {
+            total: game_meta.comments.len(),
+            comment_buf_index: data.game_list[game_meta.index].comment_buf_index,
+            comments,
+        };
     }
 
     /// Estimate the world output amount of an ExactIn swap between USDC and IVY

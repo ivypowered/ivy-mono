@@ -107,7 +107,7 @@ if (empty($errors)) {
 
             // Set the transaction data
             $transaction_data = [
-                "tx" => $edit_response["tx"],
+                "tx" => $edit_response,
                 "returnUrl" => "/edit-done",
                 "returnParams" => [
                     "gameAddress" => $game_address,
@@ -119,6 +119,9 @@ if (empty($errors)) {
     }
 }
 
+$title = "ivy | edit confirmation";
+$description =
+    "Confirm your edits to your game on Ivy, where games come to life";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

@@ -69,6 +69,8 @@ if ($fetched_games_data === null) {
 $has_next_page = count($games) == $games_per_page;
 $has_prev_page = $current_page > 1;
 
+$title = "ivy | explore";
+$description = "Explore Web3 games on Ivy, where games come to life";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

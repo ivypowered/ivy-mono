@@ -56,7 +56,8 @@ header("Content-Type: text/html; charset=UTF-8");
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ivy</title>
+    <title><?= $title ?></title>
+    <meta name="description" content="<?= htmlspecialchars($description) ?>">
     <link rel="icon" href="/assets/images/ivy-icon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/assets/css/styles.css">
     <script src="/assets/js/ivy-react.js" type="text/javascript" async></script>

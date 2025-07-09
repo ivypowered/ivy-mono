@@ -5,6 +5,9 @@ if ($_SERVER["REQUEST_METHOD"] !== "GET") {
     exit();
 }
 
+$title = "ivy | upload done";
+$description =
+    "View the results of your game upload on Ivy, where games come to life";
 require_once __DIR__ . "/../includes/header.php";
 
 // Get transaction parameters from GET request instead of POST

@@ -5,7 +5,10 @@
  * Custom 404 error page
  */
 
-require_once __DIR__ . "/../includes/header.php"; ?>
+$title = "ivy | 404";
+$description = "We can't find this page on Ivy, where games come to life";
+require_once __DIR__ . "/../includes/header.php";
+?>
 
 <main class="py-16 flex-grow">
     <div class="mx-auto max-w-2xl px-6 text-center">

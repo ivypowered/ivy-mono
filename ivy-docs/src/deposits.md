@@ -6,6 +6,8 @@ To accept game deposits in your currency, you'll first create a [unique ID](./id
 
 Once you have a valid deposit ID, simply point your user to the link `https://ivypowered.com/deposit?game=[your game address]&id=[your deposit ID in hex]`. This page will prompt the user to complete the deposit on the Solana blockchain.
 
+You can also append `&redirect=[redirect URL]` to the given link to redirect the user to an arbitrary URL when they finish paying.
+
 Next, on your backend, you'll want to check whether the deposit is complete. If you're using the REST API, this can be done via the following route:
 
 <small class="route-tag">GET</small> `/api/games/{address}/deposits/{id}`

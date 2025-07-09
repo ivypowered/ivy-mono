@@ -20,7 +20,7 @@ Here's how to get started:
 
 ### 1. Retrieve Parent Origin
 
-The `postMessage` API allows any window to send any message to any other window. To filter for messages sent by Ivy, we'll retrieve the Ivy website's origin, which is passed to our `<iframe>` through the `origin` query parameter. Insert this somewhere in your game's client-side JavaScript:
+The `postMessage` API allows any window to send any message to any other window. To filter for messages sent by Ivy, we'll retrieve the Ivy website's origin, which is passed to our `<iframe>` through the `parentOrigin` query parameter. Insert this somewhere in your game's client-side JavaScript:
 
 ```js
 const parentOrigin = new URLSearchParams(document.location.search).get(
@@ -30,7 +30,7 @@ const parentOrigin = new URLSearchParams(document.location.search).get(
 
 ### 2. Subscribe to State Updates
 
-First, you'll want to subscribe to the Ivy state from within your game's client-side JavaScript:
+Next, you'll want to subscribe to the Ivy state from within your game's client-side JavaScript:
 
 ```js
 parent.postMessage({ action: "subscribe" }, parentOrigin);
@@ -72,7 +72,7 @@ The authentication message and signature for your game are persisted in local st
 
 If an authentication message or signature expire on the frontend, they'll be automatically cleared, and `message` and `signature` will be set to `null` so that your application can request the user to sign a new message.
 
-### 3. Prompt User if Necessary
+### 4. Prompt User if Necessary
 
 If `user` is null, you'll want to show the "Connect Wallet" dialog. To do this, write:
 

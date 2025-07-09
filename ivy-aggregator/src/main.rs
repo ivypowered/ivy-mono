@@ -67,6 +67,21 @@ fn get_query_param_parsed<T: std::str::FromStr>(req: &Request, param_name: &str,
         .unwrap_or(default)
 }
 
+// Decode a hex string as a [u8; 32]
+fn parse_hex_as_32_bytes(s: &str) -> Result<[u8; 32], &'static str> {
+    match hex::decode(&s) {
+        Ok(bytes) => {
+            if bytes.len() != 32 {
+                return Err("Provided string must be 32 bytes (64 hex chars)");
+            }
+            let mut result = [0u8; 32];
+            result.copy_from_slice(&bytes);
+            return Ok(result);
+        }
+        Err(_) => return Err("Invalid hex characters in provided string"),
+    };
+}
+
 // --- Main Function ---
 
 fn main() {
@@ -111,11 +126,11 @@ fn main() {
             (GET) (/games) => {
                 let count: usize = get_query_param_parsed(req, "count", 20);
                 let skip: usize = get_query_param_parsed(req, "skip", 0);
-                let sort: String = req.get_param("sort").unwrap_or_else(|| "recent".to_string());
+                let sort: String = req.get_param("sort").unwrap_or_else(|| "new".to_string());
                 let search_query: Option<String> = req.get_param("q");
 
                 let games = match sort.as_str() {
-                    "recent" => {
+                    "new" => {
                         if let Some(q) = search_query {
                             state.search_recent_games_by_name(q, count, skip)
                         } else {
@@ -136,7 +151,7 @@ fn main() {
                         }
                         state.get_hot_games(count, skip)
                     },
-                    _ => return error("Invalid sort parameter. Use 'recent', 'top', or 'hot'", 400)
+                    _ => return error("Invalid sort parameter. Use 'new', 'top', or 'hot'", 400)
                 };
 
                 success(games)
@@ -154,6 +169,17 @@ fn main() {
                     Some(game) => success(game),
                     None => error("Game not found", 404)
                 }
+            },
+
+            // === COMMENT ROUTES ===
+
+            // Get comments in either chronological order or `reverse` chronological order
+            (GET) (/comments/{game: Public}) => {
+                let count: usize = get_query_param_parsed(req, "count", 20);
+                let skip: usize = get_query_param_parsed(req, "skip", 0);
+                let reverse: bool = get_query_param_parsed(req, "reverse", false);
+                let response = state.query_comments(game, count, skip, reverse);
+                success(response)
             },
 
             // === CHART ROUTES ===
@@ -226,19 +252,24 @@ fn main() {
 
             // === DEPOSIT ROUTE ===
 
+            // Get burn info
+            (GET) (/games/{game: Public}/burns/{id: String}) => {
+                // Parse burn ID from path (already captured as String by router)
+                let burn_id = match parse_hex_as_32_bytes(&id) {
+                    Ok(v) => v,
+                    Err(e) => return error(e, 400),
+                };
+
+                let burn_info = state.get_burn_info(game, burn_id);
+                success(burn_info)
+            },
+
             // Get deposit info
             (GET) (/games/{game: Public}/deposits/{id: String}) => {
                 // Parse deposit ID from path (already captured as String by router)
-                let deposit_id = match hex::decode(&id) {
-                    Ok(bytes) => {
-                        if bytes.len() != 32 {
-                            return error("Deposit ID must be 32 bytes (64 hex chars)", 400);
-                        }
-                        let mut result = [0u8; 32];
-                        result.copy_from_slice(&bytes);
-                        result
-                    },
-                    Err(_) => return error("Invalid hex characters in deposit ID", 400)
+                let deposit_id = match parse_hex_as_32_bytes(&id) {
+                    Ok(v) => v,
+                    Err(e) => return error(e, 400),
                 };
 
                 let deposit_info = state.get_deposit_info(game, deposit_id);
@@ -248,16 +279,9 @@ fn main() {
             // Get withdraw info
             (GET) (/games/{game: Public}/withdrawals/{id: String}) => {
                 // Parse withdraw ID from path (already captured as String by router)
-                let withdraw_id = match hex::decode(&id) {
-                    Ok(bytes) => {
-                        if bytes.len() != 32 {
-                            return error("Deposit ID must be 32 bytes (64 hex chars)", 400);
-                        }
-                        let mut result = [0u8; 32];
-                        result.copy_from_slice(&bytes);
-                        result
-                    },
-                    Err(_) => return error("Invalid hex characters in deposit ID", 400)
+                let withdraw_id = match parse_hex_as_32_bytes(&id) {
+                    Ok(v) => v,
+                    Err(e) => return error(e, 400),
                 };
 
                 let withdraw_info = state.get_withdraw_info(game, withdraw_id);

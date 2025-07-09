@@ -172,23 +172,19 @@ static void idl_resize_account(Context* ctx, const u8* data, u64 data_len) {
     u64 additional_space = idl_data_len > 10000 ? 10000 : idl_data_len;
     u64 new_space = curr_space + additional_space;
 
-    // Resize the account if needed
-    if (new_space > curr_space) {
-        // Get rent-exempt minimum
-        u64 min_balance = minimum_balance(new_space);
-        u64 balance = *idl_info->lamports;
-        // Transfer additional lamports if needed
-        if (min_balance > balance) {
-            system_transfer(
-                /* ctx */ ctx,
-                /* from */ *authority->key,
-                /* to */ *idl_info->key,
-                /* lamports */ min_balance - balance
-            );
-        }
+    // Realloc the IDL account
+    sol_realloc(idl_info, new_space);
 
-        // Resize the account
-        idl_info->data_len = new_space;
+    // Transfer additional lamports
+    u64 min_balance = minimum_balance(new_space);
+    u64 balance = *idl_info->lamports;
+    if (min_balance > balance) {
+        system_transfer(
+            /* ctx */ ctx,
+            /* from */ *authority->key,
+            /* to */ *idl_info->key,
+            /* lamports */ min_balance - balance
+        );
     }
 }
 
@@ -206,22 +202,8 @@ static void idl_close_account(Context* ctx, const u8* data, u64 data_len) {
     IdlAccount* idl = idl_load_account(ctx, account);
     authorize(authority, idl->authority);
 
-    // Clear account data
-    sol_memset(account->data, 0, account->data_len);
-
-    // Set data length to 0 in serialized input data
-    if ((u64)account->data > 8) {
-        *(u64*)(account->data - 8) = 0;
-    }
-
-    // Transfer lamports out
-    *destination->lamports = safe_add_64(*destination->lamports, *account->lamports);
-    *account->lamports = 0;
-
-    // Give the account back to the system program
-    address* system_program = (address*)heap_alloc(sizeof(SYSTEM_PROGRAM_ID));
-    *system_program = SYSTEM_PROGRAM_ID; // must do this (account->owner is non-const)
-    account->owner = system_program;
+    // Close account on-chain
+    sol_close_account(account, destination);
 }
 
 // Is the provided block all zeroes?

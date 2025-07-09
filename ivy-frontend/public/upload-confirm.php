@@ -82,6 +82,9 @@ if (empty($errors)) {
     }
 }
 
+$title = "ivy | upload confirmation";
+$description =
+    "Confirm the upload of your game on Ivy, where games come to life";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

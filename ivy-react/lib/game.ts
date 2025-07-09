@@ -18,6 +18,7 @@ export interface GameObject {
     // ivy_balance: string;
     // game_balance: string;
     // starting_ivy_balance: string;
+    comment_buf_index: number;
     last_price_usd: number;
     mkt_cap_usd: number;
     change_pct_24h: number;
@@ -56,6 +57,7 @@ export function createIvyGame(info: IvyInfo): GameObject {
         create_timestamp: info.create_timestamp,
         last_price_usd: info.ivy_price,
         mkt_cap_usd: info.ivy_mkt_cap,
+        comment_buf_index: 0,
         change_pct_24h: info.ivy_change_24h,
         // random keypair - doesn't matter, we don't use ALT for world swaps
         swap_alt: "584X8XG1MECnf62SCAKqXD8qsmRWs4HMjMte34kg97xq",

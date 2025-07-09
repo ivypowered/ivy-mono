@@ -7,131 +7,157 @@
 
 require_once __DIR__ . "/../includes/api.php";
 
-// Variables to store withdrawal data
-$withdraw_id = "";
-$game_public_key = "";
-$withdraw_amount = 0;
-$transaction_data = [];
-$game_data = null;
-$withdraw_info = null;
-$error_message = "";
+// Process withdrawal logic in an anonymous function
+$result = (function () {
+    // Validate required parameters
+    if (!isset($_GET["id"])) {
+        return ["error" => "Missing withdrawal ID"];
+    }
+    if (!isset($_GET["game"])) {
+        return ["error" => "Missing game ID"];
+    }
+    if (!isset($_GET["user"])) {
+        return ["error" => "Missing user address"];
+    }
+    if (!isset($_GET["signature"])) {
+        return ["error" => "Missing signature"];
+    }
 
-// Check if we have all necessary parameters
-if (!isset($_GET["id"])) {
-    $error_message = "Missing withdrawal ID";
-} elseif (!isset($_GET["game"])) {
-    $error_message = "Missing game ID";
-} elseif (!isset($_GET["user"])) {
-    $error_message = "Missing user address";
-} elseif (!isset($_GET["signature"])) {
-    $error_message = "Missing signature";
-} else {
-    // Get the withdrawal ID, game, and user from the request
+    // Extract parameters
     $withdraw_id = $_GET["id"];
     $game_public_key = $_GET["game"];
     $user_public_key = $_GET["user"];
     $signature = $_GET["signature"];
+    $redirect = $_GET["redirect"] ?? null;
+    if ($redirect !== null) {
+        if (filter_var($redirect, FILTER_VALIDATE_URL) === false) {
+            return ["error" => "Invalid redirect URL provided"];
+        }
+        if (
+            !str_starts_with($redirect, "http://") &&
+            !str_starts_with($redirect, "https://")
+        ) {
+            return ["error" => "Provided redirect URL must be absolute"];
+        }
+    }
 
-    // First, verify the game exists
+    // Verify game exists
     try {
         $game_data = call_aggregator("/games/{$game_public_key}", "GET");
-
         if ($game_data === null) {
-            $error_message = "Game does not exist";
-        } else {
-            // Step 1: Check if this withdrawal exists and is valid
-            try {
-                $withdraw_info = call_aggregator(
-                    "/games/{$game_public_key}/withdrawals/{$withdraw_id}",
-                    "GET"
-                );
-                if ($withdraw_info !== null) {
-                    // Redirect to withdraw complete page
-                    header(
-                        "Location: /withdraw-complete.php?id=" .
-                            urlencode($withdraw_id) .
-                            "&game=" .
-                            urlencode($game_public_key) .
-                            "&signature=" .
-                            urlencode($withdraw_info["signature"])
-                    );
-                    exit();
-                }
-            } catch (Exception $e) {
-                $error_message =
-                    "Error checking withdrawal status: " . $e->getMessage();
-            }
-
-            // Step 2: Extract the withdrawal amount from the ID (last 8 bytes as little endian u64)
-            if (empty($error_message)) {
-                try {
-                    $id_bytes = hex2bin($withdraw_id);
-                    if (strlen($id_bytes) === 32) {
-                        $amount_bytes = substr($id_bytes, 24, 8);
-                        $amount_unpacked = unpack("P", $amount_bytes);
-                        $withdraw_amount = $amount_unpacked[1];
-                    } else {
-                        $error_message = "Invalid withdrawal ID length";
-                    }
-                } catch (Exception $e) {
-                    $error_message =
-                        "Invalid withdrawal ID format: " . $e->getMessage();
-                }
-            }
-
-            // If no errors so far, prepare the transaction
-            if (empty($error_message)) {
-                try {
-                    // Get withdraw authority from game data
-                    $withdraw_authority = $game_data["withdraw_authority"];
-
-                    // Prepare withdrawal claim transaction
-                    $withdraw_data = [
-                        "game" => $game_public_key,
-                        "withdraw_id" => $withdraw_id,
-                        "user" => $user_public_key,
-                        "signature" => $signature,
-                        "withdraw_authority" => $withdraw_authority,
-                    ];
-
-                    $withdraw_response = call_backend(
-                        "/tx/game/withdraw-claim",
-                        "POST",
-                        $withdraw_data
-                    );
-
-                    if ($withdraw_response === null) {
-                        throw new Exception(
-                            "Failed to prepare withdrawal claim transaction"
-                        );
-                    }
-
-                    // Set transaction data
-                    $transaction_data = [
-                        "tx" => $withdraw_response,
-                        "returnUrl" => "/withdraw-complete",
-                        "returnParams" => [
-                            "id" => $withdraw_id,
-                            "game" => $game_public_key,
-                        ],
-                    ];
-                } catch (Exception $e) {
-                    $error_message =
-                        "Withdrawal claim preparation failed: " .
-                        $e->getMessage();
-                }
-            }
+            return ["error" => "Game does not exist"];
         }
     } catch (Exception $e) {
-        $error_message = "Error verifying game: " . $e->getMessage();
+        return ["error" => "Error verifying game: " . $e->getMessage()];
     }
-}
 
-// Format withdrawal amount for display (only if we have valid withdrawal data)
+    // Check if withdrawal already processed
+    try {
+        $withdraw_info = call_aggregator(
+            "/games/{$game_public_key}/withdrawals/{$withdraw_id}",
+            "GET"
+        );
+        if ($withdraw_info !== null) {
+            if ($redirect !== null) {
+                header("Location: $redirect");
+                exit();
+            }
+            header(
+                "Location: /withdraw-complete.php?id=" .
+                    urlencode($withdraw_id) .
+                    "&game=" .
+                    urlencode($game_public_key) .
+                    "&signature=" .
+                    urlencode($withdraw_info["signature"])
+            );
+            exit();
+        }
+    } catch (Exception $e) {
+        return [
+            "error" => "Error checking withdrawal status: " . $e->getMessage(),
+        ];
+    }
+
+    // Extract withdrawal amount from ID
+    try {
+        $id_bytes = hex2bin($withdraw_id);
+        if (strlen($id_bytes) !== 32) {
+            return ["error" => "Invalid withdrawal ID length"];
+        }
+
+        $amount_bytes = substr($id_bytes, 24, 8);
+        $amount_unpacked = unpack("P", $amount_bytes);
+        $withdraw_amount = $amount_unpacked[1];
+    } catch (Exception $e) {
+        return ["error" => "Invalid withdrawal ID format: " . $e->getMessage()];
+    }
+
+    // Prepare withdrawal transaction
+    try {
+        $withdraw_data = [
+            "game" => $game_public_key,
+            "withdraw_id" => $withdraw_id,
+            "user" => $user_public_key,
+            "signature" => $signature,
+            "withdraw_authority" => $game_data["withdraw_authority"],
+        ];
+
+        $withdraw_response = call_backend(
+            "/tx/game/withdraw-claim",
+            "POST",
+            $withdraw_data
+        );
+        if ($withdraw_response === null) {
+            throw new Exception(
+                "Failed to prepare withdrawal claim transaction"
+            );
+        }
+
+        $transaction_data = [
+            "tx" => $withdraw_response,
+            "returnUrl" => "/withdraw-complete",
+            "returnParams" => [
+                "id" => $withdraw_id,
+                "game" => $game_public_key,
+            ],
+            "onSuccess" => $redirect,
+        ];
+    } catch (Exception $e) {
+        return [
+            "error" =>
+                "Withdrawal claim preparation failed: " . $e->getMessage(),
+        ];
+    }
+
+    // Return success data
+    return [
+        "withdraw_id" => $withdraw_id,
+        "game_public_key" => $game_public_key,
+        "user_public_key" => $user_public_key,
+        "signature" => $signature,
+        "withdraw_amount" => $withdraw_amount,
+        "transaction_data" => $transaction_data,
+        "game_data" => $game_data,
+    ];
+})();
+
+// Extract results
+$error_message = $result["error"] ?? "";
+$withdraw_id = $result["withdraw_id"] ?? "";
+$game_public_key = $result["game_public_key"] ?? "";
+$user_public_key = $result["user_public_key"] ?? "";
+$signature = $result["signature"] ?? "";
+$withdraw_amount = $result["withdraw_amount"] ?? 0;
+$transaction_data = $result["transaction_data"] ?? [];
+$game_data = $result["game_data"] ?? null;
+
+// Format withdrawal amount for display
 $formatted_withdraw_amount = empty($error_message)
     ? number_format($withdraw_amount / 1000000000, 2)
     : "0.00";
 
+$name = "ivy | withdraw";
+$description = "Withdraw tokens from a game on Ivy, where games come to life";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
@@ -300,22 +326,20 @@ require_once __DIR__ . "/../includes/header.php";
 <div id="tx-widget"></div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Handle game icon loading from metadata
-    const gameIcon = document.getElementById('game-icon');
-    if (gameIcon && gameIcon.dataset.metadataUrl) {
-        fetch(gameIcon.dataset.metadataUrl)
-            .then(response => response.json())
-            .then(metadata => {
-                if (metadata.image) {
-                    gameIcon.src = metadata.image;
-                }
-            })
-            .catch(error => {
-                console.error('Error loading game metadata:', error);
-            });
-    }
-});
+// Handle game icon loading from metadata
+const gameIcon = document.getElementById('game-icon');
+if (gameIcon && gameIcon.dataset.metadataUrl) {
+    fetch(gameIcon.dataset.metadataUrl)
+        .then(response => response.json())
+        .then(metadata => {
+            if (metadata.image) {
+                gameIcon.src = metadata.image;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading game metadata:', error);
+        });
+}
 </script>
 
 <?php require_once __DIR__ . "/../includes/footer.php"; ?>

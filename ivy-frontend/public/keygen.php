@@ -5,6 +5,8 @@
  * Simple public/private key generator utility.
  */
 
+$title = "ivy | keygen";
+$description = "Generate a Solana keypair on Ivy, where games come to life";
 require_once __DIR__ . "/../includes/header.php";
 require_once __DIR__ . "/../includes/icon.php";
 ?>

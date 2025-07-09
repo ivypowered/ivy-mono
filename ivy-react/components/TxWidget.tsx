@@ -3,7 +3,13 @@
 import { useEffect, useMemo } from "react";
 import { PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { useWallet } from "./wallet/WalletProvider";
-import { Api } from "../lib/api";
+import {
+    PROCESS_TRANSACTION_CONFIRMING,
+    PROCESS_TRANSACTION_RETRIEVING,
+    PROCESS_TRANSACTION_SENDING,
+    PROCESS_TRANSACTION_SIGNING,
+    processTransaction,
+} from "@/lib/utils";
 
 // Transaction Status Enum
 enum TransactionStatus {
@@ -12,6 +18,7 @@ enum TransactionStatus {
     SIGNING = "signing",
     SENDING = "sending",
     CONFIRMING = "confirming",
+    RECEIVING = "receiving",
 }
 
 // Interfaces
@@ -19,7 +26,6 @@ export interface TransactionData {
     tx: {
         base64: string;
         feePayer: string;
-        lastValidBlockHeight: number;
         derived: {
             seeds: string[];
             programId: string;
@@ -27,6 +33,7 @@ export interface TransactionData {
     };
     returnUrl: string;
     returnParams: Record<string, unknown>;
+    onSuccess?: string;
 }
 
 // Global state variables
@@ -67,11 +74,6 @@ function getTransactionData(button_id: string): TransactionData {
             `Transaction data 'feePayer' field is not a string: ${JSON.stringify(txData)}`,
         );
     }
-    if (typeof txData.tx.lastValidBlockHeight !== "number") {
-        throw new Error(
-            `Transaction data 'lastValidBlockHeight' field is not a number: ${JSON.stringify(txData)}`,
-        );
-    }
     if (typeof txData.returnUrl !== "string") {
         throw new Error(
             `Transaction data 'returnUrl' field is not a string: ${JSON.stringify(txData)}`,
@@ -107,6 +109,7 @@ function updateButtonState(
         [TransactionStatus.SIGNING]: "Signing...",
         [TransactionStatus.SENDING]: "Sending...",
         [TransactionStatus.CONFIRMING]: "Confirming...",
+        [TransactionStatus.RECEIVING]: "Receiving...",
     };
 
     buttonElement.innerText = buttonTexts[status] || "Submit Transaction";
@@ -231,8 +234,6 @@ export function TxWidget({ button_id }: TransactionHandlerProps) {
                 )[0];
             });
 
-            let previousSignatures: Buffer[] = [];
-
             // Update transaction with current user's public key
             if (tx instanceof Transaction) {
                 // Update instructions with the current wallet and PDAs
@@ -252,10 +253,8 @@ export function TxWidget({ button_id }: TransactionHandlerProps) {
                     });
                 });
 
-                // Remove temporary user from signers
-                tx.signatures = tx.signatures.filter(
-                    (s) => !s.publicKey.equals(originalUserPubkey),
-                );
+                // Clear signatures
+                tx.signatures = [];
 
                 // Set fee payer
                 tx.feePayer = publicKey;
@@ -276,32 +275,50 @@ export function TxWidget({ button_id }: TransactionHandlerProps) {
                         }
                     }
                 }
-                // Store previous signatures to remove later
-                previousSignatures = tx.signatures.map((x) => Buffer.from(x));
+                // Clear signatures
+                tx.signatures = [];
             }
 
-            // Sign and send transaction
-            updateButtonState(TransactionStatus.SENDING, null, button_id);
-            const signedTx = await signTransaction(tx);
-            if (signedTx instanceof VersionedTransaction) {
-                // remove previous signatures if versioned TX
-                signedTx.signatures = signedTx.signatures.filter((s) => {
-                    const ss = Buffer.from(s);
-                    for (const prev of previousSignatures) {
-                        if (ss.equals(prev)) {
-                            return false;
-                        }
-                    }
-                    return true;
-                });
-            }
+            const onStatus = (status: number) => {
+                switch (status) {
+                    case PROCESS_TRANSACTION_RETRIEVING:
+                        updateButtonState(
+                            TransactionStatus.RECEIVING,
+                            null,
+                            button_id,
+                        );
+                        break;
+                    case PROCESS_TRANSACTION_SIGNING:
+                        updateButtonState(
+                            TransactionStatus.SIGNING,
+                            null,
+                            button_id,
+                        );
+                        break;
+                    case PROCESS_TRANSACTION_SENDING:
+                        updateButtonState(
+                            TransactionStatus.SENDING,
+                            null,
+                            button_id,
+                        );
+                        break;
+                    case PROCESS_TRANSACTION_CONFIRMING:
+                        updateButtonState(
+                            TransactionStatus.CONFIRMING,
+                            null,
+                            button_id,
+                        );
+                        break;
+                    default:
+                }
+            };
 
-            // Send and confirm transaction
-            const signature = await Api.sendTransaction(signedTx);
-            updateButtonState(TransactionStatus.CONFIRMING, null, button_id);
-            await Api.confirmTransaction(
-                signature,
-                txData.tx.lastValidBlockHeight,
+            // Sign, send, and confirm transaction
+            const signature = await processTransaction(
+                tx,
+                publicKey,
+                signTransaction,
+                onStatus,
             );
 
             // Success
@@ -316,10 +333,16 @@ export function TxWidget({ button_id }: TransactionHandlerProps) {
     };
 
     const handleFinish = (
-        success: boolean = false,
+        success: boolean,
         signature?: string,
         publicKey?: PublicKey,
     ): void => {
+        if (success && txData.onSuccess) {
+            // Success override URL provided
+            window.location.href = txData.onSuccess;
+            return;
+        }
+
         if (!txData.returnUrl) {
             throw new Error("No return URL provided");
         }

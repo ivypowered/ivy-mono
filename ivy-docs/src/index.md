@@ -1,9 +1,29 @@
-# Introduction
+# Welcome to Ivy
 
-Welcome to the Ivy documentation! Ivy is a decentralized gaming platform where anyone can upload a web game. Each game has an attached currency. Users can buy and sell the game's currency for real money, and developers can collect deposits and issue withdrawals.
+Web3 game development has always been difficult. Building blockchain-powered games requires writing smart contracts, dealing with complex SDKs, and managing wallet integrations. But, it doesn't have to be this way.
 
-This documentation aims to provide basic information about Ivy's structure, as well as provide integration information for developers.
+Ivy makes things easy. We provide a simple, language-agnostic REST API that handles all the blockchain complexity for you. You can build your game in any language, using any engine.
 
-You can integrate your game with the Ivy ecosystem using the Ivy REST API or the Ivy JS SDK. The REST API is a managed service that contains all the functionality needed to interact with Ivy. It has a rate limit of 60 requests per IP address per minute. If you need higher limits, you can use the JS SDK. The JS SDK communicates directly with the Solana blockchain and does not rely on Ivy's servers at all. However, to use the SDK, you'll need a Solana RPC connection, which you can get for free at websites like [Helius](https://www.helius.dev/) and [Syndica](https://syndica.io/).
+With Ivy, you can add Web3 features to your game and launch in hours, not months.
+
+## How it Works
+
+1. **Build your game** using any engine or programming language;
+2. **Integrate Ivy's REST API** to enable blockchain features;
+3. **Launch on the Ivy Marketplace** to instantly reach Ivy's community of Web3 players.
+
+## Why Build on Ivy?
+
+- **Simple:** Ivy's simple REST API abstracts away the blockchain, allowing you to get to market quickly.
+- **Language-agnostic:** Ivy can be used from any language that can make HTTP requests; you don't have to worry about being locked into using a specific game engine or SDK.
+- **Secure by design:** Ivy's standard on-chain components mean you don't have to roll your own smart contracts.
+
+## Where to Start?
+
+- Check out [Example 1](./example-1-cat.md) to publish your first game on Ivy in minutes.
+- Accept [user deposits](./deposits.md) to process payments to your game.
+- View [the tokenomics](./token.md) of the IVY token.
+
+## Next Steps
 
 We care about our developers. If you have any questions or need anything at all, please don't hesitate to drop by [our Discord server](https://discord.gg/ge7WyB8tjG) and ask your question in the `#dev` channel. We'll do our absolute best to get back to you promptly.

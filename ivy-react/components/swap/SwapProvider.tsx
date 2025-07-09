@@ -5,7 +5,14 @@ import {
     useState,
     useEffect,
 } from "react";
-import { sfcap } from "@/lib/utils";
+import {
+    PROCESS_TRANSACTION_CONFIRMING,
+    PROCESS_TRANSACTION_RETRIEVING,
+    PROCESS_TRANSACTION_SENDING,
+    PROCESS_TRANSACTION_SIGNING,
+    processTransaction,
+    sfcap,
+} from "@/lib/utils";
 import {
     SwapToken,
     SwapState,
@@ -26,10 +33,6 @@ const SwapContext = createContext<SwapContextValue | undefined>(undefined);
 interface SwapProviderProps {
     children: ReactNode;
     commonTokens: SwapToken[];
-    confirmTransaction: (
-        signature: string,
-        lastValidBlockHeight: number,
-    ) => Promise<void>;
     connectWallet: () => void;
     fetchBalance: (user: PublicKey, token: SwapToken) => Promise<number>;
     fetchTransactionEffects: (
@@ -51,9 +54,6 @@ interface SwapProviderProps {
     initialInputToken: SwapToken;
     initialOutputToken: SwapToken;
     reloadBalances: () => void;
-    sendTransaction: (
-        tx: Transaction | VersionedTransaction,
-    ) => Promise<string>;
     signTransaction: (
         tx: Transaction | VersionedTransaction,
     ) => Promise<Transaction | VersionedTransaction>;
@@ -69,7 +69,6 @@ const REFRESH_MS = 15_000;
 export function SwapProvider({
     children,
     commonTokens,
-    confirmTransaction,
     connectWallet,
     fetchBalance,
     fetchTransactionEffects,
@@ -77,7 +76,6 @@ export function SwapProvider({
     initialInputToken,
     initialOutputToken,
     reloadBalances,
-    sendTransaction,
     signTransaction,
     tokens,
     user,
@@ -357,39 +355,31 @@ export function SwapProvider({
                 if (!user) throw new Error("Wallet not connected");
                 const inputMint = state.inputToken.mint;
                 const outputMint = state.outputToken.mint;
-                setSwapState("retrieving");
-                const { tx, lastValidBlockHeight } =
-                    await quote.getTransaction();
-                if (tx instanceof Transaction) {
-                    tx.feePayer = user;
-                }
-                const w = window as {
-                    phantom?: {
-                        solana?: {
-                            isPhantom: boolean;
-                            signAndSendTransaction: (
-                                tx: Transaction | VersionedTransaction,
-                            ) => Promise<{
-                                signature: string;
-                            }>;
-                        };
-                    };
+                const onStatus = (status: number) => {
+                    switch (status) {
+                        case PROCESS_TRANSACTION_RETRIEVING:
+                            setSwapState("retrieving");
+                            break;
+                        case PROCESS_TRANSACTION_SIGNING:
+                            setSwapState("signing");
+                            break;
+                        case PROCESS_TRANSACTION_SENDING:
+                            setSwapState("sending");
+                            break;
+                        case PROCESS_TRANSACTION_CONFIRMING:
+                            setSwapState("confirming");
+                            break;
+                        default:
+                            break;
+                    }
                 };
                 const start = Math.floor(new Date().getTime() / 1000);
-                let signature: string;
-                if (w.phantom?.solana?.isPhantom) {
-                    setSwapState("sending");
-                    const result =
-                        await w.phantom.solana.signAndSendTransaction(tx);
-                    signature = result.signature;
-                } else {
-                    setSwapState("signing");
-                    const txSigned = await signTransaction(tx);
-                    setSwapState("sending");
-                    signature = await sendTransaction(txSigned);
-                }
-                setSwapState("confirming");
-                await confirmTransaction(signature, lastValidBlockHeight);
+                const signature = await processTransaction(
+                    quote.getTransaction(),
+                    user,
+                    signTransaction,
+                    onStatus,
+                );
                 const { input, output } = await fetchTransactionEffects(
                     user,
                     signature,

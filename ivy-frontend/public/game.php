@@ -10,6 +10,8 @@ require_once __DIR__ . "/../includes/api.php";
 $address = isset($_GET["address"]) ? $_GET["address"] : null;
 $error_message = null;
 $game_base64 = null;
+$name = "Error";
+$symbol = "ERR";
 
 // Validate address
 if (!$address) {
@@ -18,6 +20,12 @@ if (!$address) {
     try {
         // Call the aggregator API to get the game data
         $game_data = call_aggregator("/games/{$address}");
+        if (isset($game_data["name"])) {
+            $name = $game_data["name"];
+        }
+        if (isset($game_data["symbol"])) {
+            $symbol = $game_data["symbol"];
+        }
 
         if ($game_data === null) {
             $error_message =
@@ -32,6 +40,8 @@ if (!$address) {
 }
 
 // Include the header
+$title = "ivy | $name ($symbol)";
+$description = "Trade $symbol on Ivy, where games come to life";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

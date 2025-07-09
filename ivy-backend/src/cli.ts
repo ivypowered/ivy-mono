@@ -12,7 +12,7 @@ import dotenv from "dotenv";
 import { confirmTransaction } from "./functions/confirmTransaction";
 import { requestAirdrop } from "./functions/requestAirdrop";
 import { debugMint } from "./functions/debugMint";
-import { World, USDC_MINT, IVY_MINT, Game } from "ivy-sdk";
+import { World, USDC_MINT, IVY_MINT, Game, Comment } from "ivy-sdk";
 import { createAndUploadMetadata, uploadImageToIPFS } from "./util";
 import { RPC_URL } from "./constants";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
@@ -673,6 +673,65 @@ program
             );
         } catch (error) {
             console.error("Error minting tokens:", error);
+            process.exit(1);
+        }
+    });
+
+program
+    .command("get-comments")
+    .description("Get all comments for a game")
+    .requiredOption("-g, --game <address>", "Game address")
+    .action(async (options) => {
+        try {
+            console.log("Fetching comments for game...");
+
+            // Parse the game address
+            const gameAddress = new PublicKey(options.game);
+            console.log(`Game address: ${gameAddress.toString()}`);
+
+            // Get the comment index to find out how many comment buffers exist
+            console.log("Getting comment index...");
+            const commentIndex = await Comment.getIndex(
+                connection,
+                gameAddress,
+            );
+
+            console.log(
+                `Comment buffer address: ${commentIndex.bufAddress.toString()}`,
+            );
+            console.log(`Current buffer index: ${commentIndex.bufIndex}`);
+            console.log(`Buffer nonce: ${commentIndex.bufNonce}`);
+
+            // Get all comments from 0 to bufIndex + 1
+            const endIndex = commentIndex.bufIndex + 1;
+            console.log(`Fetching comments from buffer 0 to ${endIndex}...`);
+
+            const comments = await Comment.getComments(
+                connection,
+                gameAddress,
+                0,
+                endIndex,
+            );
+
+            console.log(`\nFound ${comments.length} comments:`);
+            console.log("=".repeat(60));
+
+            if (comments.length === 0) {
+                console.log("No comments found for this game.");
+            } else {
+                comments.forEach((comment, index) => {
+                    const date = new Date(comment.timestamp * 1000);
+                    console.log(`\nComment ${index + 1}:`);
+                    console.log(`  User: ${comment.user.toString()}`);
+                    console.log(`  Timestamp: ${date.toISOString()}`);
+                    console.log(`  Text: ${JSON.stringify(comment.text)}`);
+                    console.log("-".repeat(40));
+                });
+            }
+
+            console.log(`\nTotal comments: ${comments.length}`);
+        } catch (error) {
+            console.error("Error fetching comments:", error);
             process.exit(1);
         }
     });

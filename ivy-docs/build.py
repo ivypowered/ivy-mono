@@ -144,7 +144,7 @@ def add_navigation_container(main_div, nav_items, current_name):
     main_div.append(nav_container)
     return main_div
 
-def convert_mkdocs_to_ivy(name, html_string, original_soup, public_root):
+def convert_mkdocs_to_ivy(name, html_string, original_soup, public_root, tmp_dir, dst_dir):
     """Convert MkDocs HTML to Ivy-styled HTML with navigation."""
     soup = BeautifulSoup(html_string, 'html.parser')
     soup_div = soup.find("div")
@@ -179,6 +179,47 @@ def convert_mkdocs_to_ivy(name, html_string, original_soup, public_root):
             new_href = site_prefix + href[2:]
 
         a_tag['href'] = new_href
+
+    # Process image elements
+    images_dir = os.path.join(dst_dir, 'images')
+
+    for img_tag in soup_div.find_all('img', src=True):
+        if not isinstance(img_tag, Tag):
+            raise TypeError("img_tag is not Tag")
+
+        src = str(img_tag['src'] or "")
+
+        # Skip external images or data URLs
+        if src.startswith(('http://', 'https://', 'data:', '//')):
+            continue
+
+        if not src:
+            continue
+
+        # Extract the filename (last component of the path)
+        filename = os.path.basename(src)
+
+        if not filename:
+            continue
+
+        # Look for the file in tmp_dir
+        source_image_path = os.path.join(tmp_dir, filename)
+
+        if os.path.exists(source_image_path):
+            # Create images directory if it doesn't exist
+            if not os.path.exists(images_dir):
+                os.makedirs(images_dir)
+
+            # Destination path for the image
+            dest_image_path = os.path.join(images_dir, filename)
+
+            # Copy the image if it doesn't already exist in the destination
+            if not os.path.exists(dest_image_path):
+                shutil.copy2(source_image_path, dest_image_path)
+
+            # Update the src attribute
+            new_src = f"{public_root}/images/{filename}" if public_root != "/" else f"/images/{filename}"
+            img_tag['src'] = new_src
 
     # Create sidebar
     sidebar = BeautifulSoup('<div class="docs-nav"></div>', 'html.parser')
@@ -333,7 +374,7 @@ def build_docs(args):
                     print(f"No main content div in {html_filepath}", file=sys.stderr)
                     continue
 
-                output_html = convert_mkdocs_to_ivy(name, str(main_content_div), original_soup, args.public_root)
+                output_html = convert_mkdocs_to_ivy(name, str(main_content_div), original_soup, args.public_root, tmp_dir, args.dst_dir)
                 output_filepath = os.path.join(args.dst_dir, f"{name}.html")
 
                 # Create directory if needed

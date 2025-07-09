@@ -161,6 +161,8 @@ if (isset($_GET["error"])) {
     $errors = array_map("urldecode", $_GET["errors"]);
 }
 
+$title = "ivy | upload";
+$description = "Upload your game to Ivy, where games come to life";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

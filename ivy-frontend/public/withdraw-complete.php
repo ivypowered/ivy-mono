@@ -12,7 +12,6 @@ if (!isset($_GET["id"]) || !isset($_GET["game"])) {
 }
 
 require_once __DIR__ . "/../includes/api.php";
-require_once __DIR__ . "/../includes/header.php";
 
 // Get parameters from the request
 $withdraw_id = $_GET["id"] ?? "";
@@ -51,6 +50,11 @@ $explorer_link = $signature
 
 // Format withdraw amount for display
 $formatted_withdraw_amount = number_format($withdraw_amount / 1000000000, 2);
+
+$title = "ivy | withdraw complete";
+$description =
+    "View the result of your withdrawal on Ivy, where games come to life";
+require_once __DIR__ . "/../includes/header.php";
 ?>
 
 <main class="py-8">

@@ -88,7 +88,7 @@ static Context context_load(const u8* input) {
             ka[i].data = (u8*)input;
             input += ka[i].data_len;
             input += MAX_PERMITTED_DATA_INCREASE;
-            input = (u8*)(((u64)input + 8 - 1) & ~(8 - 1)); // padding
+            input = (u8*)(((u64)input + 7) & ~7); // padding
 
             // rent epoch
             ka[i].rent_epoch = *(u64*)input;

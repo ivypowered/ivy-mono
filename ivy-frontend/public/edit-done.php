@@ -5,8 +5,6 @@ if ($_SERVER["REQUEST_METHOD"] !== "GET") {
     exit();
 }
 
-require_once __DIR__ . "/../includes/header.php";
-
 // Get transaction parameters from GET request
 $status = $_GET["status"] ?? "";
 $signature = $_GET["signature"] ?? "";
@@ -21,6 +19,11 @@ $explorer_link = $signature
 $game_explorer_link = $game_address
     ? "https://solscan.io/address/" . urlencode($game_address)
     : null;
+
+$title = "ivy | edit done";
+$description =
+    "View the results of your game edit on Ivy, where games come to life";
+require_once __DIR__ . "/../includes/header.php";
 ?>
 
 <main class="py-8">

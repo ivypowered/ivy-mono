@@ -12,6 +12,9 @@ require_once __DIR__ . "/../includes/fmt.php";
 $global_info = call_aggregator("/global-info");
 
 // Include header
+$title = "ivy | about us";
+$description =
+    "Ivy is the engine powering the next generation of video games. Build and scale fast with our simple REST API.";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
@@ -24,7 +27,7 @@ require_once __DIR__ . "/../includes/header.php";
                     — where games come to life
                 </h1>
                 <p class="mx-auto mb-10 max-w-2xl text-xl text-zinc-300">
-                    A home for web games and their digital economies. Play, earn, buy, and sell, all in one place.
+                    A home for games with digital economies. Play, earn, buy, and sell, all in one place.
                 </p>
                 <div class="mb-8 flex flex-wrap justify-center gap-6">
                     <div class="border-2 border-emerald-400 p-6 min-w-[200px]">
@@ -73,8 +76,8 @@ require_once __DIR__ . "/../includes/header.php";
                             "h-10 w-10 text-emerald-950"
                         ); ?>
                     </div>
-                    <h3 class="text-xl font-bold mb-2">each game has a currency</h3>
-                    <p class="text-zinc-300">Each game has its own digital currency. Earn it by playing and spend it on in-game items. Buy and sell game currency for real-world value.</p>
+                    <h3 class="text-xl font-bold mb-2">each game has a token</h3>
+                    <p class="text-zinc-300">Each game has its own digital token. Earn it by playing and spend it on in-game items. Buy and sell game tokens for real-world value.</p>
                 </div>
 
                 <div class="border-2 border-emerald-400 p-6 flex flex-col items-center text-center">
@@ -85,7 +88,7 @@ require_once __DIR__ . "/../includes/header.php";
                         ); ?>
                     </div>
                     <h3 class="text-xl font-bold mb-2">creators earn</h3>
-                    <p class="text-zinc-300">Developers earn 50% of all transaction fees when players trade game currencies; the other 50% is converted to IVY and burned.</p>
+                    <p class="text-zinc-300">Developers earn 50% of all transaction fees when players trade game tokens; the other 50% is converted to IVY and burned.</p>
                 </div>
             </div>
         </section>
