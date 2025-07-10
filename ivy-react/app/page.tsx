@@ -118,7 +118,12 @@ export default function Home() {
             {/* Main Content - Game */}
             <WalletProvider autoConnect={true}>
                 <></>
-                {<GameDisplay game={exampleGame as GameObject} />}
+                {
+                    <GameDisplay
+                        game={exampleGame as GameObject}
+                        showComments={true}
+                    />
+                }
             </WalletProvider>
 
             {/* Footer */}

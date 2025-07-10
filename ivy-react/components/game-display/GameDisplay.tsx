@@ -103,7 +103,13 @@ async function fetchBalance(
 }
 
 // Main game display content
-export function GameDisplay({ game }: { game: GameObject }) {
+export function GameDisplay({
+    game,
+    showComments,
+}: {
+    game: GameObject;
+    showComments: boolean;
+}) {
     const { publicKey, signTransaction, signMessage, setShowModal } =
         useWallet();
     const tokens = useTokens();
@@ -555,21 +561,25 @@ export function GameDisplay({ game }: { game: GameObject }) {
                 )}
 
                 {/* Comments Section */}
-                <div className="mt-8 space-y-4">
-                    {/* Comments Display */}
-                    <Comments
-                        gameAddress={game.address}
-                        userAddress={publicKey?.toBase58()}
-                        onConnectWallet={() => setShowModal(true)}
-                        signTransaction={
-                            signTransaction ||
-                            (() => {
-                                throw new Error("can't find signTransaction");
-                            })
-                        }
-                        initialCommentBufIndex={game.comment_buf_index}
-                    />
-                </div>
+                {showComments && (
+                    <div className="mt-8 space-y-4">
+                        {/* Comments Display */}
+                        <Comments
+                            gameAddress={game.address}
+                            userAddress={publicKey?.toBase58()}
+                            onConnectWallet={() => setShowModal(true)}
+                            signTransaction={
+                                signTransaction ||
+                                (() => {
+                                    throw new Error(
+                                        "can't find signTransaction",
+                                    );
+                                })
+                            }
+                            initialCommentBufIndex={game.comment_buf_index}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );

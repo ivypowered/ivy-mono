@@ -107,7 +107,7 @@ export default function Token() {
 
             {/* Main Content - Game */}
             <WalletProvider autoConnect={true}>
-                <GameDisplay game={ivy_game} />
+                <GameDisplay game={ivy_game} showComments={false} />
             </WalletProvider>
 
             {/* Footer */}

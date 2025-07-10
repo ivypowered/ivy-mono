@@ -59,12 +59,18 @@ function Root({
         <WalletProvider autoConnect={true}>
             {gameElement &&
                 gameData &&
-                createPortal(<GameDisplay game={gameData} />, gameElement)}
+                createPortal(
+                    <GameDisplay game={gameData} showComments={true} />,
+                    gameElement,
+                )}
 
             {tokenElement &&
                 ivyInfo &&
                 createPortal(
-                    <GameDisplay game={createIvyGame(ivyInfo)} />,
+                    <GameDisplay
+                        game={createIvyGame(ivyInfo)}
+                        showComments={false}
+                    />,
                     tokenElement,
                 )}
 
