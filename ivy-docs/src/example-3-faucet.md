@@ -108,7 +108,9 @@ app.post("/claim", async (req, res) => {
 
     // Generate ID
     const user = new PublicKey(address);
-    const id = Id.generate((FAUCET_AMOUNT * 1_000_000_000).toString());
+    const id = Id.generate(
+        Math.floor(FAUCET_AMOUNT * 1_000_000_000).toString(),
+    );
     const signature = Game.withdrawSign(
         /* game_address */ GAME_ADDRESS,
         /* id */ id,
