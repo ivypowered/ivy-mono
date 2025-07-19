@@ -52,7 +52,7 @@ const WITHDRAW_KEY = Buffer.from(
     "hex",
 );
 const FAUCET_AMOUNT = 0.1; // Amount of tokens to give per claim
-const IVY_URL = "http://127.0.0.1:3000";
+const IVY_URL = "https://ivypowered.com";
 const PORT = 7000;
 
 // Setup
