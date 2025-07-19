@@ -1,0 +1,614 @@
+openapi: 3.0.0
+info:
+    title: Ivy Aggregator API
+    description: API for querying games, items, achievements, and performing price estimations
+    version: 1.0.0
+servers:
+    - url: "http://localhost:5000"
+      description: Local development server
+
+components:
+    schemas:
+        Game:
+            type: object
+            properties:
+                name:
+                    type: string
+                    example: "Crypto Legends"
+                symbol:
+                    type: string
+                    example: "LEGENDS"
+                description:
+                    type: string
+                    example: "An immersive blockchain RPG with tradable assets"
+                address:
+                    type: string
+                    format: public-key
+                    example: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+                game_url:
+                    type: string
+                    example: "https://cryptolegends.game"
+                cover_url:
+                    type: string
+                    example: "https://cdn.cryptolegends.game/cover.jpg"
+                metadata_url:
+                    type: string
+                    example: "https://cdn.cryptolegends.game/metadata.json"
+                create_timestamp:
+                    type: integer
+                    format: uint64
+                    example: 1615489200
+                ivy_balance:
+                    type: integer
+                    format: uint64
+                    example: 5000000
+                game_balance:
+                    type: integer
+                    format: uint64
+                    example: 10000000
+                starting_ivy_balance:
+                    type: integer
+                    format: uint64
+                    example: 1000000
+                normalized_name:
+                    type: string
+                    example: "crypto-legends"
+
+        GameList:
+            type: object
+            properties:
+                status:
+                    type: string
+                    example: "ok"
+                data:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/Game"
+
+        GameDetail:
+            type: object
+            properties:
+                status:
+                    type: string
+                    example: "ok"
+                data:
+                    $ref: "#/components/schemas/Game"
+
+        GameCount:
+            type: object
+            properties:
+                status:
+                    type: string
+                    example: "ok"
+                data:
+                    type: integer
+                    example: 150
+
+        Item:
+            type: object
+            properties:
+                name:
+                    type: string
+                    example: "Legendary Sword"
+                normalized_name:
+                    type: string
+                    example: "legendary-sword"
+                symbol:
+                    type: string
+                    example: "LSWORD"
+                description:
+                    type: string
+                    example: "A mythical sword of immense power"
+                address:
+                    type: string
+                    format: public-key
+                    example: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                total_minted:
+                    type: integer
+                    format: uint64
+                    example: 250
+                is_minting_disabled:
+                    type: boolean
+                    example: false
+
+        ItemList:
+            type: object
+            properties:
+                status:
+                    type: string
+                    example: "ok"
+                data:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/Item"
+
+        Achievement:
+            type: object
+            properties:
+                name:
+                    type: string
+                    example: "Dragon Slayer"
+                normalized_name:
+                    type: string
+                    example: "dragon-slayer"
+                symbol:
+                    type: string
+                    example: "DSLAYER"
+                description:
+                    type: string
+                    example: "Defeat the mighty dragon boss"
+                address:
+                    type: string
+                    format: public-key
+                    example: "0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba"
+                total_granted:
+                    type: integer
+                    format: uint64
+                    example: 120
+                is_granting_disabled:
+                    type: boolean
+                    example: false
+
+        AchievementList:
+            type: object
+            properties:
+                status:
+                    type: string
+                    example: "ok"
+                data:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/Achievement"
+
+        ChartCandle:
+            type: object
+            properties:
+                time:
+                    type: integer
+                    format: uint64
+                    example: 1615489200
+                open:
+                    type: number
+                    example: 100.5
+                high:
+                    type: number
+                    example: 105.2
+                low:
+                    type: number
+                    example: 98.7
+                close:
+                    type: number
+                    example: 103.1
+                volume:
+                    type: number
+                    example: 15000.0
+
+        ChartResponse:
+            type: object
+            properties:
+                status:
+                    type: string
+                    example: "ok"
+                data:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/ChartCandle"
+
+        PriceResponse:
+            type: object
+            properties:
+                status:
+                    type: string
+                    example: "ok"
+                data:
+                    type: number
+                    example: 1.25
+
+        SwapEstimateResponse:
+            type: object
+            properties:
+                status:
+                    type: string
+                    example: "ok"
+                data:
+                    type: integer
+                    format: uint64
+                    example: 12500000
+
+        DepositStatusResponse:
+            type: object
+            properties:
+                status:
+                    type: string
+                    example: "ok"
+                data:
+                    type: boolean
+                    example: true
+
+        AddressValidationResponse:
+            type: object
+            properties:
+                status:
+                    type: string
+                    example: "ok"
+                data:
+                    type: boolean
+                    example: true
+
+        ErrorResponse:
+            type: object
+            properties:
+                status:
+                    type: string
+                    example: "error"
+                msg:
+                    type: string
+                    example: "Game not found"
+
+paths:
+    /:
+        get:
+            summary: API Root
+            description: Returns a simple text response confirming the API is working
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        text/plain:
+                            schema:
+                                type: string
+                                example: "Ivy Aggregator API"
+
+    /games:
+        get:
+            summary: List games
+            description: Returns a list of games with optional filtering and pagination
+            parameters:
+                - name: limit
+                  in: query
+                  description: Maximum number of games to return
+                  schema:
+                      type: integer
+                      default: 20
+                - name: offset
+                  in: query
+                  description: Number of games to skip
+                  schema:
+                      type: integer
+                      default: 0
+                - name: sort
+                  in: query
+                  description: Sort order for games
+                  schema:
+                      type: string
+                      enum: [recent, top, hot]
+                      default: recent
+                - name: q
+                  in: query
+                  description: Search query for game names
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: List of games
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/GameList"
+                "400":
+                    description: Bad request
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
+    /games/count:
+        get:
+            summary: Get total number of games
+            description: Returns the total count of games in the system
+            responses:
+                "200":
+                    description: Number of games
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/GameCount"
+
+    /games/{address}:
+        get:
+            summary: Get game details
+            description: Returns details for a specific game by address
+            parameters:
+                - name: address
+                  in: path
+                  required: true
+                  description: Public address of the game
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Game details
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/GameDetail"
+                "404":
+                    description: Game not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
+    /games/{game}/items:
+        get:
+            summary: Get items for a game
+            description: Returns items associated with a specific game
+            parameters:
+                - name: game
+                  in: path
+                  required: true
+                  description: Public address of the game
+                  schema:
+                      type: string
+                - name: limit
+                  in: query
+                  description: Maximum number of items to return
+                  schema:
+                      type: integer
+                      default: 20
+                - name: offset
+                  in: query
+                  description: Number of items to skip
+                  schema:
+                      type: integer
+                      default: 0
+                - name: q
+                  in: query
+                  description: Search query for item names
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: List of items
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ItemList"
+
+    /games/{game}/achievements:
+        get:
+            summary: Get achievements for a game
+            description: Returns achievements associated with a specific game
+            parameters:
+                - name: game
+                  in: path
+                  required: true
+                  description: Public address of the game
+                  schema:
+                      type: string
+                - name: limit
+                  in: query
+                  description: Maximum number of achievements to return
+                  schema:
+                      type: integer
+                      default: 20
+                - name: offset
+                  in: query
+                  description: Number of achievements to skip
+                  schema:
+                      type: integer
+                      default: 0
+                - name: q
+                  in: query
+                  description: Search query for achievement names
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: List of achievements
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/AchievementList"
+
+    /games/{game}/charts/{kind}:
+        get:
+            summary: Get chart data for a game
+            description: Returns chart data for a specific game and chart type
+            parameters:
+                - name: game
+                  in: path
+                  required: true
+                  description: Public address of the game
+                  schema:
+                      type: string
+                - name: kind
+                  in: path
+                  required: true
+                  description: Chart type
+                  schema:
+                      type: string
+                      enum: [1m, 5m, 15m, 1h, 4h, 1d]
+                - name: limit
+                  in: query
+                  description: Maximum number of candles to return
+                  schema:
+                      type: integer
+                      default: 100
+                - name: offset
+                  in: query
+                  description: Number of candles to skip
+                  schema:
+                      type: integer
+                      default: 0
+            responses:
+                "200":
+                    description: Chart data
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ChartResponse"
+
+    /ivy/charts/{kind}:
+        get:
+            summary: Get Ivy token chart data
+            description: Returns chart data for the Ivy token
+            parameters:
+                - name: kind
+                  in: path
+                  required: true
+                  description: Chart type
+                  schema:
+                      type: string
+                      enum: [1m, 5m, 15m, 1h, 4h, 1d]
+                - name: limit
+                  in: query
+                  description: Maximum number of candles to return
+                  schema:
+                      type: integer
+                      default: 100
+                - name: offset
+                  in: query
+                  description: Number of candles to skip
+                  schema:
+                      type: integer
+                      default: 0
+            responses:
+                "200":
+                    description: Chart data
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ChartResponse"
+
+    /ivy/price:
+        get:
+            summary: Get current Ivy token price
+            description: Returns the current price of the Ivy token
+            responses:
+                "200":
+                    description: Current price
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/PriceResponse"
+
+    /games/{game}/swap/estimate:
+        get:
+            summary: Estimate game swap output amount
+            description: Estimates the output amount for a game token swap
+            parameters:
+                - name: game
+                  in: path
+                  required: true
+                  description: Public address of the game
+                  schema:
+                      type: string
+                - name: input_amount
+                  in: query
+                  required: true
+                  description: Input amount for the swap
+                  schema:
+                      type: integer
+                      format: uint64
+                - name: is_buy
+                  in: query
+                  required: true
+                  description: Whether this is a buy operation
+                  schema:
+                      type: boolean
+            responses:
+                "200":
+                    description: Estimated output amount
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/SwapEstimateResponse"
+                "400":
+                    description: Bad request
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
+    /ivy/swap/estimate:
+        get:
+            summary: Estimate world swap output amount
+            description: Estimates the output amount for an Ivy token swap
+            parameters:
+                - name: input_amount
+                  in: query
+                  required: true
+                  description: Input amount for the swap
+                  schema:
+                      type: integer
+                      format: uint64
+                - name: is_buy
+                  in: query
+                  required: true
+                  description: Whether this is a buy operation
+                  schema:
+                      type: boolean
+            responses:
+                "200":
+                    description: Estimated output amount
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/SwapEstimateResponse"
+                "400":
+                    description: Bad request
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
+    /games/{game}/deposits/{id}:
+        get:
+            summary: Check deposit status
+            description: Checks if a deposit has been completed
+            parameters:
+                - name: game
+                  in: path
+                  required: true
+                  description: Public address of the game
+                  schema:
+                      type: string
+                - name: id
+                  in: path
+                  required: true
+                  description: Deposit ID (32 bytes, hex encoded)
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Deposit status
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/DepositStatusResponse"
+                "400":
+                    description: Bad request (invalid deposit ID)
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
+    /validate/address/{address}:
+        get:
+            summary: Validate address
+            description: Validates if a string is a valid address
+            parameters:
+                - name: address
+                  in: path
+                  required: true
+                  description: Address to validate
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Validation result
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/AddressValidationResponse"

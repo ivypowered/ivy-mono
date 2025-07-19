@@ -1,0 +1,176 @@
+@config "./tailwind.config.js";
+@import "tailwindcss";
+@import "./jetbrains-mono.css";
+
+@layer components {
+    /* For documentation containers */
+    .docs-root {
+        @apply flex;
+    }
+    .docs-content {
+        @apply flex-1 min-w-0 pt-0 md:p-4 md:pt-0;
+    }
+
+    /* For documentation navigation */
+    .docs-nav {
+        @apply w-64 hidden md:block pr-6;
+    }
+
+    .docs-nav-box {
+        @apply border-2 border-emerald-400 sticky top-6;
+    }
+
+    .docs-nav-header {
+        @apply bg-emerald-400 text-emerald-950 font-bold px-4 py-2;
+    }
+
+    .docs-nav-list {
+        @apply p-4 space-y-3;
+    }
+
+    .docs-nav-item {
+        @apply hover:underline decoration-2 decoration-emerald-400 underline-offset-4;
+    }
+
+    .docs-nav-active {
+        @apply font-bold;
+    }
+
+    /* For documentation mobile navigation */
+    .docs-mobile-nav-container {
+        @apply relative md:hidden text-3xl font-bold border-b-2 border-emerald-400 pb-2 mb-6;
+    }
+    .docs-mobile-nav-select {
+        @apply w-full appearance-none focus:outline-none pr-8 cursor-pointer;
+    }
+    .docs-mobile-nav-select option {
+        @apply bg-black text-white;
+    }
+    .docs-mobile-nav-icon {
+        @apply pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white;
+    }
+    .docs-desktop-header {
+        @apply hidden md:block;
+    }
+
+    /* For documentation markdown, and game descriptions */
+    .markdown {
+        overflow-wrap: break-word;
+    }
+
+    .markdown h1 {
+        @apply text-3xl font-bold border-b-2 border-emerald-400 pb-2 mb-6;
+    }
+
+    .markdown h2 {
+        @apply text-2xl font-bold border-l-4 border-emerald-400 pl-3 mb-4 mt-8;
+    }
+
+    .markdown h3 {
+        @apply text-xl font-bold mb-3 mt-6;
+    }
+
+    .markdown p {
+        @apply mb-4 leading-relaxed;
+    }
+
+    .markdown ul {
+        @apply list-disc space-y-2 pl-7;
+    }
+
+    .markdown ul li {
+        @apply pl-1;
+    }
+
+    .markdown ol {
+        @apply list-decimal space-y-2 pl-8;
+    }
+
+    .markdown li {
+        @apply mb-1;
+    }
+
+    .markdown pre {
+        @apply mb-4 bg-emerald-950 border-2 border-emerald-400 p-4 overflow-x-auto font-[inherit];
+    }
+
+    .markdown hr {
+        @apply my-4;
+    }
+
+    .markdown a:not(.arrow-link) {
+        @apply text-emerald-400 hover:underline decoration-2 decoration-emerald-400 underline-offset-4;
+    }
+
+    .markdown code {
+        @apply bg-emerald-900 border border-emerald-700 text-emerald-200 px-1.5 py-0.5 text-sm mx-0.5 font-[inherit];
+    }
+
+    .markdown pre code {
+        @apply text-emerald-50 block whitespace-pre bg-transparent border-0 p-0 m-0;
+    }
+
+    .markdown table {
+        @apply w-full border-collapse mb-6 border-2 border-emerald-400 text-sm;
+    }
+
+    .markdown thead {
+        @apply bg-emerald-400 text-emerald-950 font-bold;
+    }
+
+    .markdown th {
+        @apply p-3 text-left border border-emerald-700 whitespace-nowrap;
+    }
+
+    .markdown td {
+        @apply p-3 border border-emerald-400/30 align-top;
+    }
+
+    .markdown tbody tr:nth-child(odd) {
+        @apply bg-zinc-800/50;
+    }
+
+    /* Add a special style for code within table cells */
+    .markdown td code {
+        @apply bg-emerald-900/70 border border-emerald-700/70 text-emerald-200 px-1.5 py-0.5 text-xs mx-0.5;
+    }
+
+    /* Make sure table captions and headers stand out */
+    .markdown table caption,
+    .markdown table + p strong:first-child {
+        @apply text-emerald-400 font-bold text-sm mb-2 block;
+    }
+
+    .markdown .route-tag {
+        @apply bg-emerald-400 text-emerald-950 font-bold px-2 py-1 inline-block;
+    }
+
+    .markdown p:has(.route-tag) {
+        @apply bg-emerald-900/30 p-3 my-4;
+    }
+
+    /* Arrow buttons */
+    .markdown .arrow-container {
+        @apply justify-between mt-6 pt-3 border-t-2 border-emerald-400 flex md:hidden;
+    }
+
+    .markdown .arrow-link {
+        @apply flex items-center text-emerald-400 hover:bg-emerald-900/50 px-4 py-2 decoration-0 hover:no-underline font-bold;
+    }
+
+    .markdown input[type="text"] {
+        @apply bg-transparent border-2 border-emerald-400 px-2 py-1 text-emerald-200 placeholder:text-emerald-700 focus:outline-none focus:border-emerald-300;
+    }
+
+    .markdown img {
+        @apply block mx-auto max-w-full h-auto border-2 border-emerald-400;
+    }
+
+    button {
+        cursor: pointer;
+    }
+
+    button:disabled {
+        cursor: default;
+    }
+}

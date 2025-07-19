@@ -1,0 +1,29 @@
+[package]
+name = "r128"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["staticlib"]
+name = "r128"
+
+[profile.release]
+panic = "abort"
+overflow-checks = false
+lto = "fat"
+codegen-units = 1
+opt-level = "z"
+strip = true
+
+[dependencies]
+ethnum = "=1.5.1"
+fixed = "=1.28.0"
+num-integer = "=0.1.46"
+
+[dependencies.half]
+version = "=2.4.0"
+default-features = false
+features = []
+
+[build-dependencies]
+cbindgen = "0.28.0"

@@ -1,0 +1,113 @@
+genrule(
+    name = "npm_install",
+    srcs = [
+        "package.json",
+        "package-lock.json",
+    ],
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location package.json))
+        npm ci
+        date +%s.%N > $$ROOT_DIR/$@
+    """,
+    outs = ["npm_install.marker"]
+)
+
+genrule(
+    name = "import",
+    srcs = [
+        ":npm_install",
+        "package.json",
+        "//ivy-sdk:index.js",
+        "//ivy-sdk:index.d.ts",
+    ],
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location package.json))
+        mkdir -p node_modules/ivy-sdk
+        cp --no-preserve=mode $$ROOT_DIR/$(location //ivy-sdk:index.js) node_modules/ivy-sdk/index.js
+        cp --no-preserve=mode $$ROOT_DIR/$(location //ivy-sdk:index.d.ts) node_modules/ivy-sdk/index.d.ts
+
+        echo '{
+          "name": "ivy-sdk",
+          "version": "1.0.0",
+          "main": "index.js",
+          "types": "index.d.ts"
+        }' > node_modules/ivy-sdk/package.json
+
+        date +%s.%N > $$ROOT_DIR/$@
+    """,
+    outs = ["import.marker"]
+)
+
+genrule(
+    name = "build",
+    srcs = [
+        "package.json",
+        "tsconfig.json",
+        ":npm_install",
+        ":import",
+    ] + glob(["src/**/*.ts"]),
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location package.json))
+        npm run build
+        cp ./dist/index.js $$ROOT_DIR/$(location index.js)
+        cp ./dist/cli.js $$ROOT_DIR/$(location cli.js)
+    """,
+    outs = ["index.js", "cli.js"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "dev",
+    srcs = [":build", "package.json"],
+    local = True,
+    cmd = """
+        EXEC_DIR=$$(pwd)/$$(dirname $(location package.json))
+
+        cat > "$@" << EOF
+#!/bin/sh
+
+# Go to execution directory
+cd $${EXEC_DIR}
+
+# Run node.js backend script
+node ./dist/index.js
+
+EOF
+        # Make the created script executable
+        chmod +x "$@"
+    """,
+    outs = ["dev.sh"],
+    executable = True,
+    tags = ["manual"],
+)
+
+genrule(
+    name = "cli",
+    srcs = [":build", "package.json"],
+    local = True,
+    cmd = """
+        EXEC_DIR=$$(pwd)/$$(dirname $(location package.json))
+
+        cat > "$@" << EOF
+#!/bin/sh
+
+# Go to execution directory
+cd $${EXEC_DIR}
+
+# Run node.js CLI script with provided arguments
+node ./dist/cli.js "\\$$@"
+
+EOF
+        # Make the created script executable
+        chmod +x "$@"
+    """,
+    outs = ["cli.sh"],
+    executable = True,
+    tags = ["manual"],
+)

@@ -1,0 +1,11 @@
+language = "C"
+include_version = false
+include_guard = "IVY_R128_H"
+style = "both"
+no_includes = true
+
+[export]
+exclude = ["sol_panic_", "sol_log_", "custom_panic"]
+
+[export.rename]
+"R128" = "r128"

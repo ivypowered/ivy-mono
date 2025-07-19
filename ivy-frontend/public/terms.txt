@@ -1,0 +1,43 @@
+Terms of Service
+
+Last updated: 20 May 2025
+
+1. Introduction and Acceptance
+
+These Terms of Service ("Terms") govern your access to and use of this website (the "Interface"), hosted by an individual or organization ("Provider"), which provides access to the decentralized Ivy protocol (the "Protocol") on the Solana blockchain. By using the Interface, you agree to be bound by these Terms.
+
+2. Eligibility and Compliance
+
+You are solely responsible for adhering to all laws and regulations applicable to you and your use of the Interface. You may not use the Interface if you are barred from doing so under applicable law.
+
+The Interface is not available to users located in, established in, or residents of the United States, the United Kingdom, the Republic of China, Singapore, Myanmar, Cote d'Ivoire, Cuba, Crimea and Sevastopol, Democratic Republic of Congo, Iran, Iraq, Libya, Mali, Nicaragua, Democratic People's Republic of Korea, Somalia, Sudan, Syria, Yemen, Zimbabwe, or any other state, country or region subject to sanctions enforced by the United States, the United Kingdom or the European Union ("Restricted Jurisdictions"). By using the Interface, you represent that you are not located in, established in, or a resident of any Restricted Jurisdiction.
+
+You may not use any software or networking techniques, including the use of a Virtual Private Network (VPN), to modify your internet protocol address or otherwise circumvent or attempt to circumvent this prohibition.
+
+3. Non-Custodial Nature and Assumption of Risk
+
+The Interface is entirely non-custodial and does not hold, control, or have access to your assets. You are solely responsible for the security of your own wallet and private keys. The Provider cannot effectuate any transactions on your behalf or reverse any transaction. There are inherent risks in using virtual currency and blockchain technology, and you assume all such risks.
+
+4. Release of Liability and Disclaimer of Warranties
+
+The Provider is providing a user interface only and shall not be liable for any damages, claims, or losses arising from or in connection with your use of the Interface or interaction with the Protocol, including but not limited to any losses related to your digital assets. The Interface is provided "as-is" without warranties of any kind. You release the Provider from all liability in connection with your use of the Interface.
+
+5. Your Content
+
+In your interaction with the Interface, you may post content ("Your Content"), including but not limited to profile pictures, game icons, game cover images, and game content. You represent that you have all necessary rights to all parts of Your Content and that you're not infringing or violating any third party's rights by posting it. By posting Your Content, you grant both the Provider and all past, present, or future individuals or organizations hosting websites or applications that interact with the Protocol or the Solana blockchain a perpetual, irrevocable, royalty-free, worldwide and non-exclusive license to use, display, edit, modify, reproduce, distribute, store, and prepare derivative works of Your Content for the limited purpose of providing user interfaces to the Protocol (such as this Interface) or the Solana blockchain.
+
+6. Indemnification
+
+You agree to indemnify and hold harmless the Provider from any claims, damages, or losses arising from your use of the Interface.
+
+7. Dispute Resolution
+
+Any disputes will be resolved by binding arbitration under the rules of the LCIA in London. You waive the right to bring class actions or representative proceedings. These Terms are governed by the laws of Panama.
+
+8. Amendments and Entire Agreement
+
+We may amend these Terms at any time by posting a revised version with an updated date. Changes become effective upon your first use of the Interface after posting and apply to subsequent use. If you disagree with any modifications, your only recourse is to stop using the Interface.
+
+These Terms and the Privacy Policy, which describes how the Interface uses your personal information, constitute the entire agreement between you and the Provider and supersede all prior agreements, oral or written.
+
+By using the Interface, you acknowledge that you have read, understood, and agree to be bound by these Terms, including the provisions regarding the lack of liability of the Provider.

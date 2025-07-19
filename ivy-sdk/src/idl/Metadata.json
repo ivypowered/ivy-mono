@@ -1,0 +1,373 @@
+{
+    "address": "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s",
+    "metadata": {
+        "name": "token_metadata",
+        "version": "0.3.0",
+        "spec": "0.1.0",
+        "description": "MPL Metadata"
+    },
+    "instructions": [],
+    "accounts": [
+        {
+            "name": "Metadata",
+            "discriminator": [0, 0, 0, 0, 0, 0, 0, 0]
+        }
+    ],
+    "types": [
+        {
+            "name": "Metadata",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "key",
+                        "type": {
+                            "defined": {
+                                "name": "Key"
+                            }
+                        }
+                    },
+                    {
+                        "name": "updateAuthority",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "mint",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "data",
+                        "type": {
+                            "defined": {
+                                "name": "Data"
+                            }
+                        }
+                    },
+                    {
+                        "name": "primarySaleHappened",
+                        "type": "bool"
+                    },
+                    {
+                        "name": "isMutable",
+                        "type": "bool"
+                    },
+                    {
+                        "name": "editionNonce",
+                        "type": {
+                            "option": "u8"
+                        }
+                    },
+                    {
+                        "name": "tokenStandard",
+                        "type": {
+                            "option": {
+                                "defined": {
+                                    "name": "TokenStandard"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "collection",
+                        "type": {
+                            "option": {
+                                "defined": {
+                                    "name": "Collection"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "uses",
+                        "type": {
+                            "option": {
+                                "defined": {
+                                    "name": "Uses"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "collectionDetails",
+                        "type": {
+                            "option": {
+                                "defined": {
+                                    "name": "CollectionDetails"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "programmableConfig",
+                        "type": {
+                            "option": {
+                                "defined": {
+                                    "name": "ProgrammableConfig"
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Collection",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "verified",
+                        "type": "bool"
+                    },
+                    {
+                        "name": "key",
+                        "type": "pubkey"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "CollectionDetails",
+            "type": {
+                "kind": "enum",
+                "variants": [
+                    {
+                        "name": "V1",
+                        "fields": [
+                            {
+                                "name": "size",
+                                "type": "u64"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "V2",
+                        "fields": [
+                            {
+                                "name": "padding",
+                                "type": {
+                                    "array": ["u8", 8]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Creator",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "address",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "verified",
+                        "type": "bool"
+                    },
+                    {
+                        "name": "share",
+                        "type": "u8"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Data",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "name",
+                        "type": "string"
+                    },
+                    {
+                        "name": "symbol",
+                        "type": "string"
+                    },
+                    {
+                        "name": "uri",
+                        "type": "string"
+                    },
+                    {
+                        "name": "sellerFeeBasisPoints",
+                        "type": "u16"
+                    },
+                    {
+                        "name": "creators",
+                        "type": {
+                            "option": {
+                                "vec": {
+                                    "defined": {
+                                        "name": "Creator"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Key",
+            "type": {
+                "kind": "enum",
+                "variants": [
+                    {
+                        "name": "Uninitialized"
+                    },
+                    {
+                        "name": "EditionV1"
+                    },
+                    {
+                        "name": "MasterEditionV1"
+                    },
+                    {
+                        "name": "ReservationListV1"
+                    },
+                    {
+                        "name": "MetadataV1"
+                    },
+                    {
+                        "name": "ReservationListV2"
+                    },
+                    {
+                        "name": "MasterEditionV2"
+                    },
+                    {
+                        "name": "EditionMarker"
+                    },
+                    {
+                        "name": "UseAuthorityRecord"
+                    },
+                    {
+                        "name": "CollectionAuthorityRecord"
+                    },
+                    {
+                        "name": "TokenOwnedEscrow"
+                    },
+                    {
+                        "name": "TokenRecord"
+                    },
+                    {
+                        "name": "MetadataDelegate"
+                    },
+                    {
+                        "name": "EditionMarkerV2"
+                    },
+                    {
+                        "name": "HolderDelegate"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "ProgrammableConfig",
+            "type": {
+                "kind": "enum",
+                "variants": [
+                    {
+                        "name": "V1",
+                        "fields": [
+                            {
+                                "name": "rule_set",
+                                "type": {
+                                    "option": "pubkey"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Reservation",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "address",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "spotsRemaining",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "totalSpots",
+                        "type": "u64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "TokenStandard",
+            "type": {
+                "kind": "enum",
+                "variants": [
+                    {
+                        "name": "NonFungible"
+                    },
+                    {
+                        "name": "FungibleAsset"
+                    },
+                    {
+                        "name": "Fungible"
+                    },
+                    {
+                        "name": "NonFungibleEdition"
+                    },
+                    {
+                        "name": "ProgrammableNonFungible"
+                    },
+                    {
+                        "name": "ProgrammableNonFungibleEdition"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "UseMethod",
+            "type": {
+                "kind": "enum",
+                "variants": [
+                    {
+                        "name": "Burn"
+                    },
+                    {
+                        "name": "Multiple"
+                    },
+                    {
+                        "name": "Single"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Uses",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "useMethod",
+                        "type": {
+                            "defined": {
+                                "name": "UseMethod"
+                            }
+                        }
+                    },
+                    {
+                        "name": "remaining",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "total",
+                        "type": "u64"
+                    }
+                ]
+            }
+        }
+    ]
+}

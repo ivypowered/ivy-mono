@@ -1,0 +1,13 @@
+[Unit]
+Description=Ivy Aggregator
+After=network.target
+
+[Service]
+ExecStart=/home/ivy/ivy-aggregator/ivy-aggregator
+WorkingDirectory=/home/ivy/ivy-aggregator
+User=ivy
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
