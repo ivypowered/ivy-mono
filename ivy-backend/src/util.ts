@@ -129,7 +129,6 @@ export async function createAndUploadMetadata(
         image: iconUrl,
         symbol,
         description,
-        website: "https://google.com",
     };
     if (pinata) {
         // Upload metadata to Pinata
