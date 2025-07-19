@@ -1,0 +1,36 @@
+{
+    "name": "ivy-sdk",
+    "version": "1.0.0",
+    "description": "SDK for interacting with the Ivy Protocol on Solana",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsup src/index.ts --format cjs --dts",
+        "prepublishOnly": "npm run build"
+    },
+    "keywords": [
+        "solana",
+        "ivy",
+        "blockchain",
+        "gaming"
+    ],
+    "author": "Your Name",
+    "license": "MIT",
+    "dependencies": {
+        "@coral-xyz/anchor": "^0.31.1",
+        "@solana/web3.js": "^1.98.1",
+        "tweetnacl": "^1.0.3"
+    },
+    "devDependencies": {
+        "tsup": "^8.0.1",
+        "typescript": "^5.8.2"
+    },
+    "peerDependencies": {
+        "@coral-xyz/anchor": "^0.31.1",
+        "@solana/web3.js": "^1.98.1",
+        "tweetnacl": "^1.0.3"
+    }
+}

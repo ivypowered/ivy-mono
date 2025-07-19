@@ -1,0 +1,15 @@
+[Unit]
+Description=Ivy Backend
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/node /home/ivy/ivy-backend.js
+User=ivy
+Restart=on-failure
+RestartSec=5
+Environment="RPC_URL=[...]"
+Environment="PINATA_JWT=[...]"
+Environment="PINATA_GATEWAY=[...]"
+
+[Install]
+WantedBy=multi-user.target

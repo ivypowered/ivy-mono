@@ -1,0 +1,69 @@
+genrule(
+    name = "npm_install",
+    srcs = [
+        "package.json",
+        "package-lock.json",
+    ],
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location package.json))
+        npm ci
+        date +%s.%N > $$ROOT_DIR/$@
+    """,
+    outs = ["npm_install.marker"]
+)
+
+genrule(
+    name = "import",
+    srcs = [
+        ":npm_install",
+        "package.json",
+        "//ivy-sdk:index.js",
+        "//ivy-sdk:index.d.ts",
+    ],
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location package.json))
+        mkdir -p import/ivy-sdk
+        cp --no-preserve=mode $$ROOT_DIR/$(location //ivy-sdk:index.js) import/ivy-sdk/index.js
+        cp --no-preserve=mode $$ROOT_DIR/$(location //ivy-sdk:index.d.ts) import/ivy-sdk/index.d.ts
+
+        echo '{
+          "name": "ivy-sdk",
+          "version": "1.0.0",
+          "main": "index.js",
+          "types": "index.d.ts"
+        }' > import/ivy-sdk/package.json
+
+        date +%s.%N > $$ROOT_DIR/$@
+    """,
+    outs = ["import.marker"]
+)
+
+genrule(
+    name = "build",
+    srcs = glob([
+        "app/**/*",
+        "components/**/*",
+        "lib/**/*",
+        "*.mjs",
+        "*.ts",
+        "*.json"
+    ]) + [":import"],
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location package.json))
+
+        # build JS widget
+        npm run build
+        cp ./.next/static/widget/index.js $$ROOT_DIR/$(location ivy-react.js)
+
+        # create big file to give to tw later to generate styles :)
+        find ./components ./app -type f -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.mdx" | xargs cat > $$ROOT_DIR/$(location ivy-react-tw-input.tsx)
+    """,
+    outs = ["ivy-react.js", "ivy-react-tw-input.tsx"],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,42 @@
+genrule(
+    name = "build",
+    srcs = glob(["src/**/*.rs"]) + ["Cargo.toml", "Cargo.lock"],
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location Cargo.toml))
+        cargo build --release
+        cp ./target/release/ivy-aggregator $$ROOT_DIR/$@
+    """,
+    outs = ["ivy-aggregator"],
+)
+
+genrule(
+    name = "dev",
+    srcs = [":build", "Cargo.toml"],
+    local = True,
+    cmd = """
+        EXEC_DIR=$$(pwd)/$$(dirname $(location Cargo.toml))
+
+        cat > "$@" << EOF
+#!/bin/sh
+
+# Go to ivy-aggregator directory
+# (This prevents priv from leaking somewhere
+# where there isn't a .gitignore to not include it)
+cd $${EXEC_DIR}
+
+# Delete the old priv if it exists
+rm -rf ./priv
+
+# Run the program
+./target/release/ivy-aggregator
+
+EOF
+        # Make the created script executable
+        chmod +x "$@"
+    """,
+    outs = ["dev.sh"],
+    executable = True,
+    tags = ["manual"],
+)

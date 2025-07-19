@@ -1,0 +1,55 @@
+genrule(
+    name = "npm_install",
+    srcs = [
+        "package.json",
+        "package-lock.json",
+    ],
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location package.json))
+        npm ci
+        date +%s.%N > $$ROOT_DIR/$@
+    """,
+    outs = ["npm_install.marker"]
+)
+
+genrule(
+    name = "import",
+    srcs = [
+        "package.json",
+        "//ivy:idl/ivy.json",
+        "//ivy:types/ivy.ts",
+    ],
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location package.json))
+        mkdir -p src/idl src/types
+        # bazel outputs are readonly
+        cp --no-preserve=mode $$ROOT_DIR/$(location //ivy:idl/ivy.json) src/idl/
+        cp --no-preserve=mode $$ROOT_DIR/$(location //ivy:types/ivy.ts) src/types/
+        date +%s.%N > $$ROOT_DIR/$@
+    """,
+    outs = ["import.marker"]
+)
+
+genrule(
+    name = "build",
+    srcs = [
+        "package.json",
+        "tsconfig.json",
+        ":npm_install",
+        ":import",
+    ] + glob(["src/**/*.ts"]),
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location package.json))
+        npm run build
+        cp ./dist/index.js $$ROOT_DIR/$(location index.js)
+        cp ./dist/index.d.ts $$ROOT_DIR/$(location index.d.ts)
+    """,
+    outs = ["index.js", "index.d.ts"],
+    visibility = ["//visibility:public"]
+)

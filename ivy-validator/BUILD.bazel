@@ -1,0 +1,236 @@
+genrule(
+    name = "import",
+    srcs = [
+        "BUILD.bazel",
+        "//ivy:deploy/ivy.so",
+        "//ivy:deploy/ivy-keypair.json",
+    ],
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location BUILD.bazel))
+
+        mkdir -p programs
+        cp --no-preserve=mode $$ROOT_DIR/$(location //ivy:deploy/ivy.so) programs/
+
+        mkdir -p keypairs
+        cp --no-preserve=mode $$ROOT_DIR/$(location //ivy:deploy/ivy-keypair.json) keypairs/
+
+        date +%s.%N > $$ROOT_DIR/$@
+    """,
+    outs = ["import.marker"]
+)
+
+genrule(
+    name = "dev",
+    srcs = [
+        "BUILD.bazel",
+        ":import",
+    ],
+    local = True,
+    cmd = """
+        EXEC_DIR=$$(pwd)/$$(dirname $(location BUILD.bazel))
+
+        cat > "$@" << EOF
+#!/bin/bash
+
+# Exit immediately upon failure
+set -e
+
+# Cleanup function
+cleanup() {
+    echo
+    echo "Cleaning up test-ledger..."
+    rm -rf test-ledger
+    exit 0
+}
+
+# Set trap to catch Ctrl+C and other termination signals
+trap cleanup SIGINT SIGTERM EXIT
+
+# Array of token accounts
+LIST=(
+    "So11111111111111111111111111111111111111112"
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    "6dM4TqWyWJsbx7obrdLcviBkTafD5E8av61zfU6jq57X"
+    "5x38Kp4hvdomTCnCrAny4UtMUt5rQBdB6px2K1Ui45Wq"
+    "2FPyTwcZLUg1MDrwsyoP4D6s1tM7hAkHYRjkNb5w6Pxk"
+    "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+    "DoUzcGboYXXwpcKp7eEy65fdKLFyroAVyWuRZgrS6mj4"
+    "8c3zk1t1qt3RU43ckuvPkCS7HLbjJqq3J3Me8ov4aHrp"
+    "9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E"
+    "F4zNPXoqasVow544cKMQTPaVW4kmxaJXiN9PG9vqcjDt"
+    "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
+    "FDZZbyY9XGpL3CNKUZxLk3wFTTQYL3TkDiDzqxrizcPN"
+    "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"
+    "5pddDLA4taryBwRYGdtKmS9qkwssXD8vHECeNbCZnwUy"
+    "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3"
+    "8LfiSAHzkKFsPCkwqYu11YtyhdN5dHTyDZc5trujPubg"
+)
+
+# Go to execution directory
+cd $${EXEC_DIR}
+
+# Setup accounts parameter
+ACCOUNTS=""
+for ACCOUNT in "\\$${LIST[@]}"; do
+    if [ -f "./accounts/\\$${ACCOUNT}.json" ]; then
+        ACCOUNTS="\\$${ACCOUNTS} --account \\$${ACCOUNT} ./accounts/\\$${ACCOUNT}.json"
+    fi
+done
+
+# Clean previous test ledger if it exists
+rm -rf test-ledger
+
+# Start solana-test-validator with the consolidated ivy program
+# We set limit ledger size to max(u64)
+solana-test-validator \\$${ACCOUNTS} \\
+    --bpf-program "./keypairs/ivy-keypair.json" "./programs/ivy.so" \\
+    --bpf-program "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s" "./metadata.so" \\
+    --limit-ledger-size 18446744073709551615
+EOF
+
+        # Make the created script executable
+        chmod +x "$@"
+    """,
+    outs = ["dev.sh"],
+    executable = True,
+    tags = ["manual"],
+)
+
+genrule(
+    name = "setup",
+    srcs = [
+        "BUILD.bazel",
+        "//ivy-backend:cli.js"
+    ],
+    local = True,
+    cmd = """
+        CLI_FILE=$$(pwd)/$(location //ivy-backend:cli.js)
+        EXEC_DIR=$$(pwd)/$$(dirname $(location BUILD.bazel))
+        cat > "$@" << EOF
+#!/bin/sh
+
+# Exit immediately upon failure
+set -e
+
+# Go to execution directory
+cd $${EXEC_DIR}
+
+# Generate a new Solana keypair
+echo "Generating new Solana keypair..."
+KEYPAIR_PATH="./ivy-keypair.json"
+solana-keygen new --no-bip39-passphrase -o \\$$KEYPAIR_PATH --force
+echo "Keypair generated at \\$$KEYPAIR_PATH"
+
+# At input scale = 1 and curve supply = 666,667,
+#
+# price = sqrt(supply)
+# max_price = sqrt(666,667) = 666 USD per IVY
+# integral = 362,887,641 USD (total raise needed to purchase all IVY)
+#
+# This is a bit high, so we'll use input_scale = 0.375
+#
+# price = sqrt(0.375 * supply)
+# max_price = sqrt(0.375 * 666,667) = 500 USD per IVY
+# integral = 222,222,222 USD (total raise needed to purchase all IVY)
+echo "Creating new Ivy world..."
+node $${CLI_FILE} new-world \
+    --name "Ivy" \
+    --symbol "IVY" \
+    --icon "./ivy-icon.png" \
+    --description "The platform token for Ivy, where games come to life" \
+    --ivy-curve-supply 666667000000000 \
+    --ivy-vesting-supply 333333000000000 \
+    --input-scale-num 375 \
+    --input-scale-den 1000 \
+    --airdrop \
+    --keypair \\$$KEYPAIR_PATH
+
+# All bonding curves will have 1B tokens to start.
+#
+# 15,000 USD to capture 80% of the supply, or 800M,
+# seems reasonable.
+#
+# Remember that in a bonding curve, x * y = c.
+# We want to find an x such that
+# - (x IVY)                      * (1,000,000,000 GAME) = C
+# - (x+(3,750 / IVY_price) IVY)  * (  200,000,000 GAME) = C
+# Setting them equal to each other and solving,
+# x = 3,750 / IVY_price
+#
+# So, the initial parameters should always be:
+# - game-liquidity = 10^9 * 10^9
+# - ivy-liquidity = floor((12,500 / IVY_price) * 10^9)
+# (We multiply by 10^9 because both IVY and the game tokens
+#  have 9 decimals.)
+#
+# The first 100 IVY costs 408.25 USD to acquire,
+# and puts the price at 6.12 USD. This seems like
+# a reasonable amount to use for the initial calculations:
+# - game-liquidity = 10^18
+# - ivy-liquidity  = floor((3,750 / 6.12) * 10^9)
+#                  = floor((612.74...) * 10^9)
+#                  = 612745098039
+echo "Setting world parameters..."
+node $${CLI_FILE} set-params \
+    --ivy-liquidity 612745098039 \
+    --game-liquidity 1000000000000000000 \
+    --ivy-fee 50 \
+    --game-fee 50 \
+    --keypair \\$$KEYPAIR_PATH
+
+echo "Setup complete! The Ivy world has been created."
+
+echo "Debug minting 457 USDC tokens to wallet"
+# 457 USDC tokens = 457,000,000 USDC raw
+node $${CLI_FILE} debug-mint -a 457000000 -m EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v -k \\$$KEYPAIR_PATH
+
+echo "Buying IVY with the 457 USDC tokens"
+node $${CLI_FILE} world-swap -a 457000000 -t 0 -b -k \\$$KEYPAIR_PATH
+
+echo "Creating test games!"
+node $${CLI_FILE} create-test-games -c 50 -b 10 -a
+EOF
+
+    # Make the created script executable
+    chmod +x "$@"
+    """,
+    outs = ["setup.sh"],
+    executable = True,
+    tags = ["manual"],
+)
+
+genrule(
+    name = "airdrop",
+    srcs = [
+        "//ivy-backend:cli.js"
+    ],
+    local = True,
+    cmd = """
+        CLI_FILE=$$(pwd)/$(location //ivy-backend:cli.js)
+        cat > "$@" << EOF
+#!/bin/sh
+
+# Exit immediately upon failure
+set -e
+
+# Check for first argument
+if [ -z "\\$$1" ]; then
+    echo "Error: provide wallet address as first argument"
+    exit 1
+fi
+
+# Airdrop 5 SOL to user
+solana airdrop 5 \\$$1 -u localhost
+# Airdrop 1,000,000 USDC to user
+node $${CLI_FILE} debug-mint -a 1000000 -m EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v -u \\$$1
+EOF
+
+    # Make the created script executable
+    chmod +x "$@"
+    """,
+    outs = ["airdrop.sh"],
+    executable = True,
+    tags = ["manual"],
+)
