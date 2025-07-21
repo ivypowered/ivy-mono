@@ -22,7 +22,7 @@ import {
     Btn,
     Quote,
 } from "./swapTypes";
-import { MAX_SF } from "@/lib/constants";
+import { MAX_SF, WSOL_MINT_B58 } from "@/lib/constants";
 import { PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { useQuoteResult } from "./QuoteProvider";
 import { useBalance } from "./BalanceProvider";
@@ -353,6 +353,7 @@ export function SwapProvider({
             try {
                 if (!quote) throw new Error("No quote available");
                 if (!user) throw new Error("Wallet not connected");
+                const inputAmount = quote.input;
                 const inputMint = state.inputToken.mint;
                 const outputMint = state.outputToken.mint;
                 const onStatus = (status: number) => {
@@ -380,12 +381,15 @@ export function SwapProvider({
                     signTransaction,
                     onStatus,
                 );
-                const { input, output } = await fetchTransactionEffects(
+                const eff = await fetchTransactionEffects(
                     user,
                     signature,
                     inputMint,
                     outputMint,
                 );
+                const input =
+                    inputMint === WSOL_MINT_B58 ? inputAmount : eff.input;
+                const output = eff.output;
                 const end = Math.floor(new Date().getTime() / 1000);
                 setState((prev) => ({
                     ...prev,

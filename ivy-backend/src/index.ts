@@ -86,6 +86,18 @@ const cache = {
     }),
 };
 
+// Fetching the fee takes a long time
+// (we fetch 1,000 txs, so it makes sense)
+// So, to make things easier for end users,
+// we refresh it every 60 seconds
+{
+    // Trigger 1st refresh
+    cache.fee.get();
+
+    // Periodically refresh the reasonable priroity fee
+    setInterval(() => cache.fee.get(), 60_000);
+}
+
 // --- Middleware ---
 app.use(express.json({ limit: "5mb" }));
 
@@ -119,14 +131,14 @@ interface PreparedTransaction {
 }
 
 const NULL_BLOCKHASH: string = PublicKey.default.toBase58();
-async function prepareTransaction(
+function prepareTransaction(
     tx: Transaction | VersionedTransaction,
     feePayer: PublicKey | Keypair,
     derived?: {
         seeds: PublicKey[];
         program_id: PublicKey;
     }[],
-): Promise<PreparedTransaction> {
+): PreparedTransaction {
     let txData: Buffer;
     if (tx instanceof Transaction) {
         tx.recentBlockhash = NULL_BLOCKHASH;
@@ -275,7 +287,7 @@ app.post(
 
         const game = Game.deriveAddress(seed);
         const { mint } = Game.deriveAddresses(game);
-        const prepared = await prepareTransaction(tx, user_wallet, [
+        const prepared = prepareTransaction(tx, user_wallet, [
             // src
             {
                 seeds: [user_wallet.publicKey, TOKEN_PROGRAM_ID, IVY_MINT],
@@ -330,7 +342,7 @@ app.post(
             data.metadata_url,
         );
 
-        const prepared = await prepareTransaction(tx, owner_address);
+        const prepared = prepareTransaction(tx, owner_address);
 
         return res.status(200).json({
             status: "ok",
@@ -358,7 +370,7 @@ app.post(
             user_public_key,
         );
 
-        const prepared = await prepareTransaction(tx, user_public_key);
+        const prepared = prepareTransaction(tx, user_public_key);
 
         return res.status(200).json({
             status: "ok",
@@ -411,7 +423,7 @@ app.post(
             signature_bytes,
         );
 
-        const prepared = await prepareTransaction(tx, user_public_key);
+        const prepared = prepareTransaction(tx, user_public_key);
 
         return res.status(200).json({
             status: "ok",
@@ -441,7 +453,7 @@ app.post(
         );
 
         const { mint } = Game.deriveAddresses(game_public_key);
-        const prepared = await prepareTransaction(tx, user, [
+        const prepared = prepareTransaction(tx, user, [
             {
                 // user source ATA
                 seeds: [user, TOKEN_PROGRAM_ID, mint],
@@ -477,7 +489,7 @@ app.post(
         );
 
         const { mint } = Game.deriveAddresses(game_public_key);
-        const prepared = await prepareTransaction(tx, user, [
+        const prepared = prepareTransaction(tx, user, [
             {
                 // user source ATA
                 seeds: [user, TOKEN_PROGRAM_ID, mint],
