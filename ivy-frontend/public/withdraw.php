@@ -55,7 +55,7 @@ $result = (function () {
     try {
         $withdraw_info = call_aggregator(
             "/games/{$game_public_key}/withdrawals/{$withdraw_id}",
-            "GET"
+            "GET",
         );
         if ($withdraw_info !== null) {
             if ($redirect !== null) {
@@ -68,7 +68,7 @@ $result = (function () {
                     "&game=" .
                     urlencode($game_public_key) .
                     "&signature=" .
-                    urlencode($withdraw_info["signature"])
+                    urlencode($withdraw_info["signature"]),
             );
             exit();
         }
@@ -105,11 +105,11 @@ $result = (function () {
         $withdraw_response = call_backend(
             "/tx/game/withdraw-claim",
             "POST",
-            $withdraw_data
+            $withdraw_data,
         );
         if ($withdraw_response === null) {
             throw new Exception(
-                "Failed to prepare withdrawal claim transaction"
+                "Failed to prepare withdrawal claim transaction",
             );
         }
 
@@ -157,7 +157,8 @@ $formatted_withdraw_amount = empty($error_message)
     : "0.00";
 
 $title = "ivy | withdraw";
-$description = "Withdraw tokens from a game on Ivy, where games come to life";
+$description =
+    "Withdraw tokens from a game on Ivy: web3 gaming, radically simplified";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
@@ -170,7 +171,7 @@ require_once __DIR__ . "/../includes/header.php";
         <!-- Error Display -->
         <div class="mb-6 p-4 border-2 border-red-400 bg-red-950/20">
             <p class="text-red-400 font-bold"><?= htmlspecialchars(
-                $error_message
+                $error_message,
             ) ?></p>
 
             <div class="mt-4 text-center">
@@ -209,7 +210,7 @@ require_once __DIR__ . "/../includes/header.php";
                             ): ?>
                             <img
                                 src="<?= htmlspecialchars(
-                                    $game_data["icon_url"]
+                                    $game_data["icon_url"],
                                 ) ?>"
                                 alt="Game icon"
                                 class="w-full h-full object-cover"
@@ -223,7 +224,7 @@ require_once __DIR__ . "/../includes/header.php";
                                 alt="Game icon"
                                 class="w-full h-full object-cover"
                                 data-metadata-url="<?= htmlspecialchars(
-                                    $game_data["metadata_url"]
+                                    $game_data["metadata_url"],
                                 ) ?>"
                                 id="game-icon"
                             />
@@ -256,7 +257,7 @@ require_once __DIR__ . "/../includes/header.php";
                     <div class="bg-zinc-800 p-3 border border-zinc-700 flex justify-between items-center">
                         <span class="text-xl text-emerald-400 font-bold"><?= $formatted_withdraw_amount ?></span>
                         <span class="text-emerald-300 font-bold"><?= isset(
-                            $game_data["symbol"]
+                            $game_data["symbol"],
                         )
                             ? $game_data["symbol"]
                             : "tokens" ?></span>
@@ -284,7 +285,7 @@ require_once __DIR__ . "/../includes/header.php";
                     <div class="text-xs uppercase text-zinc-500 mb-1">Withdrawal Authority</div>
                     <div class="font-mono text-sm text-zinc-300 bg-zinc-800 p-2 border border-zinc-700 overflow-x-auto">
                         <?= htmlspecialchars(
-                            $game_data["withdraw_authority"]
+                            $game_data["withdraw_authority"],
                         ) ?>
                     </div>
                 </div>
@@ -303,7 +304,7 @@ require_once __DIR__ . "/../includes/header.php";
                     id="tx-button"
                     class="bg-emerald-400 text-emerald-950 px-8 py-3 font-bold text-lg hover:bg-emerald-300 w-full cursor-pointer disabled:cursor-default disabled:opacity-50 disabled:pointer-events-none rounded-none border-2 border-emerald-400 mt-4"
                     data-transaction="<?= base64_encode(
-                        json_encode($transaction_data)
+                        json_encode($transaction_data),
                     ) ?>"
                 >
                     Claim Withdrawal

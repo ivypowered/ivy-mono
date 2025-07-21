@@ -47,7 +47,6 @@ try {
         "owner" => $game_data["owner"],
         "withdraw_authority" => $game_data["withdraw_authority"] ?? "",
         "game_url" => $game_data["game_url"] ?? "",
-        "short_desc" => $game_data["short_desc"] ?? "",
         "icon_url" => $original_icon_url,
         "cover_url" => $original_cover_url,
         "metadata_url" => $original_metadata_url,
@@ -76,7 +75,6 @@ try {
 if ($_SERVER["REQUEST_METHOD"] == "POST" && $game !== null) {
     // Extract form data
     $submitted_game_url = $_POST["game_url"] ?? "";
-    $submitted_short_desc = $_POST["short_desc"] ?? "";
     $submitted_full_description = $_POST["full_description"] ?? "";
     $submitted_new_owner = $_POST["new_owner"] ?? $game["owner"];
     $submitted_new_withdraw_authority =
@@ -104,11 +102,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $game !== null) {
     ) {
         $errors[] = "Valid game URL is required";
     }
-    if (empty($submitted_short_desc)) {
-        $errors[] = "Short description is required";
-    } elseif (strlen($submitted_short_desc) > 128) {
-        $errors[] = "Short description must be 128 characters or less";
-    }
 
     // Process file uploads if no errors so far
     if (empty($errors)) {
@@ -123,7 +116,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $game !== null) {
                     throw new Exception("Icon file is too large (max 2MB)");
                 }
                 $icon_base64 = base64_encode(
-                    file_get_contents($_FILES["game_icon"]["tmp_name"])
+                    file_get_contents($_FILES["game_icon"]["tmp_name"]),
                 );
                 $icon_data = [
                     "base64_image" => $icon_base64,
@@ -132,7 +125,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $game !== null) {
                 $uploaded_icon_url = call_backend(
                     "/assets/images",
                     "POST",
-                    $icon_data
+                    $icon_data,
                 );
                 if ($uploaded_icon_url === null) {
                     throw new Exception("Failed to upload game icon");
@@ -140,7 +133,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $game !== null) {
                 $new_icon_url = $uploaded_icon_url;
             } elseif ($icon_changed) {
                 throw new Exception(
-                    "Game icon was marked as changed, but no valid file was uploaded"
+                    "Game icon was marked as changed, but no valid file was uploaded",
                 );
             }
 
@@ -154,7 +147,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $game !== null) {
                     throw new Exception("Cover file is too large (max 3MB)");
                 }
                 $cover_base64 = base64_encode(
-                    file_get_contents($_FILES["game_cover"]["tmp_name"])
+                    file_get_contents($_FILES["game_cover"]["tmp_name"]),
                 );
                 $cover_data = [
                     "base64_image" => $cover_base64,
@@ -163,7 +156,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $game !== null) {
                 $uploaded_cover_url = call_backend(
                     "/assets/images",
                     "POST",
-                    $cover_data
+                    $cover_data,
                 );
                 if ($uploaded_cover_url === null) {
                     throw new Exception("Failed to upload game cover");
@@ -171,7 +164,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $game !== null) {
                 $new_cover_url = $uploaded_cover_url;
             } elseif ($cover_changed) {
                 throw new Exception(
-                    "Game cover was marked as changed, but no valid file was uploaded"
+                    "Game cover was marked as changed, but no valid file was uploaded",
                 );
             }
 
@@ -187,7 +180,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $game !== null) {
 
                 if (empty($new_icon_url)) {
                     throw new Exception(
-                        "No icon URL available for metadata. Please upload an icon image."
+                        "No icon URL available for metadata. Please upload an icon image.",
                     );
                 }
 
@@ -200,7 +193,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $game !== null) {
                 $uploaded_metadata_url = call_backend(
                     "/assets/metadata",
                     "POST",
-                    $metadata_data
+                    $metadata_data,
                 );
                 if ($uploaded_metadata_url === null) {
                     throw new Exception("Failed to upload game metadata");
@@ -223,12 +216,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $game !== null) {
                 "new_cover_url" => $new_cover_url,
                 "original_metadata_url" => $original_metadata_url,
                 "new_metadata_url" => $new_metadata_url,
-                "original_short_desc" => $game["short_desc"],
-                "new_short_desc" => $submitted_short_desc,
             ];
 
             header(
-                "Location: /edit-confirm?" . http_build_query($redirect_params)
+                "Location: /edit-confirm?" . http_build_query($redirect_params),
             );
             exit();
         } catch (Exception $e) {
@@ -239,7 +230,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $game !== null) {
     // Update form data for redisplay if there were errors
     if (!empty($errors)) {
         $game["game_url"] = $submitted_game_url;
-        $game["short_desc"] = $submitted_short_desc;
         $game["full_description"] = $submitted_full_description;
         $game["owner"] = $submitted_new_owner;
         $game["withdraw_authority"] = $submitted_new_withdraw_authority;
@@ -247,7 +237,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $game !== null) {
 }
 
 $title = "ivy | edit";
-$description = "Edit your game on Ivy, where games come to life";
+$description = "Edit your game on Ivy: web3 gaming, radically simplified";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
@@ -257,7 +247,7 @@ require_once __DIR__ . "/../includes/header.php";
         <div class="flex justify-between items-center py-4">
             <div class="flex items-center gap-4">
                 <a href="/game?address=<?= urlencode(
-                    $game_address
+                    $game_address,
                 ) ?>" class="rounded-none border-2 border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-emerald-950 p-2 flex items-center h-10 w-10 justify-center">
                     <?= icon("arrow-left", "h-5 w-5") ?>
                 </a>
@@ -284,7 +274,7 @@ require_once __DIR__ . "/../includes/header.php";
             <ul class="list-disc ml-6 mt-2">
                 <?php foreach ($errors as $error): ?>
                     <li class="text-red-400"><?= htmlspecialchars(
-                        $error
+                        $error,
                     ) ?></li>
                 <?php endforeach; ?>
             </ul>
@@ -294,7 +284,7 @@ require_once __DIR__ . "/../includes/header.php";
     <?php if ($game): ?>
     <!-- Edit form -->
     <form id="editForm" method="POST" action="/edit?address=<?= urlencode(
-        $game_address
+        $game_address,
     ) ?>" enctype="multipart/form-data">
         <!-- Hidden fields to track changes -->
         <input type="hidden" name="icon_changed" id="icon_changed" value="0">
@@ -337,10 +327,10 @@ require_once __DIR__ . "/../includes/header.php";
                             <label class="block mb-2 font-bold">Game Mint</label>
                             <div class="flex items-stretch">
                                 <input type="text" class="flex-grow bg-zinc-800 border-2 border-r-0 border-zinc-700 p-3 focus:outline-none font-mono text-sm rounded-none text-zinc-300" value="<?= htmlspecialchars(
-                                    $game["mint"]
+                                    $game["mint"],
                                 ) ?>" readonly>
                                 <a href="https://solscan.io/token/<?= htmlspecialchars(
-                                    $game["mint"]
+                                    $game["mint"],
                                 ) ?>?cluster=devnet" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center rounded-none bg-emerald-400 text-emerald-950 px-3 hover:bg-emerald-300 transition-colors duration-200 border-y-2 border-r-2 border-emerald-400" title="View on Solscan (Devnet)">
                                     <?= icon("external-link", "h-5 w-5") ?>
                                 </a>
@@ -352,21 +342,9 @@ require_once __DIR__ . "/../includes/header.php";
                         <div>
                             <label for="game_url" class="block mb-2 font-bold">Game URL <span class="text-red-500">*</span></label>
                             <input type="url" id="game_url" name="game_url" class="w-full bg-zinc-900 border-2 border-emerald-400 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 rounded-none" value="<?= htmlspecialchars(
-                                $game["game_url"] ?? ""
+                                $game["game_url"] ?? "",
                             ) ?>" placeholder="https://yourgame.com" required>
                             <p class="text-xs text-zinc-500 mt-1">URL to your playable game (loaded in iframe)</p>
-                        </div>
-
-                        <!-- Short Description (Editable) -->
-                        <div>
-                            <label for="short_desc" class="block mb-2 font-bold">
-                                Short Description <span class="text-red-500">*</span>
-                                <span id="short-desc-counter" class="ml-2 text-xs font-normal text-emerald-400">(0/128 characters)</span>
-                            </label>
-                            <input type="text" id="short_desc" name="short_desc" class="w-full bg-zinc-900 border-2 border-emerald-400 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 rounded-none" value="<?= htmlspecialchars(
-                                $game["short_desc"]
-                            ) ?>" placeholder="Brief tagline for your game" maxlength="128" required>
-                            <p class="text-xs text-zinc-500 mt-1">A concise tagline shown in listings (max 128 chars)</p>
                         </div>
                     </div>
                 </div>
@@ -379,11 +357,11 @@ require_once __DIR__ . "/../includes/header.php";
                     </h2>
 
                     <div>
-                        <label for="full_description" class="block mb-2 font-bold">Full Description</label>
+                        <label for="full_description" class="block mb-2 font-bold">Description</label>
                         <textarea id="full_description" name="full_description" rows="8" class="w-full bg-zinc-900 border-2 border-emerald-400 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 rounded-none disabled:bg-zinc-800 disabled:text-zinc-500 disabled:border-zinc-700" placeholder="Detailed description of your game..." disabled><?= htmlspecialchars(
-                            $game["full_description"]
+                            $game["full_description"],
                         ) ?></textarea>
-                        <p class="text-xs text-zinc-500 mt-1">Full description displayed on your game's detail page (optional)</p>
+                        <p class="text-xs text-zinc-500 mt-1">Description displayed on your game's detail page (optional)</p>
                     </div>
                 </div>
             </div>
@@ -402,7 +380,7 @@ require_once __DIR__ . "/../includes/header.php";
                         <div>
                             <label for="new_owner" class="block mb-2 font-bold">Owner Address <span class="text-red-500">*</span></label>
                             <input type="text" id="new_owner" name="new_owner" class="w-full bg-zinc-900 border-2 border-emerald-400 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 font-mono text-sm rounded-none" value="<?= htmlspecialchars(
-                                $game["owner"]
+                                $game["owner"],
                             ) ?>" required>
                             <p class="text-xs text-zinc-500 mt-1">Account that will own this game and can make edits.</p>
                         </div>
@@ -414,7 +392,7 @@ require_once __DIR__ . "/../includes/header.php";
                                 $game["withdraw_authority"] ===
                                 "11111111111111111111111111111111"
                                     ? ""
-                                    : $game["withdraw_authority"]
+                                    : $game["withdraw_authority"],
                             ) ?>">
                             <p class="text-xs text-zinc-500 mt-1">Account that can sign withdraw claims. Leave blank if unused.</p>
                         </div>
@@ -436,7 +414,7 @@ require_once __DIR__ . "/../includes/header.php";
                                 <label for="game_icon" class="block cursor-pointer">
                                     <div class="mb-3 w-32 h-32 mx-auto border-2 border-emerald-400 bg-zinc-800 flex items-center justify-center overflow-hidden hover:border-emerald-300 rounded-none">
                                         <img id="game_icon_preview" src="<?= htmlspecialchars(
-                                            $game["icon_url"]
+                                            $game["icon_url"],
                                         ) ?>" alt="Game icon preview" class="w-full h-full object-cover hover:opacity-80">
                                     </div>
                                 </label>
@@ -456,7 +434,7 @@ require_once __DIR__ . "/../includes/header.php";
                                 <label for="game_cover" class="block cursor-pointer">
                                     <div class="mb-3 h-48 mx-auto border-2 border-emerald-400 bg-zinc-800 flex items-center justify-center overflow-hidden hover:border-emerald-300 rounded-none">
                                         <img id="game_cover_preview" src="<?= htmlspecialchars(
-                                            $game["cover_url"]
+                                            $game["cover_url"],
                                         ) ?>" alt="Game cover preview" class="w-full h-full object-cover hover:opacity-80">
                                     </div>
                                 </label>
@@ -481,7 +459,7 @@ require_once __DIR__ . "/../includes/header.php";
             </div>
             <h1 class="text-3xl font-bold mb-2">Game Not Found or Error</h1>
             <p class="text-xl mb-8">We couldn't fetch the necessary data for the game with address <code class="text-sm bg-zinc-700 px-1 py-0.5 rounded"><?= htmlspecialchars(
-                $game_address
+                $game_address,
             ) ?></code>.</p>
             <div class="flex justify-center">
                 <a href="/" class="bg-emerald-400 text-emerald-950 px-6 py-3 font-bold hover:bg-emerald-300 rounded-none">Return to Home</a>
@@ -506,7 +484,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Core elements
     const editForm = document.getElementById('editForm');
     const saveButton = document.getElementById('saveChangesButton');
-    const shortDescInput = document.getElementById('short_desc');
     const charCounter = document.getElementById('short-desc-counter');
     const fullDescTextarea = document.getElementById('full_description');
     const iconInput = document.getElementById('game_icon');
@@ -621,13 +598,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Update character counter
-    function updateShortDescCounter() {
-        if (shortDescInput && charCounter) {
-            charCounter.textContent = `(${shortDescInput.value.length}/128 characters)`;
-        }
-    }
-
     // Set up image handling
     function setupImageHandling(inputElem, previewElem, filenameElem, changedInput, requiresMetadataUpdate) {
         if (!inputElem || !previewElem || !filenameElem || !changedInput) return;
@@ -688,15 +658,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (gameData) {
         // Start async operations
         fetchDescription();
-
-        // Set up UI interactions
-        if (shortDescInput) {
-            shortDescInput.addEventListener('input', function() {
-                updateShortDescCounter();
-                checkFormModified();
-            });
-            updateShortDescCounter();
-        }
 
         // Set up image handlers
         setupImageHandling(iconInput, iconPreview, iconFilename, iconChangedInput, true);

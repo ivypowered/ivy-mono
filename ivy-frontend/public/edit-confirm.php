@@ -17,7 +17,6 @@ $original_withdraw_authority = $new_withdraw_authority = "";
 $original_game_url = $new_game_url = "";
 $original_cover_url = $new_cover_url = "";
 $original_metadata_url = $new_metadata_url = "";
-$original_short_desc = $new_short_desc = "";
 $transaction_data = [];
 
 // Check if the required GET params are present
@@ -35,8 +34,6 @@ $required_params = [
     "new_cover_url",
     "original_metadata_url",
     "new_metadata_url",
-    "original_short_desc",
-    "new_short_desc",
 ];
 
 foreach ($required_params as $param) {
@@ -61,8 +58,6 @@ if (empty($errors)) {
     $new_cover_url = $_GET["new_cover_url"];
     $original_metadata_url = $_GET["original_metadata_url"];
     $new_metadata_url = $_GET["new_metadata_url"];
-    $original_short_desc = $_GET["original_short_desc"];
-    $new_short_desc = $_GET["new_short_desc"];
 
     // Determine what fields have changed
     $owner_changed = $owner_address !== $new_owner_address;
@@ -71,7 +66,6 @@ if (empty($errors)) {
     $game_url_changed = $original_game_url !== $new_game_url;
     $cover_url_changed = $original_cover_url !== $new_cover_url;
     $metadata_changed = $original_metadata_url !== $new_metadata_url;
-    $short_desc_changed = $original_short_desc !== $new_short_desc;
 
     // Track if any changes were made at all
     $has_changes =
@@ -79,8 +73,7 @@ if (empty($errors)) {
         $withdraw_authority_changed ||
         $game_url_changed ||
         $cover_url_changed ||
-        $metadata_changed ||
-        $short_desc_changed;
+        $metadata_changed;
 
     if (!$has_changes) {
         $errors[] =
@@ -96,7 +89,6 @@ if (empty($errors)) {
                 "game_url" => $new_game_url,
                 "cover_url" => $new_cover_url,
                 "metadata_url" => $new_metadata_url,
-                "short_desc" => $new_short_desc,
             ];
 
             $edit_response = call_backend("/tx/game/edit", "POST", $edit_data);
@@ -121,7 +113,7 @@ if (empty($errors)) {
 
 $title = "ivy | edit confirmation";
 $description =
-    "Confirm your edits to your game on Ivy, where games come to life";
+    "Confirm your edits to your game on Ivy: web3 gaming, radically simplified";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
@@ -136,13 +128,13 @@ require_once __DIR__ . "/../includes/header.php";
                 <ul class="list-disc ml-6 mt-2">
                     <?php foreach ($errors as $error): ?>
                         <li class="text-red-400"><?php echo htmlspecialchars(
-                            $error
+                            $error,
                         ); ?></li>
                     <?php endforeach; ?>
                 </ul>
                 <div class="mt-4">
                     <a href="/edit?address=<?= urlencode(
-                        $game_address
+                        $game_address,
                     ) ?>" class="inline-flex items-center justify-center px-4 py-2 bg-emerald-400 text-emerald-950 hover:bg-emerald-300">
                         <?php echo icon("arrow-left", "h-4 w-4 mr-2"); ?>
                         Back to edit form
@@ -156,10 +148,10 @@ require_once __DIR__ . "/../includes/header.php";
                     <div class="flex justify-between items-center">
                         <div>
                             <h2 class="text-xl font-bold"><?= htmlspecialchars(
-                                $game_name
+                                $game_name,
                             ) ?></h2>
                             <div class="text-sm text-zinc-400"><?= htmlspecialchars(
-                                $game_symbol
+                                $game_symbol,
                             ) ?></div>
                         </div>
                         <div class="font-mono text-xs text-zinc-400 truncate ml-4">
@@ -184,7 +176,7 @@ require_once __DIR__ . "/../includes/header.php";
                                     <div class="text-xs text-zinc-400 mb-1 font-bold">BEFORE:</div>
                                     <div class="h-32 bg-zinc-900 overflow-hidden">
                                         <img src="<?= htmlspecialchars(
-                                            $original_cover_url
+                                            $original_cover_url,
                                         ) ?>"
                                              alt="Original cover"
                                              class="w-full h-full object-cover opacity-70">
@@ -194,7 +186,7 @@ require_once __DIR__ . "/../includes/header.php";
                                     <div class="text-xs text-emerald-400 mb-1 font-bold">AFTER:</div>
                                     <div class="h-32 border border-emerald-400 overflow-hidden">
                                         <img src="<?= htmlspecialchars(
-                                            $new_cover_url
+                                            $new_cover_url,
                                         ) ?>"
                                              alt="New cover"
                                              class="w-full h-full object-cover">
@@ -212,34 +204,13 @@ require_once __DIR__ . "/../includes/header.php";
                                 <div class="p-2 border-b border-zinc-700">
                                     <div class="text-xs text-zinc-400 mb-1 font-bold">BEFORE:</div>
                                     <div class="font-mono text-sm text-zinc-500 break-all"><?= htmlspecialchars(
-                                        $original_game_url
+                                        $original_game_url,
                                     ) ?></div>
                                 </div>
                                 <div class="p-2 bg-zinc-800/50">
                                     <div class="text-xs text-emerald-400 mb-1 font-bold">AFTER:</div>
                                     <div class="font-mono text-sm text-emerald-400 break-all"><?= htmlspecialchars(
-                                        $new_game_url
-                                    ) ?></div>
-                                </div>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-
-                        <!-- Short Description -->
-                        <?php if ($short_desc_changed): ?>
-                        <div class="mb-6 border-2 border-zinc-700">
-                            <div class="bg-zinc-800 p-2 border-b border-zinc-700 text-xs uppercase font-bold">Short Description</div>
-                            <div class="grid grid-cols-1">
-                                <div class="p-2 border-b border-zinc-700">
-                                    <div class="text-xs text-zinc-400 mb-1 font-bold">BEFORE:</div>
-                                    <div class="text-sm text-zinc-500"><?= htmlspecialchars(
-                                        $original_short_desc
-                                    ) ?></div>
-                                </div>
-                                <div class="p-2 bg-zinc-800/50">
-                                    <div class="text-xs text-emerald-400 mb-1 font-bold">AFTER:</div>
-                                    <div class="text-sm text-emerald-400"><?= htmlspecialchars(
-                                        $new_short_desc
+                                        $new_game_url,
                                     ) ?></div>
                                 </div>
                             </div>
@@ -254,13 +225,13 @@ require_once __DIR__ . "/../includes/header.php";
                                 <div class="p-2 border-b border-zinc-700">
                                     <div class="text-xs text-zinc-400 mb-1 font-bold">BEFORE:</div>
                                     <div class="font-mono text-sm text-zinc-500 break-all"><?= htmlspecialchars(
-                                        $owner_address
+                                        $owner_address,
                                     ) ?></div>
                                 </div>
                                 <div class="p-2 bg-zinc-800/50">
                                     <div class="text-xs text-emerald-400 mb-1 font-bold">AFTER:</div>
                                     <div class="font-mono text-sm text-emerald-400 break-all"><?= htmlspecialchars(
-                                        $new_owner_address
+                                        $new_owner_address,
                                     ) ?></div>
                                 </div>
                             </div>
@@ -279,7 +250,7 @@ require_once __DIR__ . "/../includes/header.php";
                                             $original_withdraw_authority ===
                                             "11111111111111111111111111111111"
                                                 ? "None"
-                                                : $original_withdraw_authority
+                                                : $original_withdraw_authority,
                                         ) ?>
                                     </div>
                                 </div>
@@ -290,7 +261,7 @@ require_once __DIR__ . "/../includes/header.php";
                                             $new_withdraw_authority ===
                                             "11111111111111111111111111111111"
                                                 ? "None"
-                                                : $new_withdraw_authority
+                                                : $new_withdraw_authority,
                                         ) ?>
                                     </div>
                                 </div>
@@ -306,13 +277,13 @@ require_once __DIR__ . "/../includes/header.php";
                                 <div class="p-2 border-b border-zinc-700">
                                     <div class="text-xs text-zinc-400 mb-1 font-bold">BEFORE:</div>
                                     <div class="font-mono text-sm text-zinc-500 break-all"><?= htmlspecialchars(
-                                        $original_metadata_url
+                                        $original_metadata_url,
                                     ) ?></div>
                                 </div>
                                 <div class="p-2 bg-zinc-800/50">
                                     <div class="text-xs text-emerald-400 mb-1 font-bold">AFTER:</div>
                                     <div class="font-mono text-sm text-emerald-400 break-all"><?= htmlspecialchars(
-                                        $new_metadata_url
+                                        $new_metadata_url,
                                     ) ?></div>
                                 </div>
                             </div>
@@ -325,7 +296,7 @@ require_once __DIR__ . "/../includes/header.php";
                         id="tx-button"
                         class="bg-emerald-400 text-emerald-950 px-8 py-3 font-bold text-lg hover:bg-emerald-300 w-full cursor-pointer disabled:cursor-default disabled:opacity-50 disabled:pointer-events-none border-2 border-emerald-400"
                         data-transaction="<?= base64_encode(
-                            json_encode($transaction_data)
+                            json_encode($transaction_data),
                         ) ?>"
                     >
                         Initializing...
@@ -335,7 +306,7 @@ require_once __DIR__ . "/../includes/header.php";
 
             <div class="text-center">
                 <a href="/edit?address=<?= urlencode(
-                    $game_address
+                    $game_address,
                 ) ?>" class="flex items-center justify-center text-emerald-400 hover:text-emerald-300 text-sm">
                     <?php echo icon("arrow-left", "h-4 w-4 mr-1"); ?>
                     Back to edit form

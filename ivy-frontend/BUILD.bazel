@@ -88,7 +88,7 @@ php -r '
 )");'
 
 # Start the development server
-php -S 127.0.0.1:3000 dev_router.php
+php -S 0.0.0.0:3000 dev_router.php
 EOF
 
         # Make the created script executable

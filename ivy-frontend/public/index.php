@@ -10,7 +10,7 @@ require_once __DIR__ . "/../includes/game.php";
 require_once __DIR__ . "/../includes/pagination.php";
 
 // Determine which list to display based on query parameter
-$active_tab = isset($_GET["tab"]) ? $_GET["tab"] : "hot";
+$active_tab = $_GET["tab"] ?? "hot";
 $games = [];
 $api_error = false; // Flag to track API errors
 
@@ -42,10 +42,10 @@ $query_params = http_build_query([
     "skip" => $skip, // Skip based on current page
     "sort" => $sort,
 ]);
-$full_endpoint = "/games?" . $query_params;
+$full_endpoint = "/games?$query_params";
 
 // Use the aggregator helper function to fetch game list
-$fetched_games_data = call_aggregator($full_endpoint, "GET");
+$fetched_games_data = call_aggregator($full_endpoint);
 
 // Check if fetching failed
 if ($fetched_games_data === null) {
@@ -53,7 +53,7 @@ if ($fetched_games_data === null) {
     $api_error = true;
     // Helper function logs details, maybe show a user message
     error_log(
-        "Failed to fetch game data from aggregator API for tab: " . $active_tab
+        "Failed to fetch game data from aggregator API for tab: $active_tab",
     );
 } else {
     // Ensure the response is an array (even if empty)
@@ -68,7 +68,8 @@ $has_next_page = count($games) == $games_per_page;
 $has_prev_page = $current_page > 1;
 
 $title = "ivy | explore";
-$description = "Explore Web3 games on Ivy, where games come to life";
+$description =
+    "Explore the latest games on Ivy: web3 gaming, radically simplified";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
@@ -119,7 +120,7 @@ require_once __DIR__ . "/../includes/header.php";
                 $current_page,
                 $has_prev_page,
                 $has_next_page,
-                $base_url
+                $base_url,
             );
         }
         ?>

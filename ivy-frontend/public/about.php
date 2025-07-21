@@ -23,7 +23,12 @@ require_once __DIR__ . "/../includes/header.php";
 
 <main class="pb-16">
     <!-- Hero -->
-    <section class="pt-8" style="background-image: url('/assets/images/ivy-background.webp');">
+    <section class="pt-8" style="
+        background-image: url('/assets/images/ivy-background.webp');
+        background-position: center;
+        background-size: cover;
+        background-repeat: no-repeat;
+    ">
         <div class="mx-auto max-w-6xl px-6 pt-20 pb-16 xxs:pb-36 md:pb-40 text-center"">
             <h1 class="mb-6 text-5xl xs:text-6xl mx-auto leading-tight font-extrabold">
                 Web3 gaming,<br>

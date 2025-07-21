@@ -310,7 +310,6 @@ app.post(
             { name: "game_url", type: "string" },
             { name: "cover_url", type: "string" },
             { name: "metadata_url", type: "string" },
-            { name: "short_desc", type: "string" },
         ]);
 
         const game_address = parsePublicKey(data.game, "game");
@@ -329,7 +328,6 @@ app.post(
             data.game_url,
             data.cover_url,
             data.metadata_url,
-            data.short_desc,
         );
 
         const prepared = await prepareTransaction(tx, owner_address);

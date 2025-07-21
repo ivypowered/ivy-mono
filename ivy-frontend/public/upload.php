@@ -7,8 +7,7 @@
 require_once __DIR__ . "/../includes/api.php";
 
 // Initialize variables
-$game_name = $game_symbol = $game_url = $game_short_description = $game_description =
-    "";
+$game_name = $game_symbol = $game_url = $game_description = "";
 $errors = [];
 
 // Get IVY info from aggregator
@@ -20,7 +19,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $game_name = $_POST["game_name"] ?? "";
     $game_symbol = strtoupper($_POST["game_symbol"] ?? "");
     $game_url = $_POST["game_url"] ?? "";
-    $game_short_description = $_POST["game_short_description"] ?? "";
     $game_description = $_POST["game_description"] ?? "";
     $initial_purchase = $_POST["initial_purchase"] ?? "0";
 
@@ -38,12 +36,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (empty($game_url) || !filter_var($game_url, FILTER_VALIDATE_URL)) {
         $errors[] = "Valid game URL is required";
-    }
-
-    if (empty($game_short_description)) {
-        $errors[] = "Short description is required";
-    } elseif (strlen($game_short_description) > 128) {
-        $errors[] = "Short description must be 128 characters or less";
     }
 
     // Validate file sizes
@@ -75,10 +67,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         try {
             // Get base64 encoded images
             $icon_base64 = base64_encode(
-                file_get_contents($_FILES["game_icon"]["tmp_name"])
+                file_get_contents($_FILES["game_icon"]["tmp_name"]),
             );
             $cover_base64 = base64_encode(
-                file_get_contents($_FILES["game_cover"]["tmp_name"])
+                file_get_contents($_FILES["game_cover"]["tmp_name"]),
             );
 
             // 1. Upload icon image to IPFS
@@ -111,7 +103,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $metadata_url = call_backend(
                 "/assets/metadata",
                 "POST",
-                $metadata_data
+                $metadata_data,
             );
             if ($metadata_url === null) {
                 throw new Exception("Failed to upload game metadata");
@@ -133,7 +125,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $redirect_params = [
                 "name" => $game_name,
                 "symbol" => $game_symbol,
-                "short_desc" => $game_short_description,
                 "game_url" => $game_url,
                 "icon_url" => $icon_url,
                 "cover_url" => $cover_url,
@@ -144,7 +135,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             header(
                 "Location: /upload-confirm.php?" .
-                    http_build_query($redirect_params)
+                    http_build_query($redirect_params),
             );
             exit();
         } catch (Exception $e) {
@@ -162,7 +153,7 @@ if (isset($_GET["error"])) {
 }
 
 $title = "ivy | upload";
-$description = "Upload your game to Ivy, where games come to life";
+$description = "Upload your game to Ivy: web3 gaming, radically simplified";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
@@ -177,7 +168,7 @@ require_once __DIR__ . "/../includes/header.php";
                 <ul class="list-disc ml-6 mt-2">
                     <?php foreach ($errors as $error): ?>
                         <li class="text-red-400"><?php echo htmlspecialchars(
-                            $error
+                            $error,
                         ); ?></li>
                     <?php endforeach; ?>
                 </ul>
@@ -204,30 +195,13 @@ require_once __DIR__ . "/../includes/header.php";
                         <label for="game_symbol" class="block mb-2 font-bold">Game Symbol</label>
                         <input type="text" id="game_symbol" name="game_symbol"
                             value="<?php echo htmlspecialchars(
-                                $game_symbol
+                                $game_symbol,
                             ); ?>"
                             class="w-full bg-emerald-950 border-2 border-emerald-400 p-3 uppercase"
                             placeholder="GAME" maxlength="10" minlength="2" pattern="[A-Z0-9]{2,10}"
                             title="Must be 2-10 uppercase letters or numbers" required
                             oninput="this.value = this.value.toUpperCase()">
                         <p class="text-sm text-emerald-400 mt-1">2-10 characters, uppercase letters and numbers only</p>
-                    </div>
-
-                    <!-- Short Description -->
-                    <div>
-                        <label for="game_short_description" class="block mb-2 font-bold">
-                            Short Description
-                            <span id="short-desc-counter" class="ml-2 text-sm font-normal text-emerald-400">(0/128 characters)</span>
-                        </label>
-                        <input type="text" id="game_short_description" name="game_short_description"
-                            value="<?php echo htmlspecialchars(
-                                $game_short_description
-                            ); ?>"
-                            class="w-full bg-emerald-950 border-2 border-emerald-400 p-3"
-                            placeholder="Brief description for listings"
-                            maxlength="128" required
-                            oninput="document.getElementById('short-desc-counter').textContent = '(' + this.value.length + '/128 characters)';">
-                        <p class="text-sm text-emerald-400 mt-1">A concise tagline for game listings</p>
                     </div>
 
                     <!-- Game URL -->
@@ -264,7 +238,7 @@ require_once __DIR__ . "/../includes/header.php";
                         <textarea id="game_description" name="game_description" rows="6"
                             class="w-full bg-emerald-950 border-2 border-emerald-400 p-3"
                             placeholder="Detailed description of your game..."><?php echo htmlspecialchars(
-                                $game_description
+                                $game_description,
                             ); ?></textarea>
                         <p class="text-sm text-emerald-400 mt-1">Full description displayed on your game's detail page</p>
                     </div>
@@ -276,7 +250,7 @@ require_once __DIR__ . "/../includes/header.php";
                             <div id="icon-placeholder" class="flex flex-col items-center pointer-events-none">
                                 <?php echo icon(
                                     "image-plus",
-                                    "h-10 w-10 text-emerald-400 mb-2"
+                                    "h-10 w-10 text-emerald-400 mb-2",
                                 ); ?>
                                 <p class="mb-1 font-medium">Upload Game Icon</p>
                                 <p class="text-sm text-emerald-400">Square format (PNG, JPG, WebP)</p>
@@ -298,10 +272,10 @@ require_once __DIR__ . "/../includes/header.php";
                             <div id="cover-placeholder" class="flex flex-col items-center pointer-events-none">
                                 <?php echo icon(
                                     "image-plus",
-                                    "h-10 w-10 text-emerald-400 mb-2"
+                                    "h-10 w-10 text-emerald-400 mb-2",
                                 ); ?>
                                 <p class="mb-1 font-medium">Upload Cover Image</p>
-                                <p class="text-sm text-emerald-400">16:9 ratio recommended (PNG, JPG, WebP)</p>
+                                <p class="text-sm text-emerald-400">3:2 ratio recommended (PNG, JPG, WebP)</p>
                             </div>
                             <img id="cover-preview" src="#" alt="Game cover preview" class="hidden max-h-32 max-w-full object-contain"/>
                             <input type="file" id="game_cover" name="game_cover"
@@ -383,13 +357,6 @@ require_once __DIR__ . "/../includes/header.php";
         // Initialize previews
         setupImagePreview('game_icon', 'icon-placeholder', 'icon-preview', 'icon-filename', 'icon-dropzone');
         setupImagePreview('game_cover', 'cover-placeholder', 'cover-preview', 'cover-filename', 'cover-dropzone');
-
-        // Initialize character counter
-        const shortDescInput = document.getElementById('game_short_description');
-        if (shortDescInput) {
-            document.getElementById('short-desc-counter').textContent =
-                '(' + shortDescInput.value.length + '/128 characters)';
-        }
 
         // Add event listeners to all required form fields
         document.querySelectorAll('#uploadForm input[required], #uploadForm textarea[required]').forEach(element => {

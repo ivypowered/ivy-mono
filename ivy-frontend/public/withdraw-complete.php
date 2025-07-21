@@ -53,7 +53,7 @@ $formatted_withdraw_amount = number_format($withdraw_amount / 1000000000, 2);
 
 $title = "ivy | withdraw complete";
 $description =
-    "View the result of your withdrawal on Ivy, where games come to life";
+    "View the result of your withdrawal on Ivy: web3 gaming, radically simplified";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
@@ -79,7 +79,7 @@ require_once __DIR__ . "/../includes/header.php";
                             alt="Game icon"
                             class="w-full h-full object-cover"
                             data-metadata-url="<?= htmlspecialchars(
-                                $game_data["metadata_url"]
+                                $game_data["metadata_url"],
                             ) ?>"
                             id="game-icon"
                         />
@@ -133,7 +133,7 @@ require_once __DIR__ . "/../includes/header.php";
                             <a href="<?= $explorer_link ?>" target="_blank" class="text-emerald-400 text-xs hover:underline">
                                 View on Explorer <?php echo icon(
                                     "external-link",
-                                    "h-3 w-3 inline"
+                                    "h-3 w-3 inline",
                                 ); ?>
                             </a>
                             <?php endif; ?>
@@ -174,8 +174,8 @@ require_once __DIR__ . "/../includes/header.php";
                     <p><?= nl2br(
                         htmlspecialchars(
                             $error ?:
-                            "Unknown error occurred during withdraw processing"
-                        )
+                            "Unknown error occurred during withdraw processing",
+                        ),
                     ) ?></p>
                 </div>
 
@@ -191,14 +191,14 @@ require_once __DIR__ . "/../includes/header.php";
 
             <div class="flex justify-center space-x-4">
                 <a href="/withdraw.php?id=<?= urlencode(
-                    $withdraw_id
+                    $withdraw_id,
                 ) ?>&game=<?= urlencode(
-    $game_public_key
+    $game_public_key,
 ) ?>" class="bg-emerald-400 text-emerald-950 px-6 py-3 font-bold hover:bg-emerald-300 transition-colors">
                     Try Again
                 </a>
                 <a href="/game?address=<?= urlencode(
-                    $game_public_key
+                    $game_public_key,
                 ) ?>" class="border-2 border-emerald-400 px-6 py-3 font-bold hover:bg-emerald-400/20">
                     Back to Game
                 </a>

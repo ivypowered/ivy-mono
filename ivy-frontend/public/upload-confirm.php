@@ -11,7 +11,7 @@ require_once __DIR__ . "/../includes/api.php";
 $errors = [];
 
 // Variables that will store the game data
-$game_name = $game_symbol = $game_url = $game_short_description = "";
+$game_name = $game_symbol = $game_url = "";
 $game_address = $icon_url = $cover_url = $metadata_url = "";
 $ivy_purchase = $min_game_received = "";
 $transaction_data = [];
@@ -20,7 +20,6 @@ $transaction_data = [];
 $required_params = [
     "name",
     "symbol",
-    "short_desc",
     "game_url",
     "icon_url",
     "cover_url",
@@ -40,7 +39,6 @@ if (empty($errors)) {
     // Get parameters from URL
     $game_name = $_GET["name"];
     $game_symbol = $_GET["symbol"];
-    $game_short_description = $_GET["short_desc"];
     $game_url = $_GET["game_url"];
     $icon_url = $_GET["icon_url"];
     $cover_url = $_GET["cover_url"];
@@ -53,7 +51,6 @@ if (empty($errors)) {
         $game_data = [
             "name" => $game_name,
             "symbol" => $game_symbol,
-            "short_desc" => $game_short_description,
             "icon_url" => $icon_url,
             "game_url" => $game_url,
             "cover_url" => $cover_url,
@@ -84,7 +81,7 @@ if (empty($errors)) {
 
 $title = "ivy | upload confirmation";
 $description =
-    "Confirm the upload of your game on Ivy, where games come to life";
+    "Confirm the upload of your game on Ivy: web3 gaming, radically simplified";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
@@ -99,7 +96,7 @@ require_once __DIR__ . "/../includes/header.php";
                 <ul class="list-disc ml-6 mt-2">
                     <?php foreach ($errors as $error): ?>
                         <li class="text-red-400"><?php echo htmlspecialchars(
-                            $error
+                            $error,
                         ); ?></li>
                     <?php endforeach; ?>
                 </ul>
@@ -120,25 +117,20 @@ require_once __DIR__ . "/../includes/header.php";
                             <!-- Game Icon -->
                             <div class="w-12 h-12 border-2 border-emerald-400 flex items-center justify-center bg-emerald-950">
                                 <img src="<?= htmlspecialchars(
-                                    $icon_url
+                                    $icon_url,
                                 ) ?>" alt="Game icon" class="w-full h-full object-cover">
                             </div>
 
                             <!-- Game Name and Symbol -->
                             <div>
                                 <h1 class="text-2xl font-bold text-white"><?= htmlspecialchars(
-                                    $game_name
+                                    $game_name,
                                 ) ?></h1>
                                 <span class="text-emerald-400 font-bold"><?= htmlspecialchars(
-                                    $game_symbol
+                                    $game_symbol,
                                 ) ?></span>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Game Short Description -->
-                    <div class="text-zinc-300">
-                        <p><?= htmlspecialchars($game_short_description) ?></p>
                     </div>
 
                     <!-- Game URL -->
@@ -146,12 +138,12 @@ require_once __DIR__ . "/../includes/header.php";
                         <div class="text-xs uppercase text-zinc-500 mb-1">Game URL</div>
                         <div class="font-mono text-sm text-zinc-300 bg-zinc-800 p-2 border border-zinc-700 overflow-x-auto">
                             <a href="<?= htmlspecialchars(
-                                $game_url
+                                $game_url,
                             ) ?>" target="_blank" class="text-emerald-400 hover:underline flex items-center gap-1">
                                 <?= htmlspecialchars($game_url) ?>
                                 <?php echo icon(
                                     "external-link",
-                                    "h-3 w-3 inline-block ml-1"
+                                    "h-3 w-3 inline-block ml-1",
                                 ); ?>
                             </a>
                         </div>
@@ -164,12 +156,12 @@ require_once __DIR__ . "/../includes/header.php";
                         <div class="flex items-center gap-3 bg-zinc-800 p-2 border border-zinc-700">
                             <div class="flex-1">
                                 <div class="font-bold"><?= htmlspecialchars(
-                                    $ivy_purchase
+                                    $ivy_purchase,
                                 ) ?> IVY</div>
                                 <div class="text-sm text-zinc-400">You will receive at least <?= htmlspecialchars(
-                                    $min_game_received
+                                    $min_game_received,
                                 ) ?> <?= htmlspecialchars(
-     $game_symbol
+     $game_symbol,
  ) ?> tokens</div>
                             </div>
                         </div>
@@ -189,7 +181,7 @@ require_once __DIR__ . "/../includes/header.php";
                         id="tx-button"
                         class="bg-emerald-400 text-emerald-950 px-8 py-3 font-bold text-lg hover:bg-emerald-300 w-full cursor-pointer disabled:cursor-default disabled:opacity-50 disabled:pointer-events-none"
                         data-transaction="<?= base64_encode(
-                            json_encode($transaction_data)
+                            json_encode($transaction_data),
                         ) ?>"
                     >
                         Initializing...

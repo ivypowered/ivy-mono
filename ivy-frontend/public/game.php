@@ -41,7 +41,7 @@ if (!$address) {
 
 // Include the header
 $title = "ivy | $name ($symbol)";
-$description = "Trade $symbol on Ivy, where games come to life";
+$description = "Trade $symbol on Ivy: web3 gaming, radically simplified";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
@@ -50,7 +50,7 @@ require_once __DIR__ . "/../includes/header.php";
     <div class="border-2 border-red-400 bg-red-950/50 p-8 mb-8 text-center max-w-3xl mx-auto">
         <h1 class="text-red-400 font-bold text-xl mb-4">Game Not Available</h1>
         <p class="text-white mb-6"><?php echo htmlspecialchars(
-            $error_message
+            $error_message,
         ); ?></p>
         <a href="/" class="inline-block rounded-none bg-emerald-400 text-emerald-950 hover:bg-emerald-300 font-bold px-6 py-3">
             Return to Home
@@ -59,7 +59,7 @@ require_once __DIR__ . "/../includes/header.php";
 <?php else: ?>
     <!-- Game mount point with no wrappers -->
     <div id="ivy-game" data-game="<?php echo htmlspecialchars(
-        $game_base64
+        $game_base64,
     ); ?>">
         <!-- Skeleton -->
         <div id="game-skeleton">

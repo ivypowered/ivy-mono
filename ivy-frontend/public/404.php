@@ -6,7 +6,8 @@
  */
 
 $title = "ivy | 404";
-$description = "We can't find this page on Ivy, where games come to life";
+$description =
+    "We can't find this page on Ivy: web3 gaming, radically simplified";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

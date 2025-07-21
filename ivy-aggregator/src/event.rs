@@ -142,8 +142,6 @@ pub struct GameEditEvent {
     pub cover_url: String,
     #[serde(rename = "metadataUrl")]
     pub metadata_url: String,
-    #[serde(rename = "shortDesc")]
-    pub short_desc: String,
 }
 impl_event_type!(GameEditEvent, "gameEditEvent", GameEdit);
 

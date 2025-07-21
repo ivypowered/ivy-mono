@@ -7,7 +7,6 @@ import { PublicKey } from "@solana/web3.js";
 export interface GameObject {
     name: string;
     symbol: string;
-    // short_desc: string;
     address: string;
     owner: string;
     swap_alt: string;

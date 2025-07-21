@@ -7,7 +7,6 @@ use crate::public::Public;
 pub struct Game {
     pub name: String,
     pub symbol: String,
-    pub short_desc: String,
     pub address: Public,
     pub mint: Public,
     pub swap_alt: Public,

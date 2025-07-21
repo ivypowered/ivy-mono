@@ -20,7 +20,7 @@ $sort = isset($_GET["sort"]) && $_GET["sort"] === "new" ? "new" : "top"; // Defa
 if (!empty($search_query_raw)) {
     $address_check_result = call_aggregator(
         "/validate/address/" . urlencode($search_query_raw),
-        "GET"
+        "GET",
     );
 
     if ($address_check_result === true) {
@@ -61,7 +61,7 @@ if (!empty($search_query_raw)) {
     if ($fetched_games_data === null) {
         $api_error = true;
         error_log(
-            "Failed to fetch search results for query: " . $search_query_raw
+            "Failed to fetch search results for query: " . $search_query_raw,
         );
     } else {
         $games = is_array($fetched_games_data) ? $fetched_games_data : [];
@@ -70,7 +70,7 @@ if (!empty($search_query_raw)) {
 
 // --- Page Rendering ---
 $title = "ivy | search: $search_query_raw";
-$description = "View search results on Ivy, where games come to life";
+$description = "View search results on Ivy: web3 gaming, radically simplified";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
@@ -87,7 +87,7 @@ require_once __DIR__ . "/../includes/header.php";
                 <div class="flex flex-wrap items-center gap-2 mb-6">
                     <span class="text-md font-bold text-zinc-400 mr-1">Sort by:</span>
                     <a href="?q=<?php echo urlencode(
-                        $search_query_raw
+                        $search_query_raw,
                     ); ?>&sort=top"
                        class="rounded-none inline-flex gap-2 px-4 py-1 font-mono text-sm font-bold whitespace-nowrap
                               <?php echo $sort === "top" || empty($sort)
@@ -97,7 +97,7 @@ require_once __DIR__ . "/../includes/header.php";
                         <span>Market Cap</span>
                     </a>
                     <a href="?q=<?php echo urlencode(
-                        $search_query_raw
+                        $search_query_raw,
                     ); ?>&sort=new"
                        class="rounded-none inline-flex gap-2 px-4 py-1 font-mono text-sm font-bold whitespace-nowrap
                               <?php echo $sort === "new"
