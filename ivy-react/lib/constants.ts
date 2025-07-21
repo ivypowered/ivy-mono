@@ -15,9 +15,8 @@ export const USDC_DECIMALS = 6;
 export const DEFAULT_SLIPPAGE_BPS = 50;
 
 // Token mint addresses
-export const WSOL_MINT = new PublicKey(
-    "So11111111111111111111111111111111111111112",
-);
+export const WSOL_MINT_B58 = "So11111111111111111111111111111111111111112";
+export const WSOL_MINT = new PublicKey(WSOL_MINT_B58);
 export const USDC_MINT = new PublicKey(
     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 );
