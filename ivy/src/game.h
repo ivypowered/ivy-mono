@@ -55,7 +55,6 @@ typedef struct {
     bytes128 game_url;
     bytes128 cover_url;
     bytes128 metadata_url;
-    bytes128 short_desc;
 } GameEditEvent;
 
 // #idl event discriminator GameEditEvent
@@ -119,8 +118,8 @@ typedef struct {
     bytes128 game_url;
     /// The URL to the game's cover art.
     bytes128 cover_url;
-    /// The short description for the game.
-    bytes128 short_desc;
+    /// Reserved for future use
+    bytes128 reserved;
 
     /// The game's seed, its unique identifier
     bytes32 seed;
@@ -213,7 +212,6 @@ typedef struct {
     bytes32 seed;
     bytes64 name;
     bytes16 symbol;
-    bytes128 short_desc;
     bytes128 game_url;
     bytes128 cover_url;
     bytes128 metadata_url;
@@ -268,7 +266,7 @@ static void game_create(
     g->withdraw_authority = ADDRESS_ZERO;
     g->game_url = data->game_url;
     g->cover_url = data->cover_url;
-    g->short_desc = data->short_desc;
+    g->reserved = (bytes128){.x = {0}};
     g->seed = data->seed;
 
     // Create and store token mint (with user as temporary mint authority)
@@ -369,10 +367,6 @@ static void game_create(
     require(
         utf8_validate_zt(&data->symbol, sizeof(data->symbol)),
         "game symbol is not valid UTF-8"
-    );
-    require(
-        utf8_validate_zt(&data->short_desc, sizeof(data->short_desc)),
-        "game short description is not valid UTF-8"
     );
     require(
         utf8_validate_zt(&data->game_url, sizeof(data->game_url)),
@@ -545,7 +539,6 @@ static void game_create(
             .game_url = data->game_url,
             .cover_url = data->cover_url,
             .metadata_url = data->metadata_url,
-            .short_desc = data->short_desc,
         };
 
         emit_event(
@@ -830,7 +823,6 @@ typedef struct {
     bytes128 new_game_url;
     bytes128 new_cover_url;
     bytes128 new_metadata_url;
-    bytes128 short_desc;
 } GameEditData;
 
 // #idl instruction discriminator game_edit
@@ -858,17 +850,12 @@ static void game_edit(
         utf8_validate_zt(&data->new_metadata_url, sizeof(data->new_metadata_url)),
         "new metadata URL is not valid UTF-8"
     );
-    require(
-        utf8_validate_zt(&data->short_desc, sizeof(data->short_desc)),
-        "new short description is not valid UTF-8"
-    );
 
-    // Update all fields unconditionally
+    // Update all fields
     game->owner = data->new_owner;
     game->withdraw_authority = data->new_withdraw_authority;
     game->game_url = data->new_game_url;
     game->cover_url = data->new_cover_url;
-    game->short_desc = data->short_desc;
 
     // Load old metadata
     address metadata_addr = metadata_derive_address(game->mint);
@@ -910,7 +897,6 @@ static void game_edit(
         .game_url = game->game_url,
         .cover_url = game->cover_url,
         .metadata_url = data->new_metadata_url,
-        .short_desc = game->short_desc
     };
 
     // Load world to get event authority + nonce

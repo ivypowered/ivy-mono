@@ -929,7 +929,6 @@ program
     .requiredOption("-u, --game-url <url>", "New game URL")
     .requiredOption("-c, --cover-url <url>", "New cover URL")
     .requiredOption("-m, --metadata-url <url>", "New metadata URL")
-    .requiredOption("-d, --description <description>", "New short description")
     .option(
         "-k, --keypair <path>",
         "Path to keypair file for signing (must be current owner)",
@@ -995,7 +994,6 @@ program
                 options.gameUrl,
                 options.coverUrl,
                 options.metadataUrl,
-                options.description,
             );
 
             // Add recent blockhash

@@ -42,7 +42,6 @@ export interface GameState {
     withdraw_authority: PublicKey;
     game_url: string;
     cover_url: string;
-    short_desc: string;
     mint: PublicKey;
     ivy_wallet: PublicKey;
     curve_wallet: PublicKey;
@@ -98,7 +97,6 @@ export class Game {
             withdraw_authority: g.withdrawAuthority,
             game_url: zt2str(g.gameUrl),
             cover_url: zt2str(g.coverUrl),
-            short_desc: zt2str(g.shortDesc),
             mint: g.mint,
             ivy_wallet: g.ivyWallet,
             curve_wallet: g.curveWallet,
@@ -237,7 +235,6 @@ export class Game {
                 seed_array,
                 str2zt(name, 64),
                 str2zt(symbol, 16),
-                str2zt(short_desc, 128),
                 str2zt(game_url, 128),
                 str2zt(cover_url, 128),
                 str2zt(metadata_url, 128),
@@ -607,7 +604,6 @@ export class Game {
         game_url: string,
         cover_url: string,
         metadata_url: string,
-        short_desc: string,
     ): Promise<Transaction> {
         if (game_url.length > MAX_TEXT_LEN) {
             throw new Error(`Game URL too long (max ${MAX_TEXT_LEN} chars)`);
@@ -618,11 +614,6 @@ export class Game {
         if (metadata_url.length > MAX_TEXT_LEN) {
             throw new Error(
                 `Metadata URL too long (max ${MAX_TEXT_LEN} chars)`,
-            );
-        }
-        if (short_desc.length > MAX_TEXT_LEN) {
-            throw new Error(
-                `Short description too long (max ${MAX_TEXT_LEN} chars)`,
             );
         }
 
@@ -636,7 +627,6 @@ export class Game {
                 str2zt(game_url, 128),
                 str2zt(cover_url, 128),
                 str2zt(metadata_url, 128),
-                str2zt(short_desc, 128),
             )
             .accounts({
                 game: game_address,

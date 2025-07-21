@@ -4,6 +4,8 @@ use std::io;
 use std::path::Path;
 use std::sync::RwLock;
 use std::time::SystemTime;
+use ureq::config::Config;
+use ureq::Agent;
 
 use crate::chart::Candle;
 use crate::charts::{ChartKind, Charts};
@@ -34,6 +36,8 @@ const MAX_CANDLES: usize = 4096;
 const MAX_HOT_GAMES: usize = 1024;
 /// The maximum age (in seconds) that games are allowed to have before they're removed from the hot list.
 const MAX_HOT_GAME_AGE: u64 = 86400;
+/// The minimum number of games that should be in the hot list; this overrides MAX_HOT_GAME_AGE
+const MIN_HOT_GAME_COUNT: usize = 50;
 /// Number of update cycles between each hot game list refresh.
 const HOT_GAME_LIST_REFRESH_INTERVAL: u64 = 10;
 /// The maximum number of games featured on the about page.
@@ -88,7 +92,8 @@ fn create_hot_game_list(recent_games: &[Game]) -> Vec<usize> {
         let age_seconds = now.saturating_sub(game.create_timestamp);
 
         // Stop if games are older than the max allowed age for the hot list
-        if age_seconds > MAX_HOT_GAME_AGE {
+        // - and we have enough games to fulfill our preferred minimum
+        if age_seconds > MAX_HOT_GAME_AGE && scored_indices.len() > MIN_HOT_GAME_COUNT {
             break;
         }
 
@@ -321,7 +326,6 @@ impl StateData {
             swap_alt: create_data.swap_alt,
             owner: Public::zero(),
             withdraw_authority: Public::zero(),
-            short_desc: String::new(),   // Updated later via GameUpdate
             game_url: String::new(),     // Updated later via GameUpdate
             cover_url: String::new(),    // Updated later via GameUpdate
             metadata_url: String::new(), // Updated later via GameUpdate
@@ -357,25 +361,24 @@ impl StateData {
         self.update_game_tvl(0, create_data.ivy_balance, create_data.ivy_balance);
     }
 
-    fn process_game_edit(&mut self, update_data: GameEditEvent) {
-        let game_meta = match self.address_to_game_meta.get(&update_data.game) {
+    fn process_game_edit(&mut self, edit_data: GameEditEvent) {
+        let game_meta = match self.address_to_game_meta.get(&edit_data.game) {
             Some(meta) => meta,
             None => {
                 eprintln!(
-                    "warning: Received GameUpdateEvent for nonexistent game {}",
-                    update_data.game
+                    "warning: Received GameEditEvent for nonexistent game {}",
+                    edit_data.game
                 );
                 return;
             }
         };
 
         let game = &mut self.game_list[game_meta.index];
-        game.owner = update_data.owner;
-        game.withdraw_authority = update_data.withdraw_authority;
-        game.game_url = update_data.game_url;
-        game.cover_url = update_data.cover_url;
-        game.metadata_url = update_data.metadata_url;
-        game.short_desc = update_data.short_desc;
+        game.owner = edit_data.owner;
+        game.withdraw_authority = edit_data.withdraw_authority;
+        game.game_url = edit_data.game_url;
+        game.cover_url = edit_data.cover_url;
+        game.metadata_url = edit_data.metadata_url;
     }
 
     fn process_game_swap(
@@ -688,14 +691,13 @@ impl State {
         }
 
         // Prepare API request parameters (read lock needed for last_signature)
-        let (params, api_url, mut t_since_hot_refresh) = {
+        let (params, api_url) = {
             let data = self.data.read().unwrap();
             (
                 GetEventsParams {
                     after: data.last_signature,
                 },
                 data.api_url.clone(),
-                data.t_since_hot_refresh,
             )
         };
 
@@ -706,7 +708,9 @@ impl State {
         }
 
         // Fetch new events using GET instead of POST
-        let response: GetEventsResponse = ureq::get(&url)
+        let agent = Agent::new_with_config(Config::builder().http_status_as_error(false).build());
+        let response: GetEventsResponse = agent
+            .get(&url)
             .call()
             .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?
             .body_mut()
@@ -717,40 +721,26 @@ impl State {
             GetEventsResponse::Err { msg } => return Err(format!("API error: {}", msg).into()),
         };
 
-        let mut needs_hot_refresh = false;
-        if !events.is_empty() {
-            // Acquire write lock to process new events
+        // Process events (maybe), and update hot game refresh counter
+        let needs_hot_refresh = {
             let mut data = self.data.write().unwrap();
+            if !events.is_empty() {
+                // Persist events first
+                data.evt_writer.write_multiple(&events)?;
 
-            // Persist events first
-            data.evt_writer.write_multiple(&events)?;
-
-            // Process events chronologically
-            for event in events {
-                data.process_event(event);
+                // Process events chronologically
+                for event in events {
+                    data.process_event(event);
+                }
             }
-
-            // Increment hot refresh counter and check if refresh is needed
             data.t_since_hot_refresh += 1;
-            t_since_hot_refresh = data.t_since_hot_refresh; // Update local copy
-            if t_since_hot_refresh >= HOT_GAME_LIST_REFRESH_INTERVAL {
-                needs_hot_refresh = true;
-            }
-        } else {
-            // No new events, still check hot refresh timer
-            t_since_hot_refresh += 1;
-            let mut data = self.data.write().unwrap(); // Need write lock to update counter
-            data.t_since_hot_refresh = t_since_hot_refresh;
-            if t_since_hot_refresh >= HOT_GAME_LIST_REFRESH_INTERVAL {
-                needs_hot_refresh = true;
-            }
-        }
+            data.t_since_hot_refresh >= HOT_GAME_LIST_REFRESH_INTERVAL
+        };
 
-        // Refresh hot games list if needed (outside the main event processing lock)
+        // Refresh hot games list if needed
         if needs_hot_refresh {
-            // Read game list needed for calculation
-            let game_list = self.data.read().unwrap().game_list.clone(); // Clone to release lock quickly
-            let hot_game_cache = create_hot_game_list(&game_list);
+            // Create hot game list
+            let hot_game_cache = create_hot_game_list(&self.data.read().unwrap().game_list);
 
             // Write the new cache and reset the counter
             let mut data = self.data.write().unwrap();

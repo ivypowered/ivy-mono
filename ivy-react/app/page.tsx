@@ -11,7 +11,6 @@ export default function Home() {
     const exampleGame: unknown = {
         name: "Ivy Dice",
         symbol: "DICE",
-        short_desc: "A dice game. Play and win!",
         address: "4rVKrXfk5JY5pYXeGTrQXkKpNPubeDiSu7PdL2EaAAas",
         mint: "A4yhpPyzJPBi9aTm9mapibWQt5utaJzfJSU1bNvUETxo",
         swap_alt: "7UaETu4NNsR2LKCvVq55Zq2xqVWGJkekRqTgxPngbW73",

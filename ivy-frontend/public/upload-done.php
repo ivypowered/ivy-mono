@@ -25,7 +25,7 @@ if ($status === "success") {
 }
 $title = "ivy | upload $upload_result";
 $description =
-    "View the results of your game upload on Ivy, where games come to life";
+    "View the results of your game upload on Ivy: web3 gaming, radically simplified";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
@@ -36,7 +36,7 @@ require_once __DIR__ . "/../includes/header.php";
                 <div class="inline-flex items-center justify-center w-20 h-20 bg-emerald-400/20 rounded-full mb-4">
                     <?php echo icon(
                         "circle-check",
-                        "h-12 w-12 text-emerald-400"
+                        "h-12 w-12 text-emerald-400",
                     ); ?>
                 </div>
                 <h1 class="text-3xl font-bold mb-2">Game Upload Successful</h1>
@@ -55,13 +55,13 @@ require_once __DIR__ . "/../includes/header.php";
                         <span class="text-emerald-400">Signature:</span>
                         <div class="text-right">
                             <span class="font-mono text-sm truncate max-w-[150px] xs:max-w-[200px] sm:max-w-[350px] block"><?= htmlspecialchars(
-                                $signature
+                                $signature,
                             ) ?></span>
                             <?php if ($explorer_link): ?>
                             <a href="<?= $explorer_link ?>" target="_blank" class="text-emerald-400 text-xs hover:underline">
                                 View on Explorer <?php echo icon(
                                     "external-link",
-                                    "h-3 w-3 inline"
+                                    "h-3 w-3 inline",
                                 ); ?>
                             </a>
                             <?php endif; ?>
@@ -100,8 +100,8 @@ require_once __DIR__ . "/../includes/header.php";
                     <p><?= nl2br(
                         htmlspecialchars(
                             $error ?:
-                            "Unknown error occurred during transaction processing"
-                        )
+                            "Unknown error occurred during transaction processing",
+                        ),
                     ) ?></p>
                 </div>
 
