@@ -88,7 +88,7 @@ typedef struct {
     address vesting_wallet;
     /// The world's event authority
     address event_authority;
-    /// The world's game ALT
+    /// The world's ALT
     /// We need this to make `game_create()`
     /// fit within 1232 bytes
     /// It also helps with composite IVY swap transactions
