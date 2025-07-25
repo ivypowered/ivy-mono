@@ -1,5 +1,5 @@
-#ifndef IVY_SYSTEM_H
-#define IVY_SYSTEM_H
+#ifndef IVY_LIB_SYSTEM_H
+#define IVY_LIB_SYSTEM_H
 
 #include "context.h"
 #include "rent.h"

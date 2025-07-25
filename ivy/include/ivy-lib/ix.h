@@ -1,5 +1,5 @@
-#ifndef IVY_IX_H
-#define IVY_IX_H
+#ifndef IVY_LIB_IX_H
+#define IVY_LIB_IX_H
 
 #include "rw.h" // For reader functions
 #include "types.h" // For address, u16, u64, slice, require, IX_PROGRAM_ID, etc.

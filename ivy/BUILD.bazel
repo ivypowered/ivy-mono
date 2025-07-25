@@ -30,6 +30,7 @@ genrule(
     srcs = glob([
         "src/**/*.c",
         "src/**/*.h",
+        "include/**/*.h",
         "idl/**/*.py",
     ]) + [
         ":install_requirements",
@@ -69,6 +70,7 @@ genrule(
             -isystem$${SDK_PATH}/inc \\
             -isystem$${LLVM_PATH}/lib/clang/17/include \\
             -I$${LLVM_PATH}/include \\
+            -Iinclude \\
             -target sbf -fPIC \\
             -o $${TARGET_DIR}/$${PROGRAM_NAME}.o \\
             -c ./src/main.c

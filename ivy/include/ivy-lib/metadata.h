@@ -1,5 +1,5 @@
-#ifndef IVY_METADATA_H
-#define IVY_METADATA_H
+#ifndef IVY_LIB_METADATA_H
+#define IVY_LIB_METADATA_H
 
 #include "context.h"
 #include "rw.h"

@@ -1,16 +1,11 @@
 #ifndef IVY_UTIL_H
 #define IVY_UTIL_H
 
-#include "lib/alt.h"
-#include "lib/heap.h"
-#include "lib/rw.h"
-#include "lib/types.h"
+#include <ivy-lib/alt.h>
+#include <ivy-lib/heap.h>
+#include <ivy-lib/rw.h>
+#include <ivy-lib/types.h>
 #include <solana_sdk.h>
-
-// === Constants ===
-
-static const char* const EVENT_AUTHORITY_PREFIX = "__event_authority";
-static const u64 EVENT_IX_TAG = 0x1d9acb512ea545e4; // per anchor
 
 // === Functions ===
 
@@ -18,56 +13,6 @@ static void authorize(const SolAccountInfo* provided, address desired) {
     require(
         address_equal(provided->key, &desired) && provided->is_signer, "Unauthorized"
     );
-}
-
-static ProgramDerivedAddress derive_event_authority(address program_id) {
-    const slice seeds[1] = {slice_from_str(EVENT_AUTHORITY_PREFIX)};
-
-    return find_program_address(
-        /* seeds */ seeds,
-        /* seeds_len */ SOL_ARRAY_SIZE(seeds),
-        /* program_id */ program_id,
-        /* msg */ "Can't find event authority address"
-    );
-}
-
-static void emit_event(
-    const Context* ctx,
-    slice event_data,
-    address data_address,
-    address event_authority,
-    u8 event_authority_nonce
-) {
-    // Prepare instruction data: 8 bytes tag + event data
-    u64 data_len = 8 + event_data.len;
-    u8* instruction_data = (u8*)heap_alloc(data_len);
-
-    writer w = writer_new(instruction_data, data_len);
-    writer_write_u64(&w, EVENT_IX_TAG);
-    writer_write_slice(&w, event_data);
-
-    SolAccountMeta metas[2] = {
-        {.pubkey = &data_address, .is_writable = false, .is_signer = false},
-        {.pubkey = &event_authority, .is_writable = false, .is_signer = true}
-    };
-
-    address program_id = *ctx->program_id;
-    const SolInstruction instruction = {
-        .program_id = &program_id,
-        .accounts = metas,
-        .account_len = SOL_ARRAY_SIZE(metas),
-        .data = instruction_data,
-        .data_len = w.offset
-    };
-
-    // Prepare seeds for signing
-    u8 nonce_bytes[1] = {event_authority_nonce};
-    const slice seeds[2] = {
-        slice_from_str(EVENT_AUTHORITY_PREFIX), slice_new(nonce_bytes, 1)
-    };
-    const SolSignerSeeds signers_seeds = {.addr = seeds, .len = 2};
-
-    context_invoke_signed(ctx, &instruction, signers_seeds, "Could not invoke event");
 }
 
 /// Set up an Address Lookup Table

@@ -2,7 +2,7 @@
 #define IVY_CP_CURVE_H
 
 #include "safe_math.h"
-#include "lib/types.h"
+#include <ivy-lib/types.h>
 
 /**
  * @title cp_curve

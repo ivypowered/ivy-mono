@@ -4,13 +4,14 @@
 #include "safe_math.h"
 #include "sqrt_curve.h"
 #include "util.h"
-#include "lib/alt.h"
-#include "lib/ata.h"
-#include "lib/context.h"
-#include "lib/metadata.h"
-#include "lib/system.h"
-#include "lib/token.h"
-#include "lib/types.h"
+#include "ivy-lib/event.h"
+#include <ivy-lib/alt.h>
+#include <ivy-lib/ata.h>
+#include <ivy-lib/context.h>
+#include <ivy-lib/metadata.h>
+#include <ivy-lib/system.h>
+#include <ivy-lib/token.h>
+#include <ivy-lib/types.h>
 #include <solana_sdk.h>
 
 static const char* const WORLD_PREFIX = "world";
@@ -200,9 +201,9 @@ static void world_receive_event(
     const WorldReceiveEventAccounts* accounts,
     const WorldReceiveEventData* data
 ) {
-    // Load world and authorize event authority
+    // Load world and verify event
     World* world = world_load(ctx, &accounts->world);
-    authorize(&accounts->event_authority, world->event_authority);
+    event_verify(&accounts->event_authority, world->event_authority);
 }
 
 /* ------------------------------ */
@@ -443,7 +444,7 @@ static void world_create(
 
     // Derive and store event authority address and nonce
     ProgramDerivedAddress event_authority_pda =
-        derive_event_authority(*ctx->program_id);
+        event_derive_authority(*ctx->program_id);
     address event_authority = event_authority_pda.key;
     u8 event_authority_nonce = event_authority_pda.nonce;
     w->event_authority = event_authority;
@@ -519,7 +520,7 @@ static void world_create(
         .curve_input_scale_den = w->curve_input_scale_den,
     };
 
-    emit_event(
+    event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&create_event, sizeof(create_event)),
         /* data_address */ world_address,
@@ -536,7 +537,7 @@ static void world_create(
         .game_fee_bps = w->game_fee_bps
     };
 
-    emit_event(
+    event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&update_event, sizeof(update_event)),
         /* data_address */ world_address,
@@ -627,7 +628,7 @@ static void world_set_params(
         .game_fee_bps = world->game_fee_bps
     };
 
-    emit_event(
+    event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&update_event, sizeof(update_event)),
         /* data_address */ *accounts->world.key,
@@ -716,7 +717,7 @@ static void world_claim_vesting(
         .ivy_vested = world->ivy_vesting_released
     };
 
-    emit_event(
+    event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&vesting_event, sizeof(vesting_event)),
         /* data_address */ *accounts->world.key,
@@ -944,7 +945,7 @@ static void world_swap(
         .is_buy = data->is_buy
     };
 
-    emit_event(
+    event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&swap_event, sizeof(swap_event)),
         /* data_address */ *accounts->world.key,

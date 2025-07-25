@@ -4,10 +4,10 @@
 #include "game.h"
 #include "safe_math.h"
 #include "world.h"
-#include "lib/ata.h"
-#include "lib/context.h"
-#include "lib/token.h"
-#include "lib/types.h"
+#include <ivy-lib/ata.h>
+#include <ivy-lib/context.h>
+#include <ivy-lib/token.h>
+#include <ivy-lib/types.h>
 
 /** Functions to perform mixed swaps. */
 

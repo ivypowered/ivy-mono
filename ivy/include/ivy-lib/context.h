@@ -1,5 +1,5 @@
-#ifndef IVY_CONTEXT_H
-#define IVY_CONTEXT_H
+#ifndef IVY_LIB_CONTEXT_H
+#define IVY_LIB_CONTEXT_H
 
 #include "heap.h"
 #include "types.h"

@@ -1,5 +1,5 @@
-#ifndef IVY_UTF8_H
-#define IVY_UTF8_H
+#ifndef IVY_LIB_UTF8_H
+#define IVY_LIB_UTF8_H
 
 #include "types.h"
 

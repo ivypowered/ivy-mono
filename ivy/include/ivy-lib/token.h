@@ -1,5 +1,5 @@
-#ifndef IVY_TOKEN_H
-#define IVY_TOKEN_H
+#ifndef IVY_LIB_TOKEN_H
+#define IVY_LIB_TOKEN_H
 
 #include "context.h"
 #include "rw.h"

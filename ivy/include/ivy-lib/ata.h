@@ -1,5 +1,5 @@
-#ifndef IVY_ATA_H
-#define IVY_ATA_H
+#ifndef IVY_LIB_ATA_H
+#define IVY_LIB_ATA_H
 
 #include "context.h"
 #include "types.h"

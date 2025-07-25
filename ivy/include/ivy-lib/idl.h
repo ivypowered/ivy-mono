@@ -1,20 +1,19 @@
-#ifndef IVY_IDL_H
-#define IVY_IDL_H
+#ifndef IVY_LIB_IDL_H
+#define IVY_LIB_IDL_H
 
-#include "safe_math.h"
-#include "util.h"
-#include "lib/context.h"
-#include "lib/heap.h"
-#include "lib/rent.h"
-#include "lib/rw.h"
-#include "lib/system.h"
-#include "lib/types.h"
+#include "context.h"
+#include "heap.h"
+#include "rent.h"
+#include "rw.h"
+#include "system.h"
+#include "types.h"
 #include <solana_sdk.h>
 
 /*
    This file implements the Anchor framework's
    IDL on-chain storage logic, which can be found
-   at https://github.com/solana-foundation/anchor/blob/master/lang/syn/src/codegen/program/idl.rs.
+   at
+   https://github.com/solana-foundation/anchor/blob/master/lang/syn/src/codegen/program/idl.rs.
 
    This is not strictly necessary, but on-chain IDL storage
    allows block explorers to easily deserialize instructions
@@ -162,7 +161,10 @@ static void idl_resize_account(Context* ctx, const u8* data, u64 data_len) {
 
     // Verify authority
     IdlAccount* idl = idl_load_account(ctx, idl_info);
-    authorize(authority, idl->authority);
+    require(
+        address_equal(authority->key, &idl->authority) && authority->is_signer,
+        "Account not authorized to modify IDL"
+    );
 
     // We don't support resizing accounts that already contain data
     require(idl->data_len == 0, "IdlAccountNotEmpty");
@@ -200,7 +202,10 @@ static void idl_close_account(Context* ctx, const u8* data, u64 data_len) {
 
     // Verify authority
     IdlAccount* idl = idl_load_account(ctx, account);
-    authorize(authority, idl->authority);
+    require(
+        address_equal(authority->key, &idl->authority) && authority->is_signer,
+        "Account not authorized to modify IDL"
+    );
 
     // Close account on-chain
     sol_close_account(account, destination);
@@ -256,7 +261,10 @@ static void idl_write(Context* ctx, const u8* data, u64 data_len) {
 
     // Verify authority
     IdlAccount* idl = idl_load_account(ctx, idl_info);
-    authorize(authority, idl->authority);
+    require(
+        address_equal(authority->key, &idl->authority) && authority->is_signer,
+        "Account not authorized to modify IDL"
+    );
 
     // Parse idl data segment
     require(data_len >= 4, "Invalid instruction data");
@@ -292,7 +300,10 @@ static void idl_set_authority(Context* ctx, const u8* data, u64 data_len) {
 
     // Verify authority
     IdlAccount* idl = idl_load_account(ctx, idl_info);
-    authorize(authority, idl->authority);
+    require(
+        address_equal(authority->key, &idl->authority) && authority->is_signer,
+        "Account not authorized to modify IDL"
+    );
 
     // Parse new authority
     require(data_len >= sizeof(address), "Invalid instruction data");
@@ -315,8 +326,11 @@ static void idl_set_buffer(Context* ctx) {
     // Verify authorities
     IdlAccount* idl = idl_load_account(ctx, idl_info);
     IdlAccount* buffer = idl_load_account(ctx, buffer_info);
-    authorize(authority, idl->authority);
-    authorize(authority, buffer->authority);
+    require(
+        address_equal(authority->key, &idl->authority) &&
+            address_equal(authority->key, &buffer->authority) && authority->is_signer,
+        "Account not authorized to modify IDL"
+    );
 
     // Copy buffer data to IDL account
     u32 buffer_len = buffer->data_len;

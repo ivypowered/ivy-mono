@@ -1,5 +1,5 @@
-#ifndef IVY_HEAP_H
-#define IVY_HEAP_H
+#ifndef IVY_LIB_HEAP_H
+#define IVY_LIB_HEAP_H
 
 #include "types.h"
 #include <solana_sdk.h>

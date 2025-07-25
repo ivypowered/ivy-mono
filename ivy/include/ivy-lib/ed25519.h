@@ -1,5 +1,5 @@
-#ifndef IVY_ED25519_H
-#define IVY_ED25519_H
+#ifndef IVY_LIB_ED25519_H
+#define IVY_LIB_ED25519_H
 
 #include "ix.h" // For SerializedInstruction, ix_len, ix_get
 #include "rw.h" // For reader, reader_* functions

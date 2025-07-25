@@ -3,10 +3,10 @@
 
 #include "game.h"
 #include "util.h"
-#include "lib/context.h"
-#include "lib/system.h"
-#include "lib/types.h"
-#include "lib/utf8.h"
+#include <ivy-lib/context.h>
+#include <ivy-lib/system.h>
+#include <ivy-lib/types.h>
+#include <ivy-lib/utf8.h>
 
 /**
  * On-chain comment storage
@@ -350,7 +350,7 @@ static void comment_post(
 
     // 7. Emit comment event for real-time listeners
     const World* world = world_load(ctx, &accounts->world);
-    emit_event(
+    event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)evt, comment_event_len),
         /* data_address */ *accounts->world.key,

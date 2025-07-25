@@ -1,7 +1,7 @@
 #ifndef IVY_SAFE_MATH_H
 #define IVY_SAFE_MATH_H
 
-#include "lib/types.h"
+#include <ivy-lib/types.h>
 
 /** Provides safe operations for u64 */
 

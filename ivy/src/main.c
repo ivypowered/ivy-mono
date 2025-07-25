@@ -1,9 +1,10 @@
 #include "comment.h"
 #include "game.h"
-#include "idl.h"
 #include "mix.h"
+#include "vault.h"
 #include "world.h"
-#include "lib/context.h"
+#include <ivy-lib/context.h>
+#include <ivy-lib/idl.h>
 
 #define CALL_INSTRUCTION(CTX, NAME, FN, ACCOUNTS_TYPE, DATA_TYPE, data, data_len) \
     do { \
@@ -185,6 +186,51 @@ extern u64 entrypoint(const u8* input) {
                 game_debit,
                 GameDebitAccounts,
                 GameDebitData,
+                data,
+                data_len
+            );
+
+        // Vault operations
+        case VAULT_CREATE_DISCRIMINATOR:
+            CALL_INSTRUCTION(
+                ctx,
+                "VaultCreate",
+                vault_create,
+                VaultCreateAccounts,
+                VaultCreateData,
+                data,
+                data_len
+            );
+
+        case VAULT_DEPOSIT_DISCRIMINATOR:
+            CALL_INSTRUCTION(
+                ctx,
+                "VaultDeposit",
+                vault_deposit,
+                VaultDepositAccounts,
+                VaultDepositData,
+                data,
+                data_len
+            );
+
+        case VAULT_WITHDRAW_DISCRIMINATOR:
+            CALL_INSTRUCTION(
+                ctx,
+                "VaultWithdraw",
+                vault_withdraw,
+                VaultWithdrawAccounts,
+                VaultWithdrawData,
+                data,
+                data_len
+            );
+
+        case VAULT_EDIT_DISCRIMINATOR:
+            CALL_INSTRUCTION(
+                ctx,
+                "VaultEdit",
+                vault_edit,
+                VaultEditAccounts,
+                VaultEditData,
                 data,
                 data_len
             );

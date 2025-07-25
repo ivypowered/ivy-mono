@@ -2,7 +2,7 @@
 #define IVY_SQRT_CURVE_H
 
 // clang-format off
-#include "lib/types.h"
+#include <ivy-lib/types.h>
 #include "import/r128.h"
 // clang-format on
 

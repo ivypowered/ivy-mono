@@ -5,16 +5,16 @@
 #include "safe_math.h"
 #include "util.h"
 #include "world.h"
-#include "lib/alt.h"
-#include "lib/ata.h"
-#include "lib/context.h"
-#include "lib/ed25519.h"
-#include "lib/metadata.h"
-#include "lib/rent.h"
-#include "lib/system.h"
-#include "lib/token.h"
-#include "lib/types.h"
-#include "lib/utf8.h"
+#include <ivy-lib/alt.h>
+#include <ivy-lib/ata.h>
+#include <ivy-lib/context.h>
+#include <ivy-lib/ed25519.h>
+#include <ivy-lib/metadata.h>
+#include <ivy-lib/rent.h>
+#include <ivy-lib/system.h>
+#include <ivy-lib/token.h>
+#include <ivy-lib/types.h>
+#include <ivy-lib/utf8.h>
 #include <solana_sdk.h>
 
 // === Constants ===
@@ -520,7 +520,7 @@ static void game_create(
             .game_balance = world->game_initial_liquidity
         };
 
-        emit_event(
+        event_emit(
             /* ctx */ ctx,
             /* event_data */ slice_new((const u8*)&create_event, sizeof(create_event)),
             /* data_address */ *accounts->world.key,
@@ -541,7 +541,7 @@ static void game_create(
             .metadata_url = data->metadata_url,
         };
 
-        emit_event(
+        event_emit(
             /* ctx */ ctx,
             /* event_data */ slice_new((const u8*)&edit_event, sizeof(edit_event)),
             /* data_address */ *accounts->world.key,
@@ -562,7 +562,7 @@ static void game_create(
             .is_buy = true
         };
 
-        emit_event(
+        event_emit(
             /* ctx */ ctx,
             /* event_data */ slice_new((const u8*)&swap_event, sizeof(swap_event)),
             /* data_address */ *accounts->world.key,
@@ -787,7 +787,7 @@ static void game_swap(
         .is_buy = data->is_buy
     };
 
-    emit_event(
+    event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&swap_event, sizeof(swap_event)),
         /* data_address */ *accounts->world.key,
@@ -902,7 +902,7 @@ static void game_edit(
     // Load world to get event authority + nonce
     const World* world = world_load(ctx, &accounts->world);
 
-    emit_event(
+    event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&edit_event, sizeof(edit_event)),
         /* data_address */ *accounts->world.key,
@@ -1195,7 +1195,7 @@ static void game_withdraw_claim(
         .withdraw_authority = game->withdraw_authority
     };
 
-    emit_event(
+    event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&withdraw_event, sizeof(withdraw_event)),
         /* data_address */ *accounts->world.key,
@@ -1325,7 +1325,7 @@ static void game_burn_complete(
         .id = data->id,
     };
 
-    emit_event(
+    event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&burn_event, sizeof(burn_event)),
         /* data_address */ *accounts->world.key,
@@ -1460,7 +1460,7 @@ static void game_deposit_complete(
         .id = data->id,
     };
 
-    emit_event(
+    event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&deposit_event, sizeof(deposit_event)),
         /* data_address */ *accounts->world.key,

@@ -1,5 +1,5 @@
-#ifndef IVY_TYPES_H
-#define IVY_TYPES_H
+#ifndef IVY_LIB_TYPES_H
+#define IVY_LIB_TYPES_H
 
 #include "noinline.h"
 #include <solana_sdk.h>
@@ -113,7 +113,8 @@ static NOINLINE void require(bool condition, const char* msg) {
 
     // Log the error and terminate
     sol_log_(err_buf, prefix_length + msg_length);
-    sol_panic();
+    const char* file = "require()";
+    sol_panic_(file, sol_strlen(file), 0, 0);
 
     // Unreachable code
     while (true) {

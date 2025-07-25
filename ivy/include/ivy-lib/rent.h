@@ -1,5 +1,5 @@
-#ifndef IVY_RENT_H
-#define IVY_RENT_H
+#ifndef IVY_LIB_RENT_H
+#define IVY_LIB_RENT_H
 
 /*
  * C implementation of Solana rent calculation

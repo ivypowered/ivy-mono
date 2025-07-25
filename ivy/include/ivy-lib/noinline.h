@@ -1,5 +1,5 @@
-#ifndef IVY_NOINLINE_H
-#define IVY_NOINLINE_H
+#ifndef IVY_LIB_NOINLINE_H
+#define IVY_LIB_NOINLINE_H
 
 /* Detect compiler and define NOINLINE macro appropriately */
 #if defined(_MSC_VER) /* Microsoft Visual C++ */

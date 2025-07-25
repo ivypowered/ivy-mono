@@ -1,5 +1,5 @@
-#ifndef IVY_ALT_H
-#define IVY_ALT_H
+#ifndef IVY_LIB_ALT_H
+#define IVY_LIB_ALT_H
 
 #include "context.h"
 #include "heap.h"
