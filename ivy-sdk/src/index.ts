@@ -38,3 +38,6 @@ export { Auth } from "./auth";
 
 // Comment exports
 export { Comment, CommentIndex } from "./comment";
+
+// Vault exports
+export { Vault, VaultState } from "./vault";

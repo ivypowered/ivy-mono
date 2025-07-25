@@ -70,3 +70,18 @@ let id_hex = id.iter()
     .map(|b| format!("{:02x}", b))
     .collect::<String>();
 ```
+
+In Go, you can use this function:
+
+```go
+// Generate a 32-byte unique deposit/withdraw ID
+func GenerateID(amountRaw uint64) [32]byte {
+	var id [32]byte
+	_, err := io.ReadFull(rand.Reader, id[:24])
+	if err != nil {
+		panic(err)
+	}
+	binary.LittleEndian.PutUint64(id[24:], amountRaw)
+	return id
+}
+```

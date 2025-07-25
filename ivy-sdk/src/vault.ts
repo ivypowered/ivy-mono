@@ -47,14 +47,14 @@ export class Vault {
         };
     }
 
-    private static deriveVault(seed: Uint8Array): PublicKey {
+    static deriveVault(seed: Uint8Array): PublicKey {
         return PublicKey.createProgramAddressSync(
             [VAULT_PREFIX, seed],
             IVY_PROGRAM_ID,
         );
     }
 
-    private static deriveWallet(vault: PublicKey): PublicKey {
+    static deriveWallet(vault: PublicKey): PublicKey {
         return PublicKey.createProgramAddressSync(
             [VAULT_WALLET_PREFIX, vault.toBuffer()],
             IVY_PROGRAM_ID,
@@ -148,7 +148,7 @@ export class Vault {
             throw new Error("invalid ID length");
         }
         const signature = Buffer.from(signatureHex, "hex");
-        if (signature.length !== 32) {
+        if (signature.length !== 64) {
             throw new Error("invalid signature length");
         }
         const withdraw = PublicKey.findProgramAddressSync(
