@@ -157,10 +157,10 @@ export class Vault {
             [Buffer.from("vault_withdraw"), vault.toBuffer(), id],
             IVY_PROGRAM_ID,
         )[0];
-        const msg = new Uint8Array(96);
-        vault.toBuffer().copy(msg, 0);
-        user.toBuffer().copy(msg, 32);
-        Buffer.from(id).copy(msg, 64);
+        const msg = Buffer.alloc(96);
+        vault.toBuffer().copy(msg as unknown as Uint8Array, 0);
+        user.toBuffer().copy(msg as unknown as Uint8Array, 32);
+        id.copy(msg as unknown as Uint8Array, 64);
         const tx = await ivy_program.methods
             .vaultWithdraw(Array.from(id), Array.from(signature))
             .accounts({
@@ -176,7 +176,7 @@ export class Vault {
                 Ed25519Program.createInstructionWithPublicKey({
                     publicKey:
                         withdrawAuthority.toBuffer() as unknown as Uint8Array,
-                    message: msg,
+                    message: msg as unknown as Uint8Array,
                     signature: signature as unknown as Uint8Array,
                 }),
             ])
