@@ -105,6 +105,14 @@ export function decodeGame(buf: Buffer): GameData {
     return ivy_program.coder.accounts.decode<GameData>("game", buf);
 }
 
+export type VaultData = Awaited<
+    ReturnType<Program<Ivy>["account"]["vault"]["fetch"]>
+>;
+
+export function decodeVault(buf: Buffer): VaultData {
+    return ivy_program.coder.accounts.decode<VaultData>("vault", buf);
+}
+
 export type WorldData = Awaited<
     ReturnType<Program<Ivy>["account"]["world"]["fetch"]>
 >;

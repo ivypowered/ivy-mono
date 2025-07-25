@@ -523,7 +523,7 @@ static void game_create(
         event_emit(
             /* ctx */ ctx,
             /* event_data */ slice_new((const u8*)&create_event, sizeof(create_event)),
-            /* data_address */ *accounts->world.key,
+            /* global_address */ *accounts->world.key,
             /* event_authority */ world->event_authority,
             /* event_authority_nonce */ world->event_authority_nonce
         );
@@ -544,7 +544,7 @@ static void game_create(
         event_emit(
             /* ctx */ ctx,
             /* event_data */ slice_new((const u8*)&edit_event, sizeof(edit_event)),
-            /* data_address */ *accounts->world.key,
+            /* global_address */ *accounts->world.key,
             /* event_authority */ world->event_authority,
             /* event_authority_nonce */ world->event_authority_nonce
         );
@@ -565,7 +565,7 @@ static void game_create(
         event_emit(
             /* ctx */ ctx,
             /* event_data */ slice_new((const u8*)&swap_event, sizeof(swap_event)),
-            /* data_address */ *accounts->world.key,
+            /* global_address */ *accounts->world.key,
             /* event_authority */ world->event_authority,
             /* event_authority_nonce */ world->event_authority_nonce
         );
@@ -790,7 +790,7 @@ static void game_swap(
     event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&swap_event, sizeof(swap_event)),
-        /* data_address */ *accounts->world.key,
+        /* global_address */ *accounts->world.key,
         /* event_authority */ world->event_authority,
         /* event_authority_nonce */ world->event_authority_nonce
     );
@@ -905,7 +905,7 @@ static void game_edit(
     event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&edit_event, sizeof(edit_event)),
-        /* data_address */ *accounts->world.key,
+        /* global_address */ *accounts->world.key,
         /* event_authority */ world->event_authority,
         /* event_authority_nonce */ world->event_authority_nonce
     );
@@ -1198,7 +1198,7 @@ static void game_withdraw_claim(
     event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&withdraw_event, sizeof(withdraw_event)),
-        /* data_address */ *accounts->world.key,
+        /* global_address */ *accounts->world.key,
         /* event_authority */ world->event_authority,
         /* event_authority_nonce */ world->event_authority_nonce
     );
@@ -1328,7 +1328,7 @@ static void game_burn_complete(
     event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&burn_event, sizeof(burn_event)),
-        /* data_address */ *accounts->world.key,
+        /* global_address */ *accounts->world.key,
         /* event_authority */ world->event_authority,
         /* event_authority_nonce */ world->event_authority_nonce
     );
@@ -1463,7 +1463,7 @@ static void game_deposit_complete(
     event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&deposit_event, sizeof(deposit_event)),
-        /* data_address */ *accounts->world.key,
+        /* global_address */ *accounts->world.key,
         /* event_authority */ world->event_authority,
         /* event_authority_nonce */ world->event_authority_nonce
     );

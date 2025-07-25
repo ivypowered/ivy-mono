@@ -2,7 +2,6 @@
 #define IVY_COMMENT_H
 
 #include "game.h"
-#include "util.h"
 #include <ivy-lib/context.h>
 #include <ivy-lib/system.h>
 #include <ivy-lib/types.h>
@@ -353,7 +352,7 @@ static void comment_post(
     event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)evt, comment_event_len),
-        /* data_address */ *accounts->world.key,
+        /* global_address */ *accounts->world.key,
         /* event_authority */ world->event_authority,
         /* event_authority_nonce */ world->event_authority_nonce
     );

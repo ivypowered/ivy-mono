@@ -523,7 +523,7 @@ static void world_create(
     event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&create_event, sizeof(create_event)),
-        /* data_address */ world_address,
+        /* global_address */ world_address,
         /* event_authority */ event_authority,
         /* event_authority_nonce */ event_authority_nonce
     );
@@ -540,7 +540,7 @@ static void world_create(
     event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&update_event, sizeof(update_event)),
-        /* data_address */ world_address,
+        /* global_address */ world_address,
         /* event_authority */ event_authority,
         /* event_authority_nonce */ event_authority_nonce
     );
@@ -631,7 +631,7 @@ static void world_set_params(
     event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&update_event, sizeof(update_event)),
-        /* data_address */ *accounts->world.key,
+        /* global_address */ *accounts->world.key,
         /* event_authority */ world->event_authority,
         /* event_authority_nonce */ world->event_authority_nonce
     );
@@ -720,7 +720,7 @@ static void world_claim_vesting(
     event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&vesting_event, sizeof(vesting_event)),
-        /* data_address */ *accounts->world.key,
+        /* global_address */ *accounts->world.key,
         /* event_authority */ world->event_authority,
         /* event_authority_nonce */ world->event_authority_nonce
     );
@@ -948,7 +948,7 @@ static void world_swap(
     event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&swap_event, sizeof(swap_event)),
-        /* data_address */ *accounts->world.key,
+        /* global_address */ *accounts->world.key,
         /* event_authority */ world->event_authority,
         /* event_authority_nonce */ world->event_authority_nonce
     );
