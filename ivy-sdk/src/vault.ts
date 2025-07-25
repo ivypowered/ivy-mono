@@ -177,7 +177,7 @@ export class Vault {
                     publicKey:
                         withdrawAuthority.toBuffer() as unknown as Uint8Array,
                     message: msg,
-                    signature,
+                    signature: signature as unknown as Uint8Array,
                 }),
             ])
             .transaction();
