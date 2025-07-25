@@ -1,5 +1,6 @@
 import {
     Connection,
+    Ed25519Program,
     Keypair,
     PublicKey,
     TransactionInstruction,
@@ -137,12 +138,13 @@ export class Vault {
             })
             .instruction();
     }
-    public static withdraw(
+    public static async withdraw(
         vault: PublicKey,
         user: PublicKey,
         idHex: string,
+        withdrawAuthority: PublicKey,
         signatureHex: string,
-    ): Promise<TransactionInstruction> {
+    ): Promise<TransactionInstruction[]> {
         const id = Buffer.from(idHex, "hex");
         if (id.length !== 32) {
             throw new Error("invalid ID length");
@@ -155,7 +157,11 @@ export class Vault {
             [Buffer.from("vault_withdraw"), vault.toBuffer(), id],
             IVY_PROGRAM_ID,
         )[0];
-        return ivy_program.methods
+        const msg = new Uint8Array(96);
+        vault.toBuffer().copy(msg, 0);
+        user.toBuffer().copy(msg, 32);
+        Buffer.from(id).copy(msg, 64);
+        const tx = await ivy_program.methods
             .vaultWithdraw(Array.from(id), Array.from(signature))
             .accounts({
                 user,
@@ -166,6 +172,15 @@ export class Vault {
                 ivyMint: IVY_MINT,
                 world: WORLD_ADDRESS,
             })
-            .instruction();
+            .preInstructions([
+                Ed25519Program.createInstructionWithPublicKey({
+                    publicKey:
+                        withdrawAuthority.toBuffer() as unknown as Uint8Array,
+                    message: msg,
+                    signature,
+                }),
+            ])
+            .transaction();
+        return tx.instructions;
     }
 }
