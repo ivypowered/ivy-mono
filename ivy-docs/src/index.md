@@ -26,4 +26,4 @@ With Ivy, you can add Web3 features to your game and launch in hours, not months
 
 ## Next Steps
 
-We care about our developers, users, and investors. If you have any questions or need anything at all, please don't hesitate to drop by [our Discord server](https://discord.gg/mzxNdTCesh) and ask your question. We'll do our absolute best to get back to you promptly.
+We care about our developers, users, and investors. If you have any questions or need anything at all, please don't hesitate to drop by [our Discord server](https://discord.gg/Ety6xXvgaD) and ask your question. We'll do our absolute best to get back to you promptly.

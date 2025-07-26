@@ -47,7 +47,7 @@
                 <div class="flex items-center gap-6">
                     <!-- Discord -->
                     <a
-                        href="https://discord.gg/mzxNdTCesh"
+                        href="https://discord.gg/Ety6xXvgaD"
                         aria-label="Discord"
                         class="text-emerald-400 hover:text-white"
                     >
