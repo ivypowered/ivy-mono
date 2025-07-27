@@ -93,6 +93,8 @@ pub enum EventData {
     WorldUpdate(WorldUpdateEvent),
     WorldVesting(WorldVestingEvent),
     CommentEvent(CommentEvent),
+    VaultDepositEvent(VaultDepositEvent),
+    VaultWithdrawEvent(VaultWithdrawEvent),
     Unknown(String),
 }
 
@@ -277,6 +279,20 @@ pub struct CommentEvent {
 }
 impl_event_type!(CommentEvent, "commentEvent", CommentEvent);
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VaultDepositEvent {
+    pub vault: Public,
+    pub id: [u8; 32],
+}
+impl_event_type!(VaultDepositEvent, "vaultDepositEvent", VaultDepositEvent);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VaultWithdrawEvent {
+    pub vault: Public,
+    pub id: [u8; 32],
+}
+impl_event_type!(VaultWithdrawEvent, "vaultWithdrawEvent", VaultWithdrawEvent);
+
 //
 // === Event impl Serialize/Deserialize ===
 //
@@ -298,6 +314,8 @@ impl Serialize for Event {
             EventData::WorldUpdate(e) => (WorldUpdateEvent::NAME, serde_json::to_value(e)),
             EventData::WorldVesting(e) => (WorldVestingEvent::NAME, serde_json::to_value(e)),
             EventData::CommentEvent(e) => (CommentEvent::NAME, serde_json::to_value(e)),
+            EventData::VaultDepositEvent(e) => (VaultDepositEvent::NAME, serde_json::to_value(e)),
+            EventData::VaultWithdrawEvent(e) => (VaultWithdrawEvent::NAME, serde_json::to_value(e)),
             EventData::Unknown(name) => (name.as_str(), Ok(serde_json::Value::Null)),
         };
 
@@ -362,6 +380,8 @@ fn deserialize_event_data<E: de::Error>(
     try_deserialize!(WorldUpdateEvent);
     try_deserialize!(WorldVestingEvent);
     try_deserialize!(CommentEvent);
+    try_deserialize!(VaultDepositEvent);
+    try_deserialize!(VaultWithdrawEvent);
 
     Ok(EventData::Unknown(name.to_string()))
 }

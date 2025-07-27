@@ -597,6 +597,8 @@ impl StateData {
             EventData::WorldSwap(data) => self.process_world_swap(timestamp, signature, data),
             EventData::WorldVesting(data) => self.process_world_vesting(data),
             EventData::CommentEvent(data) => self.process_comment_event(data),
+            EventData::VaultDepositEvent(_) => {} // nothing 4 now
+            EventData::VaultWithdrawEvent(_) => {} // nothing 4 now
             EventData::Unknown(name) => self.process_unknown(&name),
         }
         // Always update the last seen signature

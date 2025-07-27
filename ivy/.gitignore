@@ -2,3 +2,4 @@
 /idl/__pycache__
 /src/import
 /.clangd
+/include/ivy-lib/string.h
