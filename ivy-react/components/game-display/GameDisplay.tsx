@@ -173,6 +173,7 @@ export function GameDisplay({
                 outputToken: SwapToken,
                 inputAmount: number,
                 outputAmount: number,
+                slippageBps: number,
             ) => {
                 const gameAddress = new PublicKey(game.address);
                 const gameSwapAlt = new PublicKey(game.swap_alt);
@@ -186,6 +187,7 @@ export function GameDisplay({
                     outputToken,
                     inputAmount,
                     outputAmount,
+                    slippageBps,
                 );
             },
         [game, gameToken],

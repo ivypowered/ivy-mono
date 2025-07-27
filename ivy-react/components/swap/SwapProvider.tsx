@@ -4,6 +4,7 @@ import {
     ReactNode,
     useState,
     useEffect,
+    useCallback,
 } from "react";
 import {
     PROCESS_TRANSACTION_CONFIRMING,
@@ -22,7 +23,7 @@ import {
     Btn,
     Quote,
 } from "./swapTypes";
-import { MAX_SF, WSOL_MINT_B58 } from "@/lib/constants";
+import { DEFAULT_SLIPPAGE_BPS, MAX_SF, WSOL_MINT_B58 } from "@/lib/constants";
 import { PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { useQuoteResult } from "./QuoteProvider";
 import { useBalance } from "./BalanceProvider";
@@ -50,6 +51,7 @@ interface SwapProviderProps {
         outputToken: SwapToken,
         inputAmount: number,
         outputAmount: number,
+        slippageBps: number,
     ) => Promise<Quote>;
     initialInputToken: SwapToken;
     initialOutputToken: SwapToken;
@@ -89,6 +91,7 @@ export function SwapProvider({
         inputAmount: 0,
         outputAmount: 0,
         activeSide: ActiveSide.Input,
+        slippageBps: DEFAULT_SLIPPAGE_BPS,
 
         isSuccessOpen: false,
         isFailedOpen: false,
@@ -141,6 +144,7 @@ export function SwapProvider({
         state.outputToken,
         state.activeSide === ActiveSide.Input ? state.inputAmount || 0 : 0,
         state.activeSide === ActiveSide.Output ? state.outputAmount || 0 : 0,
+        state.slippageBps,
         refreshKey,
         fetchQuote,
     );
@@ -274,51 +278,71 @@ export function SwapProvider({
         }));
     };
 
-    const setInputAmount = (amount: number) => {
-        if (amount === state.inputAmount) {
-            return;
-        }
-        setState((prev) => ({
-            ...prev,
-            inputAmount: amount,
-            activeSide: ActiveSide.Input,
-        }));
-    };
+    const setInputAmount = useCallback(
+        (amount: number) => {
+            if (amount === state.inputAmount) {
+                return;
+            }
+            setState((prev) => ({
+                ...prev,
+                inputAmount: amount,
+                activeSide: ActiveSide.Input,
+            }));
+        },
+        [state.inputAmount],
+    );
 
-    const setOutputAmount = (amount: number) => {
-        if (amount === state.outputAmount) {
-            return;
-        }
-        setState((prev) => ({
-            ...prev,
-            outputAmount: amount,
-            activeSide: ActiveSide.Output,
-        }));
-    };
+    const setOutputAmount = useCallback(
+        (amount: number) => {
+            if (amount === state.outputAmount) {
+                return;
+            }
+            setState((prev) => ({
+                ...prev,
+                outputAmount: amount,
+                activeSide: ActiveSide.Output,
+            }));
+        },
+        [state.outputAmount],
+    );
 
-    const selectToken = (token: SwapToken) => {
-        // prohibit input token == output token
-        if (
-            state.selector === Selector.Input &&
-            state.outputToken.mint === token.mint
-        ) {
-            return;
-        }
-        if (
-            state.selector === Selector.Output &&
-            state.inputToken.mint === token.mint
-        ) {
-            return;
-        }
-        setState((prev) => ({
-            ...prev,
-            inputToken:
-                prev.selector === Selector.Input ? token : prev.inputToken,
-            outputToken:
-                prev.selector === Selector.Output ? token : prev.outputToken,
-            selector: Selector.None,
-        }));
-    };
+    const selectToken = useCallback(
+        (token: SwapToken) => {
+            // prohibit input token == output token
+            if (
+                state.selector === Selector.Input &&
+                state.outputToken.mint === token.mint
+            ) {
+                return;
+            }
+            if (
+                state.selector === Selector.Output &&
+                state.inputToken.mint === token.mint
+            ) {
+                return;
+            }
+            setState((prev) => ({
+                ...prev,
+                inputToken:
+                    prev.selector === Selector.Input ? token : prev.inputToken,
+                outputToken:
+                    prev.selector === Selector.Output
+                        ? token
+                        : prev.outputToken,
+                selector: Selector.None,
+            }));
+        },
+        [state.inputToken.mint, state.outputToken.mint, state.selector],
+    );
+
+    const setSlippageBps = useCallback(
+        (bps: number) =>
+            setState((s) => ({
+                ...s,
+                slippageBps: bps,
+            })),
+        [],
+    );
 
     let quote: Quote | undefined;
     if (quoteResult.status === "success") {
@@ -338,6 +362,7 @@ export function SwapProvider({
         switchTokens,
         setInputAmount,
         setOutputAmount,
+        setSlippageBps,
         selectToken,
         openTokenSelector: (type) =>
             setState((prev) => ({

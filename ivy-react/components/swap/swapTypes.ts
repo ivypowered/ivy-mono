@@ -41,6 +41,7 @@ export interface SwapState {
     inputAmount: number | undefined;
     outputAmount: number | undefined;
     activeSide: ActiveSide;
+    slippageBps: number;
 
     // UI State
     isSuccessOpen: boolean;
@@ -67,6 +68,7 @@ export interface SwapContextValue extends SwapState {
     switchTokens: () => void;
     setInputAmount: (amount: number) => void;
     setOutputAmount: (amount: number) => void;
+    setSlippageBps: (bps: number) => void;
     selectToken: (token: SwapToken) => void;
 
     // UI Actions

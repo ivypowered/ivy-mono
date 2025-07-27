@@ -5,11 +5,15 @@ import { ArrowRightLeft, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSwap } from "./SwapProvider";
 import { ActiveSide } from "./swapTypes";
+import { SlippageDialog } from "./SlippageDialog";
 
 export function SwapInfo() {
     const [infoOpen, setInfoOpen] = useState(false);
     const [isReversed, setIsReversed] = useState(false);
-    const { quote, inputToken, outputToken, activeSide } = useSwap();
+    const { quote, inputToken, outputToken, activeSide, setSlippageBps } =
+        useSwap();
+
+    const [slippageOpen, setSlippageOpen] = useState(false);
 
     useEffect(() => {
         if (!quote) {
@@ -21,6 +25,13 @@ export function SwapInfo() {
 
     return (
         <>
+            <SlippageDialog
+                open={slippageOpen}
+                onClose={() => setSlippageOpen(false)}
+                currentSlippageBps={quote?.slippageBps || 100}
+                onSave={setSlippageBps}
+            />
+
             <div className={`overflow-hidden ${quote ? "mt-2" : "h-0 mt-0"}`}>
                 <div className="flex items-center justify-between">
                     <span
@@ -110,9 +121,12 @@ export function SwapInfo() {
                                 </span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="bg-emerald-400 text-emerald-950 px-1 text-xs font-bold">
-                                    auto
-                                </span>
+                                <button
+                                    onClick={() => setSlippageOpen(true)}
+                                    className="bg-zinc-900 text-emerald-400 border border-emerald-400 px-1 font-bold hover:text-zinc-900 hover:bg-emerald-400"
+                                >
+                                    edit
+                                </button>
                                 <span className="text-zinc-300 ml-2">
                                     {(quote.slippageBps / 100).toFixed(2)}%
                                 </span>

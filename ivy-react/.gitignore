@@ -42,3 +42,6 @@ next-env.d.ts
 
 # imported dependencies
 /import
+
+# dev stuff
+/lib/KeypairWalletAdapter.ts

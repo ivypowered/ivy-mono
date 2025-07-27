@@ -12,7 +12,7 @@ export const API_BASE = "/api";
 export const USDC_DECIMALS = 6;
 
 // Default slippage
-export const DEFAULT_SLIPPAGE_BPS = 50;
+export const DEFAULT_SLIPPAGE_BPS = 200;
 
 // Token mint addresses
 export const WSOL_MINT_B58 = "So11111111111111111111111111111111111111112";

@@ -10,6 +10,7 @@ export function useQuoteResult(
     outputToken: SwapToken,
     inputAmount: number,
     outputAmount: number,
+    slippageBps: number,
     refreshKey: number,
     fetchQuote: (
         user: PublicKey | undefined,
@@ -17,6 +18,7 @@ export function useQuoteResult(
         outputToken: SwapToken,
         inputAmount: number,
         outputAmount: number,
+        slippageBps: number,
     ) => Promise<Quote>,
 ): QuoteResult {
     const [quoteResult, setQuoteResult] = useState<QuoteResult>({
@@ -26,7 +28,7 @@ export function useQuoteResult(
     // on regular refreshes, perform refresh transparently :)
     useEffect(() => {
         setQuoteResult({ status: "loading" });
-    }, [user, inputToken, outputToken, inputAmount, outputAmount]);
+    }, [user, inputToken, outputToken, inputAmount, outputAmount, slippageBps]);
 
     // Effect that runs when anything refreshes
     useEffect(() => {
@@ -47,7 +49,14 @@ export function useQuoteResult(
             return;
         }
         let active = true;
-        fetchQuote(user, inputToken, outputToken, inputAmount, outputAmount)
+        fetchQuote(
+            user,
+            inputToken,
+            outputToken,
+            inputAmount,
+            outputAmount,
+            slippageBps,
+        )
             .then(
                 (q) =>
                     active && setQuoteResult({ status: "success", quote: q }),
@@ -61,6 +70,14 @@ export function useQuoteResult(
             active = false;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user, inputToken, outputToken, inputAmount, outputAmount, refreshKey]);
+    }, [
+        user,
+        inputToken,
+        outputToken,
+        inputAmount,
+        outputAmount,
+        slippageBps,
+        refreshKey,
+    ]);
     return quoteResult;
 }

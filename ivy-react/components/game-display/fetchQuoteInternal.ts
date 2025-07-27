@@ -1,4 +1,4 @@
-import { IVY_MINT_B58, DEFAULT_SLIPPAGE_BPS } from "@/lib/constants";
+import { IVY_MINT_B58 } from "@/lib/constants";
 import {
     createBuyIvyTransaction,
     createSellIvyTransaction,
@@ -24,6 +24,7 @@ export async function fetchQuoteInternal(
     outputToken: SwapToken,
     inputAmount: number,
     outputAmount: number,
+    slippageBps: number,
 ): Promise<Quote> {
     if (!inputAmount || outputAmount) {
         throw new Error("Only ExactIn, non-zero swaps are supported");
@@ -40,7 +41,7 @@ export async function fetchQuoteInternal(
             /* inputToken */ inputMint,
             /* inputAmount */ inputAmount,
             /* inputDecimals */ inputToken.decimals,
-            /* slippageBps */ DEFAULT_SLIPPAGE_BPS,
+            /* slippageBps */ slippageBps,
         );
 
         getTx = () =>
@@ -64,7 +65,7 @@ export async function fetchQuoteInternal(
             /* outputToken */ outputMint,
             /* ivyAmount */ inputAmount,
             /* outputDecimals */ outputToken.decimals,
-            /* slippageBps */ DEFAULT_SLIPPAGE_BPS,
+            /* slippageBps */ slippageBps,
         );
 
         getTx = () =>
@@ -87,7 +88,7 @@ export async function fetchQuoteInternal(
             /* inputToken */ inputMint,
             /* inputAmount */ inputAmount,
             /* inputDecimals */ inputToken.decimals,
-            /* slippageBps */ DEFAULT_SLIPPAGE_BPS,
+            /* slippageBps */ slippageBps,
         );
 
         getTx = () =>
@@ -111,7 +112,7 @@ export async function fetchQuoteInternal(
             /* outputToken */ outputMint,
             /* inputAmount */ inputAmount,
             /* outputDecimals */ outputToken.decimals,
-            /* slippageBps */ DEFAULT_SLIPPAGE_BPS,
+            /* slippageBps */ slippageBps,
         );
 
         getTx = () =>
