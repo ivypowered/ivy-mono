@@ -1,0 +1,149 @@
+name: Build and Export Artifacts
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: |
+          ivy-mono/ivy-backend/package-lock.json
+          ivy-mono/ivy-react/package-lock.json
+          ivy-mono/ivy-sdk/package-lock.json
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+        cache: 'pip'
+
+    - name: Set up Bazel
+      uses: bazel-contrib/setup-bazel@0.8.5
+      with:
+        bazelisk-cache: true
+        disk-cache: ${{ github.workflow }}
+        repository-cache: true
+        bazelisk-version: '1.x'
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+
+    - name: Install Solana + Anchor
+      run: |
+        curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+
+    - name: Build all targets
+      run: |
+        cd ivy-mono
+        bazel build //...
+
+    - name: Prepare artifacts
+      run: |
+        mkdir -p artifacts/ivy
+        mkdir -p artifacts/ivy-aggregator
+        mkdir -p artifacts/ivy-backend
+        mkdir -p artifacts/ivy-docs
+        mkdir -p artifacts/ivy-frontend
+        mkdir -p artifacts/ivy-r128
+        mkdir -p artifacts/ivy-react
+        mkdir -p artifacts/ivy-sdk
+
+        # Copy Ivy program artifacts
+        cp ivy-mono/bazel-bin/ivy/deploy/ivy.so artifacts/ivy/
+        cp ivy-mono/bazel-bin/ivy/idl/ivy.json artifacts/ivy/
+        cp ivy-mono/bazel-bin/ivy/types/ivy.ts artifacts/ivy/
+
+        # Copy Ivy aggregator
+        cp ivy-mono/bazel-bin/ivy-aggregator/ivy-aggregator artifacts/ivy-aggregator/
+
+        # Copy Ivy backend
+        cp ivy-mono/bazel-bin/ivy-backend/index.js artifacts/ivy-backend/
+        cp ivy-mono/bazel-bin/ivy-backend/cli.js artifacts/ivy-backend/
+
+        # Copy Ivy docs
+        cp ivy-mono/bazel-bin/ivy-docs/docs.zip artifacts/ivy-docs/
+
+        # Copy Ivy frontend
+        cp ivy-mono/bazel-bin/ivy-frontend/frontend.zip artifacts/ivy-frontend/
+
+        # Copy Ivy r128
+        cp ivy-mono/bazel-bin/ivy-r128/r128.h artifacts/ivy-r128/
+        cp ivy-mono/bazel-bin/ivy-r128/libr128.a artifacts/ivy-r128/
+
+        # Copy Ivy react
+        cp ivy-mono/bazel-bin/ivy-react/ivy-react.js artifacts/ivy-react/
+        cp ivy-mono/bazel-bin/ivy-react/ivy-react-tw-input.tsx artifacts/ivy-react/
+
+        # Copy Ivy SDK
+        cp ivy-mono/bazel-bin/ivy-sdk/index.js artifacts/ivy-sdk/
+        cp ivy-mono/bazel-bin/ivy-sdk/index.d.ts artifacts/ivy-sdk/
+
+    - name: Upload Ivy Program artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ivy-program
+        path: artifacts/ivy/
+
+    - name: Upload Ivy Aggregator artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ivy-aggregator
+        path: artifacts/ivy-aggregator/
+
+    - name: Upload Ivy Backend artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ivy-backend
+        path: artifacts/ivy-backend/
+
+    - name: Upload Ivy Docs artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ivy-docs
+        path: artifacts/ivy-docs/
+
+    - name: Upload Ivy Frontend artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ivy-frontend
+        path: artifacts/ivy-frontend/
+
+    - name: Upload Ivy R128 artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ivy-r128
+        path: artifacts/ivy-r128/
+
+    - name: Upload Ivy React artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ivy-react
+        path: artifacts/ivy-react/
+
+    - name: Upload Ivy SDK artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ivy-sdk
+        path: artifacts/ivy-sdk/
+
+    - name: Upload all artifacts as single archive
+      uses: actions/upload-artifact@v4
+      with:
+        name: all-artifacts
+        path: artifacts/
