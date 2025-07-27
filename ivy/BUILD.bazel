@@ -100,8 +100,13 @@ genrule(
                 --no-bip39-passphrase
         fi
 
-        # Get program ID
-        PROGRAM_ID=$$(solana-keygen pubkey "$${KEYPAIR_PATH}")
+        if [ ! -f "./declare_id.txt" ]; then
+            # Get program ID from keypair
+            PROGRAM_ID=$$(solana-keygen pubkey "$${KEYPAIR_PATH}")
+        else
+            # Use declared ID to build program
+            PROGRAM_ID=$$(cat declare_id.txt | xargs)
+        fi
 
         # Build IDL
         python3 idl/main.py $$PROGRAM_NAME $$PROGRAM_ID
