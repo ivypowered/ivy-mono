@@ -50,7 +50,6 @@ jobs:
 
     - name: Build all targets
       run: |
-        cd ivy-mono
         bazel build //...
 
     - name: Prepare artifacts
