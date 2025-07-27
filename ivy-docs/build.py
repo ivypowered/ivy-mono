@@ -177,6 +177,8 @@ def convert_mkdocs_to_ivy(name, html_string, original_soup, public_root, tmp_dir
             new_href = site_prefix + href
         elif href.startswith("../"):
             new_href = site_prefix + href[2:]
+        else:
+            new_href = site_prefix + "/" + href
 
         a_tag['href'] = new_href
 
