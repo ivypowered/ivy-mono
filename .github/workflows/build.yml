@@ -1,4 +1,6 @@
 name: Build and Export Artifacts
+permissions:
+  contents: read
 
 on:
   push:
