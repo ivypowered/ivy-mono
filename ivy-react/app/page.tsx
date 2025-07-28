@@ -22,13 +22,13 @@ export default function Home() {
         metadata_url:
             "https://cdn.ivypowered.com/ipfs/bafkreiekir26andf6wwdk7k5dofm56zdooxhp4vnqfu63h3ffqmpuy5y3y",
         create_timestamp: 1752906866,
-        ivy_balance: "182955597811",
-        game_balance: "999842756694278800",
+        ivy_balance: "182981468795",
+        game_balance: "999701393111773442",
         starting_ivy_balance: "182926829268",
         comment_buf_index: 0,
-        last_price_usd: 0.0000012009973,
-        mkt_cap_usd: 1200.8085,
-        change_pct_24h: 0.04403645,
+        last_price_usd: 0.0000013180551,
+        mkt_cap_usd: 1317.6615,
+        change_pct_24h: 9.795042,
     };
 
     return (

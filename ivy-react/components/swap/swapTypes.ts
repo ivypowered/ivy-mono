@@ -63,6 +63,8 @@ export interface SwapContextValue extends SwapState {
     quoteError: string;
     inBalance: number | undefined;
     outBalance: number | undefined;
+    maxInputAmount: number | undefined;
+    maxOutputAmount: number | undefined;
 
     // Token & Amount Actions
     switchTokens: () => void;

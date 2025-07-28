@@ -134,7 +134,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             ];
 
             header(
-                "Location: /upload-confirm.php?" .
+                "Location: /upload-confirm?" .
                     http_build_query($redirect_params),
             );
             exit();
@@ -176,7 +176,7 @@ require_once __DIR__ . "/../includes/header.php";
         <?php endif; ?>
 
         <!-- Form -->
-        <form id="uploadForm" method="POST" action="upload.php" enctype="multipart/form-data" class="border-4 border-emerald-400 p-6">
+        <form id="uploadForm" method="POST" action="/upload.php" enctype="multipart/form-data" class="border-4 border-emerald-400 p-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Left Column -->
                 <div class="space-y-6">

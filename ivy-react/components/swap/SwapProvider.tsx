@@ -5,6 +5,7 @@ import {
     useState,
     useEffect,
     useCallback,
+    useMemo,
 } from "react";
 import {
     PROCESS_TRANSACTION_CONFIRMING,
@@ -344,6 +345,20 @@ export function SwapProvider({
         [],
     );
 
+    const maxInputAmount: number | undefined = useMemo(() => {
+        if (
+            inBalance === undefined ||
+            state.inputToken.mint !== WSOL_MINT_B58
+        ) {
+            return inBalance;
+        }
+        // Solana, we want to keep atl 0.01 SOL
+        // to cover network fees + ATA creation
+        return Math.max(0, inBalance - 0.01);
+    }, [inBalance, state.inputToken]);
+
+    const maxOutputAmount: number | undefined = outBalance;
+
     let quote: Quote | undefined;
     if (quoteResult.status === "success") {
         quote = quoteResult.quote;
@@ -359,6 +374,8 @@ export function SwapProvider({
         quoteError,
         inBalance,
         outBalance,
+        maxInputAmount,
+        maxOutputAmount,
         switchTokens,
         setInputAmount,
         setOutputAmount,

@@ -8,7 +8,7 @@ To complete this example, you'll need:
 
 - A desktop computer, to comfortably create and edit your Scratch project.
 - A web3-enabled Solana wallet such as [Phantom](https://phantom.com/download), [Backpack](https://backpack.app/download), or [Solflare](https://www.solflare.com/download/).
-- At least $5 worth of SOL in your wallet, to cover Solana network fees. (Ivy does not charge any fees for uploading games).
+- At least ~$2 worth of SOL in your wallet, to cover Solana network fees. (Ivy does not charge any fees for uploading games).
 
 ## 1. Sign up for Scratch
 

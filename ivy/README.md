@@ -5,7 +5,7 @@ This repository contains the C smart contract for Ivy, as well as a reusable Sol
 ## Requirements
 
 ```sh
-# Install Anchor (+ Solang)
+# Install Solana CLI
 curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/solana-developers/solana-install/main/install.sh | bash
 ```
 
