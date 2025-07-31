@@ -19,7 +19,7 @@ export function DecimalInput({
 }: DecimalInputProps) {
     // Store the displayed string value separately from the numeric value
     const [displayValue, setDisplayValue] = useState(
-        () => value?.toString() || ""
+        () => value?.toString() || "",
     );
 
     // Handle external value changes
@@ -32,7 +32,7 @@ export function DecimalInput({
 
     const handleChange = useCallback(
         (event: ChangeEvent<HTMLInputElement>) => {
-            const newValue = event.target.value;
+            const newValue = event.target.value.replaceAll(",", ".");
 
             if (newValue === "") {
                 setDisplayValue("");
@@ -60,7 +60,7 @@ export function DecimalInput({
             return;
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [onValueChange]
+        [onValueChange],
     );
 
     return (

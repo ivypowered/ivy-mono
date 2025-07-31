@@ -189,7 +189,6 @@ export class Game {
         seed: Uint8Array,
         name: string,
         symbol: string,
-        short_desc: string,
         icon_url: string,
         game_url: string,
         cover_url: string,
@@ -208,11 +207,6 @@ export class Game {
         }
         if (cover_url.length > MAX_TEXT_LEN) {
             throw new Error(`Cover URL too long (max ${MAX_TEXT_LEN} chars)`);
-        }
-        if (short_desc.length > MAX_TEXT_LEN) {
-            throw new Error(
-                `Short description length too long (max ${MAX_TEXT_LEN} chars)`,
-            );
         }
 
         const game = this.deriveAddress(seed);

@@ -256,7 +256,6 @@ app.post(
         const data = validateRequestBody(req.body, [
             { name: "name", type: "string" },
             { name: "symbol", type: "string" },
-            { name: "short_desc", type: "string" },
             { name: "icon_url", type: "string" },
             { name: "game_url", type: "string" },
             { name: "cover_url", type: "string" },
@@ -273,7 +272,6 @@ app.post(
             seed,
             data.name,
             data.symbol,
-            data.short_desc,
             data.icon_url,
             data.game_url,
             data.cover_url,

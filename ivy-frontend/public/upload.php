@@ -176,7 +176,7 @@ require_once __DIR__ . "/../includes/header.php";
         <?php endif; ?>
 
         <!-- Form -->
-        <form id="uploadForm" method="POST" action="/upload.php" enctype="multipart/form-data" class="border-4 border-emerald-400 p-6">
+        <form id="uploadForm" method="POST" action="/upload" enctype="multipart/form-data" class="border-4 border-emerald-400 p-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Left Column -->
                 <div class="space-y-6">
@@ -253,11 +253,11 @@ require_once __DIR__ . "/../includes/header.php";
                                     "h-10 w-10 text-emerald-400 mb-2",
                                 ); ?>
                                 <p class="mb-1 font-medium">Upload Game Icon</p>
-                                <p class="text-sm text-emerald-400">Square format (PNG, JPG, WebP)</p>
+                                <p class="text-sm text-emerald-400">Square format</p>
                             </div>
                             <img id="icon-preview" src="#" alt="Game icon preview" class="hidden h-32 w-32 object-contain"/>
                             <input type="file" id="game_icon" name="game_icon"
-                                accept="image/png, image/jpeg, image/gif, image/webp"
+                                accept="image/*"
                                 class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                 aria-label="Upload Game Icon" required>
                         </div>
@@ -275,11 +275,11 @@ require_once __DIR__ . "/../includes/header.php";
                                     "h-10 w-10 text-emerald-400 mb-2",
                                 ); ?>
                                 <p class="mb-1 font-medium">Upload Cover Image</p>
-                                <p class="text-sm text-emerald-400">3:2 ratio recommended (PNG, JPG, WebP)</p>
+                                <p class="text-sm text-emerald-400">3:2 ratio recommended</p>
                             </div>
                             <img id="cover-preview" src="#" alt="Game cover preview" class="hidden max-h-32 max-w-full object-contain"/>
                             <input type="file" id="game_cover" name="game_cover"
-                                accept="image/png, image/jpeg, image/gif, image/webp"
+                                accept="image/*"
                                 class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                 aria-label="Upload Cover Image" required>
                         </div>
