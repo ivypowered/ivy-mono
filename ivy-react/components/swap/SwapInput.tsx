@@ -16,6 +16,7 @@ export function SwapInput() {
         quote,
         inBalance,
         outBalance,
+        maxInputAmount,
         switchTokens,
         setInputAmount,
         setOutputAmount,
@@ -32,8 +33,8 @@ export function SwapInput() {
                 onChange={setInputAmount}
                 token={inputToken}
                 onTokenSelect={() => openTokenSelector(Selector.Input)}
-                maxAmount={inBalance}
-                onMax={(v) => setInputAmount(sfcap(v, MAX_SF))}
+                balance={inBalance}
+                onMax={() => setInputAmount(sfcap(maxInputAmount || 0, MAX_SF))}
                 hideBalance={!connected}
                 isTokenSelectDisabled={inputFixed}
                 isDisabled={false}
@@ -58,11 +59,11 @@ export function SwapInput() {
                 token={outputToken}
                 onTokenSelect={() => openTokenSelector(Selector.Output)}
                 className="mt-2"
-                maxAmount={outBalance}
+                balance={outBalance}
                 hideBalance={!connected}
                 isTokenSelectDisabled={outputFixed}
                 isDisabled={true}
-                onMax={(v) => setOutputAmount(sfcap(v, MAX_SF))}
+                onMax={() => setOutputAmount(sfcap(outBalance || 0, MAX_SF))}
             />
         </>
     );

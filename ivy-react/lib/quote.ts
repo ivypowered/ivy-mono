@@ -118,15 +118,13 @@ const BIG_USDC_HOLDER = new PublicKey(
     "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
 );
 const BIG_USDC_HOLDER_B58 = BIG_USDC_HOLDER.toBase58();
-const BIG_USDC_TOKEN_ACCOUNT_B58 = getAssociatedTokenAddressSync(
+const BIG_USDC_USDC_ACCOUNT_B58 = getAssociatedTokenAddressSync(
     USDC_MINT,
     BIG_USDC_HOLDER,
 ).toBase58();
-const BIG_USDC_WSOL_ACCOUNT = getAssociatedTokenAddressSync(
-    WSOL_MINT,
-    BIG_USDC_HOLDER,
-);
-const BIG_USDC_WSOL_ACCOUNT_B58 = BIG_USDC_WSOL_ACCOUNT.toBase58();
+const BIG_USDC_WSOL_ACCOUNT_B58 =
+    "Ft7A291TPAvLzckj1jfBRqww5eqvaerJ1nUnDJSnUY8a";
+const BIG_USDC_WSOL_ACCOUNT = new PublicKey(BIG_USDC_WSOL_ACCOUNT_B58);
 
 /// Transforms a Jupiter transaction message that has been constructed
 /// with `BIG_USDC_HOLDER` as the user to have `user` as the user.
@@ -171,7 +169,7 @@ function transformMessage(
     const userWsolAccount = getAssociatedTokenAddressSync(WSOL_MINT, user);
     const accountMap: Record<string, PublicKey | undefined> = {
         [BIG_USDC_HOLDER_B58]: user,
-        [BIG_USDC_TOKEN_ACCOUNT_B58]: getAssociatedTokenAddressSync(
+        [BIG_USDC_USDC_ACCOUNT_B58]: getAssociatedTokenAddressSync(
             USDC_MINT,
             user,
         ),
@@ -192,12 +190,14 @@ function transformMessage(
             ins.data[0] === 9
         ) {
             const account = ins.keys[0];
-            if (!account.pubkey.equals(BIG_USDC_WSOL_ACCOUNT)) {
-                throw new Error(
+            if (account.pubkey.equals(BIG_USDC_WSOL_ACCOUNT)) {
+                requiresWsol = true;
+            } else {
+                // wing it & hope for the best :)
+                console.warn(
                     "Jupiter instruction closes unknown token account: only WSOL is supported by this algorithm",
                 );
             }
-            requiresWsol = true;
         }
 
         if (ins.programId.equals(JUP_PROGRAM_ID) && ins.data.length >= 8) {

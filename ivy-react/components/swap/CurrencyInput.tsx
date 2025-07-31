@@ -10,9 +10,9 @@ type CurrencyInputProps = {
     title?: string;
     amount: number | undefined;
     dollarValue: number;
-    maxAmount: number | undefined;
+    balance: number | undefined;
     onChange: (value: number) => void;
-    onMax: (value: number) => void;
+    onMax: () => void;
     onTokenSelect: () => void;
     token: SwapToken;
     className?: string;
@@ -25,7 +25,7 @@ export function CurrencyInput({
     title,
     amount,
     dollarValue,
-    maxAmount,
+    balance,
     onChange,
     onMax,
     onTokenSelect,
@@ -77,10 +77,10 @@ export function CurrencyInput({
                     <div className="flex items-center gap-2">
                         <div className="flex items-center text-sm">
                             <Wallet className="h-3 w-3 mr-1 text-emerald-400" />
-                            {maxAmount === undefined ? (
+                            {balance === undefined ? (
                                 <Skeleton className="h-3 w-10 rounded-none border border-zinc-700" />
                             ) : (
-                                maxAmount.toFixed(4)
+                                balance.toFixed(4)
                             )}
                         </div>
                         {!isDisabled && (
@@ -88,8 +88,8 @@ export function CurrencyInput({
                                 variant="outline"
                                 size="sm"
                                 className="h-6 px-2 text-xs rounded-none border-2 border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-emerald-950 font-bold transition-none"
-                                onClick={() => onMax(maxAmount ?? 0)}
-                                disabled={maxAmount === undefined}
+                                onClick={() => onMax()}
+                                disabled={balance === undefined}
                             >
                                 Max
                             </Button>

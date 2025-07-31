@@ -64,7 +64,6 @@ export interface SwapContextValue extends SwapState {
     inBalance: number | undefined;
     outBalance: number | undefined;
     maxInputAmount: number | undefined;
-    maxOutputAmount: number | undefined;
 
     // Token & Amount Actions
     switchTokens: () => void;

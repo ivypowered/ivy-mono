@@ -357,8 +357,6 @@ export function SwapProvider({
         return Math.max(0, inBalance - 0.01);
     }, [inBalance, state.inputToken]);
 
-    const maxOutputAmount: number | undefined = outBalance;
-
     let quote: Quote | undefined;
     if (quoteResult.status === "success") {
         quote = quoteResult.quote;
@@ -375,7 +373,6 @@ export function SwapProvider({
         inBalance,
         outBalance,
         maxInputAmount,
-        maxOutputAmount,
         switchTokens,
         setInputAmount,
         setOutputAmount,
