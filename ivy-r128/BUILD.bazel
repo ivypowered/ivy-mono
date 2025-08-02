@@ -15,7 +15,7 @@ genrule(
         # patch headers
         python3 patch.py ./target/sbf-solana-solana/release/r128.h
         # tree out directory
-        tree ./target/sbf-solana-solana/release/ 1>&2
+        tree ./target 1>&2
         # copy to outfiles
         cp ./target/sbf-solana-solana/release/r128.h $$ROOT_DIR/$(location r128.h)
         cp ./target/sbf-solana-solana/release/libr128.a $$ROOT_DIR/$(location libr128.a)
