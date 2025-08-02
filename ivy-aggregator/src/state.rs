@@ -11,8 +11,8 @@ use crate::chart::Candle;
 use crate::charts::{ChartKind, Charts};
 use crate::event::{
     CommentEvent, Event, EventData, GameBurnEvent, GameCreateEvent, GameDepositEvent,
-    GameEditEvent, GameSwapEvent, GameWithdrawEvent, WorldCreateEvent, WorldSwapEvent,
-    WorldUpdateEvent, WorldVestingEvent,
+    GameEditEvent, GamePromoteEvent, GameSwapEvent, GameWithdrawEvent, WorldCreateEvent,
+    WorldSwapEvent, WorldUpdateEvent, WorldVestingEvent,
 };
 use crate::game::Game;
 use crate::jsonl::{JsonReader, JsonWriter};
@@ -20,6 +20,7 @@ use crate::public::Public;
 use crate::quote::Quote;
 use crate::signature::Signature;
 use crate::sqrt_curve::SqrtCurve;
+use crate::tv_board::{Tv, TvBoard, TvEntry};
 use crate::util::{
     from_game_amount, from_ivy_amount, from_usdc_amount, to_ivy_amount, to_usdc_amount,
 };
@@ -251,6 +252,7 @@ pub struct GlobalInfo {
 struct StateData {
     // Game data
     address_to_game_meta: HashMap<Public, GameMeta>, // game_address -> GameMeta
+    address_to_ivy_tv_board: HashMap<Public, TvBoard>, // game_address -> TvBoard
     game_list: Vec<Game>,                            // Chronological list of all games
     top_games: BTreeSet<TopGameEntry>,               // Games sorted by market cap (desc)
     hot_game_cache: Vec<usize>,                      // Indices of hot games (cached)
@@ -338,6 +340,7 @@ impl StateData {
             last_price_usd: game_price_usd,
             mkt_cap_usd: game_balance * game_price_usd,
             change_pct_24h: 0.0,
+            is_official_launch: false,
         };
 
         let index = self.game_list.len();
@@ -446,6 +449,22 @@ impl StateData {
 
         // Add volume to global volume array
         self.volume_24h.append(usd_to_mil(usdc_value), timestamp);
+
+        // Update leaderboard if both it + user are extant, otherwise finish here!
+        let user = match swap_data.user {
+            Some(v) => v,
+            None => return,
+        };
+        let tv_board = match self.address_to_ivy_tv_board.get_mut(&swap_data.game) {
+            Some(v) => v,
+            None => return,
+        };
+        // Increase user's volume score for this game
+        if swap_data.is_referral == Some(true) {
+            tv_board.add_referred_volume(user, swap_data.ivy_amount);
+        } else {
+            tv_board.add_personal_volume(user, swap_data.ivy_amount);
+        }
     }
 
     fn process_game_burn(
@@ -498,6 +517,18 @@ impl StateData {
                 timestamp,
                 withdraw_authority: withdraw_data.withdraw_authority,
             });
+    }
+
+    fn process_game_promote(&mut self, promote_data: GamePromoteEvent) {
+        // Promote to official launch status
+        if let Some(game_meta) = self.address_to_game_meta.get(&promote_data.game) {
+            let game = &mut self.game_list[game_meta.index];
+            game.is_official_launch = true;
+        }
+        // Create leaderboard for total volume
+        self.address_to_ivy_tv_board
+            .entry(promote_data.game)
+            .or_insert_with(|| TvBoard::new());
     }
 
     fn process_world_create(&mut self, timestamp: u64, create_data: WorldCreateEvent) {
@@ -592,6 +623,7 @@ impl StateData {
             EventData::GameBurn(data) => self.process_game_burn(timestamp, signature, data),
             EventData::GameDeposit(data) => self.process_game_deposit(timestamp, signature, data),
             EventData::GameWithdraw(data) => self.process_game_withdraw(timestamp, signature, data),
+            EventData::GamePromote(data) => self.process_game_promote(data),
             EventData::WorldCreate(data) => self.process_world_create(timestamp, data),
             EventData::WorldUpdate(data) => self.process_world_update(data),
             EventData::WorldSwap(data) => self.process_world_swap(timestamp, signature, data),
@@ -628,6 +660,7 @@ impl State {
         // Initialize empty state data
         let mut state_data = StateData {
             address_to_game_meta: HashMap::new(),
+            address_to_ivy_tv_board: HashMap::new(),
             top_games: BTreeSet::new(),
             hot_game_cache: Vec::new(),
             game_list: Vec::new(),
@@ -1189,5 +1222,26 @@ impl State {
             volume_24h: mil_to_usd(data.volume_24h.get()),
             featured_games,
         }
+    }
+
+    pub fn query_tv_board(&self, game: Public, count: usize, skip: usize) -> Vec<TvEntry> {
+        self.data
+            .read()
+            .unwrap()
+            .address_to_ivy_tv_board
+            .get(&game)
+            .map(|tv| tv.query_descending(count, skip))
+            .unwrap_or(Vec::new())
+    }
+
+    pub fn get_tv(&self, game: Public, user: Public) -> Tv {
+        self.data
+            .read()
+            .unwrap()
+            .address_to_ivy_tv_board
+            .get(&game)
+            .map(|tv| tv.get_tv(&user))
+            .flatten()
+            .unwrap_or(Tv::default())
     }
 }

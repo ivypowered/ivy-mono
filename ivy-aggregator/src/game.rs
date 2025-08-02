@@ -28,6 +28,7 @@ pub struct Game {
     pub last_price_usd: f32,
     pub mkt_cap_usd: f32,
     pub change_pct_24h: f32,
+    pub is_official_launch: bool,
 }
 
 fn serialize_u64_as_string<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>

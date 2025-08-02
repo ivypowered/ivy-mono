@@ -22,6 +22,9 @@ function game_render($game)
     $image_url = !empty($game["cover_url"])
         ? htmlspecialchars($game["cover_url"])
         : "/assets/images/placeholder.png";
+    $is_official =
+        isset($game["is_official_launch"]) &&
+        $game["is_official_launch"] === true;
 
     $market_cap_usd = 0;
     if (isset($game["ivy_balance"]) && is_numeric($game["ivy_balance"])) {
@@ -45,7 +48,9 @@ function game_render($game)
         </div>
         <div class="p-3 flex flex-col flex-grow">
             <div class="flex items-center justify-between mb-1">
-                <h3 class="text-base font-bold truncate" title="<?php echo $game_name; ?>"><?php echo $game_name; ?></h3>
+                <div class="flex items-center gap-1 min-w-0">
+                    <h3 class="text-base font-bold truncate" title="<?php echo $game_name; ?>"><?php echo $game_name; ?></h3>
+                </div>
                 <span class="text-xs text-emerald-400 font-bold ml-1 flex-shrink-0"><?php echo $game_symbol; ?></span>
             </div>
             <div class="flex items-center justify-between text-zinc-300 text-xs">

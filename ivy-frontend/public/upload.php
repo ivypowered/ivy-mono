@@ -39,20 +39,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // Validate file sizes
-    if (
-        !isset($_FILES["game_icon"]) ||
-        $_FILES["game_icon"]["error"] != UPLOAD_ERR_OK
-    ) {
+    if (!isset($_FILES["game_icon"])) {
         $errors[] = "Game icon is required";
+    } elseif ($_FILES["game_icon"]["error"] != UPLOAD_ERR_OK) {
+        $errors[] = "Error uploading game icon";
     } elseif ($_FILES["game_icon"]["size"] > 2 * 1024 * 1024) {
         $errors[] = "Icon file is too large (max 2MB)";
     }
 
-    if (
-        !isset($_FILES["game_cover"]) ||
-        $_FILES["game_cover"]["error"] != UPLOAD_ERR_OK
-    ) {
+    if (!isset($_FILES["game_cover"])) {
         $errors[] = "Cover image is required";
+    } elseif ($_FILES["game_cover"]["error"] != UPLOAD_ERR_OK) {
+        $errors[] = "Error uploading game cover";
     } elseif ($_FILES["game_cover"]["size"] > 3 * 1024 * 1024) {
         $errors[] = "Cover file is too large (max 3MB)";
     }

@@ -88,6 +88,7 @@ pub enum EventData {
     GameBurn(GameBurnEvent),
     GameDeposit(GameDepositEvent),
     GameWithdraw(GameWithdrawEvent),
+    GamePromote(GamePromoteEvent),
     WorldCreate(WorldCreateEvent),
     WorldSwap(WorldSwapEvent),
     WorldUpdate(WorldUpdateEvent),
@@ -150,6 +151,7 @@ impl_event_type!(GameEditEvent, "gameEditEvent", GameEdit);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameSwapEvent {
     pub game: Public,
+    pub user: Option<Public>,
     #[serde(rename = "ivyBalance")]
     #[serde(serialize_with = "serialize_u64_as_string")]
     #[serde(deserialize_with = "deserialize_u64_from_string")]
@@ -168,6 +170,8 @@ pub struct GameSwapEvent {
     pub game_amount: u64,
     #[serde(rename = "isBuy")]
     pub is_buy: bool,
+    #[serde(rename = "isReferral")]
+    pub is_referral: Option<bool>,
 }
 impl_event_type!(GameSwapEvent, "gameSwapEvent", GameSwap);
 
@@ -193,6 +197,12 @@ pub struct GameWithdrawEvent {
     pub withdraw_authority: Public,
 }
 impl_event_type!(GameWithdrawEvent, "gameWithdrawEvent", GameWithdraw);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GamePromoteEvent {
+    pub game: Public,
+}
+impl_event_type!(GamePromoteEvent, "gamePromoteEvent", GamePromote);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorldCreateEvent {
@@ -309,6 +319,7 @@ impl Serialize for Event {
             EventData::GameBurn(e) => (GameBurnEvent::NAME, serde_json::to_value(e)),
             EventData::GameDeposit(e) => (GameDepositEvent::NAME, serde_json::to_value(e)),
             EventData::GameWithdraw(e) => (GameWithdrawEvent::NAME, serde_json::to_value(e)),
+            EventData::GamePromote(e) => (GamePromoteEvent::NAME, serde_json::to_value(e)),
             EventData::WorldCreate(e) => (WorldCreateEvent::NAME, serde_json::to_value(e)),
             EventData::WorldSwap(e) => (WorldSwapEvent::NAME, serde_json::to_value(e)),
             EventData::WorldUpdate(e) => (WorldUpdateEvent::NAME, serde_json::to_value(e)),
@@ -375,6 +386,7 @@ fn deserialize_event_data<E: de::Error>(
     try_deserialize!(GameBurnEvent);
     try_deserialize!(GameDepositEvent);
     try_deserialize!(GameWithdrawEvent);
+    try_deserialize!(GamePromoteEvent);
     try_deserialize!(WorldCreateEvent);
     try_deserialize!(WorldSwapEvent);
     try_deserialize!(WorldUpdateEvent);

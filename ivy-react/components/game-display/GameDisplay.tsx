@@ -110,6 +110,22 @@ export function GameDisplay({
     game: GameObject;
     showComments: boolean;
 }) {
+    const referrer = useMemo<PublicKey | null>(() => {
+        if (typeof window === "undefined") {
+            return null;
+        }
+        const q = new URLSearchParams(window.location.search);
+        const referrer = q.get("referrer");
+        if (!referrer) {
+            return null;
+        }
+        try {
+            return new PublicKey(referrer);
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (_e) {
+            return null;
+        }
+    }, []);
     const { publicKey, signTransaction, signMessage, setShowModal } =
         useWallet();
     const tokens = useTokens();
@@ -188,9 +204,10 @@ export function GameDisplay({
                     inputAmount,
                     outputAmount,
                     slippageBps,
+                    referrer,
                 );
             },
-        [game, gameToken],
+        [game, gameToken, referrer],
     );
 
     // Used for chart data

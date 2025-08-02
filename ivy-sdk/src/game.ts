@@ -273,6 +273,7 @@ export class Game {
         threshold: string,
         is_buy: boolean,
         user: PublicKey,
+        referrer?: PublicKey,
     ): Promise<Transaction> {
         // Derive game addresses instead of fetching state
         const { mint, ivy_wallet, curve_wallet, treasury_wallet } =
@@ -309,6 +310,7 @@ export class Game {
                 world: WORLD_ADDRESS,
                 gameMint: mint,
                 ivyMint: IVY_MINT,
+                referrer: referrer || PublicKey.default,
             })
             .transaction();
 
@@ -631,5 +633,17 @@ export class Game {
             .transaction();
 
         return tx;
+    }
+
+    /** Promote a game to official status */
+    static async promote(game: PublicKey, user: PublicKey) {
+        return await ivy_program.methods
+            .gamePromote()
+            .accounts({
+                game,
+                world: WORLD_ADDRESS,
+                worldOwner: user,
+            })
+            .transaction();
     }
 }

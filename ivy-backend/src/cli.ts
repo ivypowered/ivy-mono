@@ -1026,4 +1026,95 @@ program
         }
     });
 
+program
+    .command("game-promote")
+    .description("Promote a game to official status (must be world owner)")
+    .requiredOption("-g, --game <address>", "Game address to promote")
+    .option(
+        "-k, --keypair <path>",
+        "Path to keypair file for signing (must be world owner)",
+    )
+    .action(async (options) => {
+        try {
+            console.log("Promoting game to official status...");
+
+            // Parse the game address
+            const gameAddress = new PublicKey(options.game);
+            console.log(`Game address: ${gameAddress.toString()}`);
+
+            // Get keypair for the transaction (must be world owner)
+            const worldOwnerWallet = getOrCreateKeypair(options.keypair);
+            console.log(
+                `World owner (signer): ${worldOwnerWallet.publicKey.toString()}`,
+            );
+
+            // Optional: Verify that the signer is the world owner
+            try {
+                const worldState = await World.loadState(connection);
+                if (!worldState.owner.equals(worldOwnerWallet.publicKey)) {
+                    console.error(
+                        "Error: The provided keypair is not the world owner.",
+                    );
+                    console.error(
+                        `Current world owner: ${worldState.owner.toString()}`,
+                    );
+                    console.error(
+                        `Provided keypair: ${worldOwnerWallet.publicKey.toString()}`,
+                    );
+                    process.exit(1);
+                }
+                console.log("World ownership verified ✓");
+            } catch (e) {
+                console.warn(
+                    "Warning: Could not verify world ownership. Proceeding anyway...",
+                );
+            }
+
+            // Optional: Load game details to show what's being promoted
+            try {
+                const gameState = await Game.loadState(connection, gameAddress);
+                const chainMetadata = await Game.loadChainMetadata(
+                    connection,
+                    gameAddress,
+                );
+                console.log("\nGame to be promoted:");
+                console.log(`- Name: ${chainMetadata.name}`);
+                console.log(`- Symbol: ${chainMetadata.symbol}`);
+                console.log(`- Owner: ${gameState.owner.toString()}`);
+            } catch (e) {
+                console.log("Could not load game details, but proceeding...");
+            }
+
+            // Create the promotion transaction
+            const transaction = await Game.promote(
+                gameAddress,
+                worldOwnerWallet.publicKey,
+            );
+
+            // Add recent blockhash
+            const { lastValidBlockHeight, blockhash } =
+                await connection.getLatestBlockhash();
+            transaction.recentBlockhash = blockhash;
+            transaction.feePayer = worldOwnerWallet.publicKey;
+
+            // Sign the transaction
+            transaction.sign(worldOwnerWallet);
+
+            console.log("\nSending transaction...");
+            const txid = await connection.sendRawTransaction(
+                transaction.serialize(),
+            );
+            console.log(`Transaction sent with signature: ${txid}`);
+
+            console.log("Confirming transaction...");
+            await confirmTransaction(connection, txid, lastValidBlockHeight);
+            console.log(
+                "Transaction confirmed! Game has been promoted to official status 🎉",
+            );
+        } catch (error) {
+            console.error("Error promoting game:", error);
+            process.exit(1);
+        }
+    });
+
 program.parse(process.argv);

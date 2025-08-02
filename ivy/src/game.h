@@ -64,11 +64,13 @@ static const u64 GAME_EDIT_EVENT_DISCRIMINATOR = UINT64_C(0xf0ded0ff3776f1e1);
 typedef struct {
     u64 discriminator;
     address game;
+    address user;
     u64 ivy_balance;
     u64 game_balance;
     u64 ivy_amount;
     u64 game_amount;
     bool is_buy;
+    bool is_referral;
 } GameSwapEvent;
 
 // #idl event discriminator GameSwapEvent
@@ -105,6 +107,15 @@ typedef struct {
 // #idl event discriminator GameWithdrawEvent
 static const u64 GAME_WITHDRAW_EVENT_DISCRIMINATOR = UINT64_C(0xbb1188a853869ff6);
 
+// #idl event declaration
+typedef struct {
+    u64 discriminator;
+    address game;
+} GamePromoteEvent;
+
+// #idl event discriminator GamePromoteEvent
+static const u64 GAME_PROMOTE_EVENT_DISCRIMINATOR = UINT64_C(0x27bc06abd8a8c1ea);
+
 // #idl struct declaration
 typedef struct {
     u64 discriminator;
@@ -119,7 +130,9 @@ typedef struct {
     /// The URL to the game's cover art.
     bytes128 cover_url;
     /// Reserved for future use
-    bytes128 reserved;
+    u8 reserved[127];
+    /// Is game an official launch?
+    bool is_official_launch;
 
     /// The game's seed, its unique identifier
     bytes32 seed;
@@ -266,7 +279,8 @@ static void game_create(
     g->withdraw_authority = ADDRESS_ZERO;
     g->game_url = data->game_url;
     g->cover_url = data->cover_url;
-    g->reserved = (bytes128){.x = {0}};
+    sol_memset(g->reserved, 0, sizeof(g->reserved));
+    g->is_official_launch = false;
     g->seed = data->seed;
 
     // Create and store token mint (with user as temporary mint authority)
@@ -555,6 +569,7 @@ static void game_create(
         GameSwapEvent swap_event = {
             .discriminator = GAME_SWAP_EVENT_DISCRIMINATOR,
             .game = game_address,
+            .user = user,
             .ivy_balance = g->ivy_balance,
             .game_balance = g->game_balance,
             .ivy_amount = data->ivy_purchase,
@@ -606,6 +621,8 @@ typedef struct {
     SolAccountInfo ata_program;
     // #idl readonly
     SolAccountInfo system_program;
+    // #idl readonly
+    SolAccountInfo referrer;
 } GameSwapAccounts;
 
 // #idl instruction data game_swap
@@ -776,15 +793,26 @@ static void game_swap(
         );
     }
 
+    // Calculate swap event user
+    address swap_event_user = *accounts->user.key;
+    bool is_referral = false;
+    if (game->is_official_launch &&
+        !address_equal(accounts->referrer.key, &ADDRESS_ZERO)) {
+        swap_event_user = *accounts->referrer.key;
+        is_referral = true;
+    }
+
     // Emit swap event
     GameSwapEvent swap_event = {
         .discriminator = GAME_SWAP_EVENT_DISCRIMINATOR,
         .game = *accounts->game.key,
+        .user = swap_event_user,
         .ivy_balance = game->ivy_balance,
         .game_balance = game->game_balance,
         .ivy_amount = data->is_buy ? amount_to_curve : amount_from_curve,
         .game_amount = data->is_buy ? amount_from_curve : amount_to_curve,
-        .is_buy = data->is_buy
+        .is_buy = data->is_buy,
+        .is_referral = is_referral,
     };
 
     event_emit(
@@ -1463,6 +1491,58 @@ static void game_deposit_complete(
     event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&deposit_event, sizeof(deposit_event)),
+        /* global_address */ *accounts->world.key,
+        /* event_authority */ world->event_authority,
+        /* event_authority_nonce */ world->event_authority_nonce
+    );
+}
+
+/* ------------------------------ */
+
+// #idl instruction accounts game_promote
+typedef struct {
+    // #idl writable
+    SolAccountInfo game;
+    // #idl readonly
+    SolAccountInfo world;
+    // #idl signer
+    SolAccountInfo world_owner;
+    // #idl readonly
+    SolAccountInfo event_authority;
+    // #idl readonly
+    SolAccountInfo this_program;
+} GamePromoteAccounts;
+
+// #idl instruction data game_promote
+typedef struct {
+} GamePromoteData;
+
+// #idl instruction discriminator game_promote
+static const u64 GAME_PROMOTE_DISCRIMINATOR = UINT64_C(0x5fb965d257be44eb);
+
+/// Promote this game to an official launch!
+// #idl instruction declaration
+static void game_promote(
+    const Context* ctx, const GamePromoteAccounts* accounts, const GamePromoteData* data
+) {
+    Game* game = game_load(ctx, &accounts->game);
+    const World* world = world_load(ctx, &accounts->world);
+
+    // Ensure authorization
+    authorize(&accounts->world_owner, world->owner);
+
+    // Promote game
+    game->is_official_launch = true;
+
+    // Emit promote event
+    GamePromoteEvent promote_event = {
+        .discriminator = GAME_PROMOTE_EVENT_DISCRIMINATOR,
+        .game = *accounts->game.key,
+    };
+
+    event_emit(
+        /* ctx */ ctx,
+        /* event_data */ slice_new((const u8*)&promote_event, sizeof(promote_event)),
         /* global_address */ *accounts->world.key,
         /* event_authority */ world->event_authority,
         /* event_authority_nonce */ world->event_authority_nonce

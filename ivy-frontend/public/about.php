@@ -50,16 +50,18 @@ require_once __DIR__ . "/../includes/header.php";
                     <div class="text-sm text-emerald-400 uppercase tracking-wide">total value locked</div>
                     <div class="text-3xl font-bold" title="$<?= number_format(
                         $global_info["tvl"],
+                        2,
                     ) ?>">
-                        $<?= fmt_number_short($global_info["tvl"]) ?>
+                        $<?= number_format($global_info["tvl"], 2) ?> ?>
                     </div>
                 </div>
                 <div class="border-2 border-emerald-400 p-6 min-w-[200px] backdrop-blur-sm bg-zinc-900/50">
                     <div class="text-sm text-emerald-400 uppercase tracking-wide">24h volume</div>
                     <div class="text-3xl font-bold" title="$<?= number_format(
                         $global_info["volume_24h"],
+                        2,
                     ) ?>">
-                        $<?= fmt_number_short($global_info["volume_24h"]) ?>
+                        $<?= number_format($global_info["tvl"], 2) ?> ?>
                     </div>
                 </div>
             </div>

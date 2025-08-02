@@ -64,7 +64,7 @@ static void jup_call(
 
 /* ------------------------------ */
 
-// 18 accounts, leaving Jupiter with 46
+// 19 accounts, leaving Jupiter with 45
 // #idl instruction accounts mix_usdc_to_game
 typedef struct {
     // #idl writable
@@ -103,6 +103,8 @@ typedef struct {
     SolAccountInfo ata_program;
     // #idl readonly
     SolAccountInfo system_program;
+    // #idl readonly
+    SolAccountInfo referrer;
 } MixUsdcToGameAccounts;
 
 // #idl instruction discriminator mix_usdc_to_game
@@ -178,7 +180,8 @@ static void mix_usdc_to_game(
             .this_program = accounts->this_program,
             .token_program = accounts->token_program,
             .ata_program = accounts->ata_program,
-            .system_program = accounts->system_program
+            .system_program = accounts->system_program,
+            .referrer = accounts->referrer,
         };
 
         GameSwapData game_swap_data = {
@@ -195,7 +198,7 @@ static void mix_usdc_to_game(
 
 /* ------------------------------ */
 
-// 19 accounts, leaving Jupiter with 45
+// 20 accounts, leaving Jupiter with 44
 // #idl instruction accounts mix_game_to_usdc
 typedef struct {
     // #idl writable
@@ -236,6 +239,8 @@ typedef struct {
     SolAccountInfo ata_program;
     // #idl readonly
     SolAccountInfo system_program;
+    // #idl readonly
+    SolAccountInfo referrer;
 } MixGameToUsdcAccounts;
 
 // #idl instruction discriminator mix_game_to_usdc
@@ -276,7 +281,8 @@ static void mix_game_to_usdc(
             .this_program = accounts->this_program,
             .token_program = accounts->token_program,
             .ata_program = accounts->ata_program,
-            .system_program = accounts->system_program
+            .system_program = accounts->system_program,
+            .referrer = accounts->referrer,
         };
 
         GameSwapData game_swap_data = {
@@ -405,8 +411,7 @@ typedef struct {
 } MixGameToAnyAccounts;
 
 // #idl instruction discriminator mix_game_to_any
-static const u64 MIX_GAME_TO_ANY_DISCRIMINATOR =
-    UINT64_C(0x1b7f3c9a2d8e4051); // Generated discriminator
+static const u64 MIX_GAME_TO_ANY_DISCRIMINATOR = UINT64_C(0x1b7f3c9a2d8e4051);
 
 // #idl instruction data mix_game_to_any
 typedef struct {

@@ -8,6 +8,7 @@ mod quote;
 mod signature;
 mod sqrt_curve;
 mod state;
+mod tv_board;
 mod util;
 mod vendor;
 mod volume;
@@ -169,6 +170,18 @@ fn main() {
                     Some(game) => success(game),
                     None => error("Game not found", 404)
                 }
+            },
+
+            // Get the tv board for a given game
+            (GET) (/games/{address: Public}/tv_board) => {
+                let count: usize = get_query_param_parsed(req, "count", 20);
+                let skip: usize = get_query_param_parsed(req, "skip", 0);
+                success(state.query_tv_board(address, count, skip))
+            },
+
+            // Get the tv for a specific user
+            (GET) (/games/{address: Public}/tv_board/{user: Public}) => {
+                success(state.get_tv(address, user))
             },
 
             // === COMMENT ROUTES ===

@@ -190,6 +190,17 @@ extern u64 entrypoint(const u8* input) {
                 data_len
             );
 
+        case GAME_PROMOTE_DISCRIMINATOR:
+            CALL_INSTRUCTION(
+                ctx,
+                "GamePromote",
+                game_promote,
+                GamePromoteAccounts,
+                GamePromoteData,
+                data,
+                data_len
+            );
+
         // Vault operations
         case VAULT_CREATE_DISCRIMINATOR:
             CALL_INSTRUCTION(
