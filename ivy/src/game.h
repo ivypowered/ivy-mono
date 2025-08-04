@@ -70,7 +70,6 @@ typedef struct {
     u64 ivy_amount;
     u64 game_amount;
     bool is_buy;
-    bool is_referral;
 } GameSwapEvent;
 
 // #idl event discriminator GameSwapEvent
@@ -621,8 +620,6 @@ typedef struct {
     SolAccountInfo ata_program;
     // #idl readonly
     SolAccountInfo system_program;
-    // #idl readonly
-    SolAccountInfo referrer;
 } GameSwapAccounts;
 
 // #idl instruction data game_swap
@@ -793,26 +790,16 @@ static void game_swap(
         );
     }
 
-    // Calculate swap event user
-    address swap_event_user = *accounts->user.key;
-    bool is_referral = false;
-    if (game->is_official_launch &&
-        !address_equal(accounts->referrer.key, &ADDRESS_ZERO)) {
-        swap_event_user = *accounts->referrer.key;
-        is_referral = true;
-    }
-
     // Emit swap event
     GameSwapEvent swap_event = {
         .discriminator = GAME_SWAP_EVENT_DISCRIMINATOR,
         .game = *accounts->game.key,
-        .user = swap_event_user,
+        .user = *accounts->user.key,
         .ivy_balance = game->ivy_balance,
         .game_balance = game->game_balance,
         .ivy_amount = data->is_buy ? amount_to_curve : amount_from_curve,
         .game_amount = data->is_buy ? amount_from_curve : amount_to_curve,
         .is_buy = data->is_buy,
-        .is_referral = is_referral,
     };
 
     event_emit(

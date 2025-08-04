@@ -3,12 +3,12 @@ mod charts;
 mod event;
 mod game;
 mod jsonl;
+mod leaderboard;
 mod public;
 mod quote;
 mod signature;
 mod sqrt_curve;
 mod state;
-mod tv_board;
 mod util;
 mod vendor;
 mod volume;
@@ -172,16 +172,43 @@ fn main() {
                 }
             },
 
-            // Get the tv board for a given game
-            (GET) (/games/{address: Public}/tv_board) => {
+            // Get the volume leaderboard for a given game
+            (GET) (/games/{address: Public}/volume_board) => {
                 let count: usize = get_query_param_parsed(req, "count", 20);
                 let skip: usize = get_query_param_parsed(req, "skip", 0);
-                success(state.query_tv_board(address, count, skip))
+                success(state.query_volume_lb(address, count, skip))
             },
 
-            // Get the tv for a specific user
-            (GET) (/games/{address: Public}/tv_board/{user: Public}) => {
-                success(state.get_tv(address, user))
+            // === VOLUME ROUTES ===
+
+            // Get global volume score for a single user
+            (GET) (/volume/{user: Public}) => {
+                let score = state.get_volume_lb(user);
+                success(score)
+            },
+
+            // Get global volume scores for multiple users (POST)
+            (POST) (/volume/multiple) => {
+                #[derive(serde::Deserialize)]
+                struct VolumeMultipleRequest {
+                    users: Vec<Public>,
+                }
+
+                let request: VolumeMultipleRequest = match rouille::input::json_input(req) {
+                    Ok(req) => req,
+                    Err(_) => return error("Invalid JSON body. Expected: { \"users\": [\"...\", ...] }", 400)
+                };
+
+                if request.users.is_empty() {
+                    return error("Users array cannot be empty", 400);
+                }
+
+                if request.users.len() > 100 {
+                    return error("Cannot query more than 100 users at once", 400);
+                }
+
+                let scores = state.get_volume_lb_multiple(&request.users);
+                success(scores)
             },
 
             // === COMMENT ROUTES ===

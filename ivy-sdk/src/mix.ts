@@ -26,7 +26,6 @@ export class Mix {
         usdcAmount: string,
         gameThreshold: string,
         user: PublicKey,
-        referrer?: PublicKey,
     ): Promise<Transaction> {
         // Get the derived addresses for the game
         const { mint, ivy_wallet, curve_wallet, treasury_wallet } =
@@ -59,7 +58,6 @@ export class Mix {
                 worldUsdcWallet: WORLD_USDC_WALLET,
                 worldCurveWallet: WORLD_CURVE_WALLET,
                 gameMint: mint,
-                referrer: referrer || PublicKey.default,
             })
             .transaction();
 
@@ -74,7 +72,6 @@ export class Mix {
         gameAmount: string,
         usdcThreshold: string,
         user: PublicKey,
-        referrer?: PublicKey,
     ): Promise<Transaction> {
         // Get the derived addresses for the game
         const { mint, ivy_wallet, curve_wallet, treasury_wallet } =
@@ -107,7 +104,6 @@ export class Mix {
                 world: WORLD_ADDRESS,
                 worldUsdcWallet: WORLD_USDC_WALLET,
                 worldCurveWallet: WORLD_CURVE_WALLET,
-                referrer: referrer || PublicKey.default,
             })
             .transaction();
 
@@ -124,7 +120,6 @@ export class Mix {
         user: PublicKey,
         jupiterKeys: AccountMeta[],
         jupiterData: Buffer,
-        referrer?: PublicKey,
     ): Promise<Transaction> {
         // Get the derived addresses for the game
         const { mint, ivy_wallet, curve_wallet, treasury_wallet } =
@@ -152,7 +147,6 @@ export class Mix {
                 world: WORLD_ADDRESS,
                 worldUsdcWallet: WORLD_USDC_WALLET,
                 worldCurveWallet: WORLD_CURVE_WALLET,
-                referrer: referrer || PublicKey.default,
             })
             .instruction();
         ins.keys.push(...jupiterKeys);
@@ -175,7 +169,6 @@ export class Mix {
         user: PublicKey,
         jupiterKeys: AccountMeta[],
         jupiterData: Buffer,
-        referrer?: PublicKey,
     ): Promise<Transaction> {
         // Get the derived addresses for the game
         const { mint, ivy_wallet, curve_wallet, treasury_wallet } =
@@ -203,7 +196,6 @@ export class Mix {
                 world: WORLD_ADDRESS,
                 worldUsdcWallet: WORLD_USDC_WALLET,
                 worldCurveWallet: WORLD_CURVE_WALLET,
-                referrer: referrer || PublicKey.default,
             })
             .instruction();
         ins.keys.push(...jupiterKeys);

@@ -15,13 +15,13 @@ $global_info = call_aggregator("/global-info");
 $featured_games = $global_info["featured_games"];
 
 // Include header
-$title = "ivy | about us";
+$title = "ivy | the gamecoin launchpad";
 $description =
     "Ivy is the single destination to play, build, and trade the next generation of games.";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
-<main class="pb-16">
+<main>
     <!-- Hero -->
     <section class="pt-8" style="
         background-image: url('/assets/images/ivy-background.webp');
@@ -31,11 +31,11 @@ require_once __DIR__ . "/../includes/header.php";
     ">
         <div class="mx-auto max-w-6xl px-6 pt-20 pb-16 xxs:pb-36 md:pb-40 text-center"">
             <h1 class="mb-6 text-5xl xs:text-6xl mx-auto leading-tight font-extrabold">
-                Web3 gaming,<br>
-                <span class="bg-emerald-400 text-emerald-950 px-3">radically simplified.</span>
+                Welcome to Ivy,<br>
+                <span class="bg-emerald-400 text-emerald-950 px-3">the gamecoin launchpad.</span>
             </h1>
             <p class="mx-auto mb-10 max-w-2xl text-xl text-white">
-                Ivy is the single destination to play, build, and trade the next generation of games.
+                Ivy is the launchpad where each token is a playable game. Launch, play, and ride gamecoins to the stars.
             </p>
             <div class="mb-12 flex flex-col sm:flex-row justify-center gap-6">
                 <div class="border-2 border-emerald-400 p-6 min-w-[200px] backdrop-blur-sm bg-zinc-900/50">
@@ -52,7 +52,7 @@ require_once __DIR__ . "/../includes/header.php";
                         $global_info["tvl"],
                         2,
                     ) ?>">
-                        $<?= number_format($global_info["tvl"], 2) ?> ?>
+                        $<?= number_format($global_info["tvl"], 2) ?>
                     </div>
                 </div>
                 <div class="border-2 border-emerald-400 p-6 min-w-[200px] backdrop-blur-sm bg-zinc-900/50">
@@ -61,7 +61,7 @@ require_once __DIR__ . "/../includes/header.php";
                         $global_info["volume_24h"],
                         2,
                     ) ?>">
-                        $<?= number_format($global_info["tvl"], 2) ?> ?>
+                        $<?= number_format($global_info["volume_24h"], 2) ?>
                     </div>
                 </div>
             </div>
@@ -72,11 +72,10 @@ require_once __DIR__ . "/../includes/header.php";
         <div class="grid gap-12 lg:grid-cols-2 items-center max-w-6xl px-6 mx-auto">
             <!-- Text Content -->
             <div class="order-2 lg:order-1">
-                <h2 class="text-4xl font-extrabold mb-6">Discover, play, and earn</h2>
+                <h2 class="text-4xl font-extrabold mb-6">Every token is a playable game</h2>
                 <p class="text-lg text-zinc-300 leading-normal">
-                    Explore Ivy's vibrant ecosystem of games, where each game has its own digital token.
-                    Earn tokens by playing, trade them on the open market, and cash out instantly
-                    for real money.
+                    Leave worthless memecoins behind on Ivy, where each token is a playable game.
+                    Trade tokens with real utility, play to earn more, and ride the wave as gamecoins go viral.
                 </p>
             </div>
 
@@ -211,121 +210,11 @@ require_once __DIR__ . "/../includes/header.php";
             </div>
         </div>
     </section>
-    <!-- Developer Experience -->
+    <!-- Revenue Share -->
     <section class="w-full py-20 bg-zinc-800">
         <div class="grid gap-12 lg:grid-cols-2 items-center max-w-6xl px-6 mx-auto">
-            <!-- API Visualization -->
-            <div class="bg-zinc-900/50 border border-zinc-800 p-8">
-                <div class="space-y-8">
-                    <!-- Deposits -->
-                    <div>
-                        <div class="flex items-center mb-3">
-                            <div class="bg-emerald-400/20 p-2 mr-3">
-                                <?php echo icon(
-                                    "book-plus",
-                                    "h-6 w-6 text-emerald-400",
-                                ); ?>
-                            </div>
-                            <h3 class="text-emerald-400 font-semibold text-lg uppercase tracking-wide">Deposits</h3>
-                        </div>
-                        <div class="bg-zinc-800/50 p-4 text-sm tracking-wide">
-                            <span class="text-emerald-400">GET</span>
-                            <span class="text-zinc-300 ml-3">/api/games/{game}/deposits/{id}</span>
-                        </div>
-                        <p class="text-zinc-500 text-sm mt-2">Check if a player has paid</p>
-                    </div>
-
-                    <!-- Withdrawals -->
-                    <div>
-                        <div class="flex items-center mb-3">
-                            <div class="bg-emerald-400/20 p-2 mr-3">
-                                <?php echo icon(
-                                    "send",
-                                    "h-6 w-6 text-emerald-400",
-                                ); ?>
-                            </div>
-                            <h3 class="text-emerald-400 font-semibold text-lg uppercase tracking-wide">Withdrawals</h3>
-                        </div>
-                        <div class="bg-zinc-800/50 p-4 text-sm tracking-wide">
-                            <span class="text-emerald-400">POST</span>
-                            <span class="text-zinc-300 ml-2">/api/games/{game}/withdrawals/{id}</span>
-                        </div>
-                        <p class="text-zinc-500 text-sm mt-2">Send rewards to players</p>
-                    </div>
-
-                    <!-- Authentication -->
-                    <div>
-                        <div class="flex items-center mb-3">
-                            <div class="bg-emerald-400/20 p-2 mr-3">
-                                <?php echo icon(
-                                    "shield-check",
-                                    "h-6 w-6 text-emerald-400",
-                                ); ?>
-                            </div>
-                            <h3 class="text-emerald-400 font-semibold text-lg uppercase tracking-wide">Authentication</h3>
-                        </div>
-                        <div class="bg-zinc-800/50 p-4 text-sm tracking-wide">
-                            <span class="text-emerald-400">POST</span>
-                            <span class="text-zinc-300 ml-2">/api/games/{game}/authenticate</span>
-                        </div>
-                        <p class="text-zinc-500 text-sm mt-2">Verify player identity</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Text Content (unchanged) -->
-            <div>
-                <h2 class="text-4xl font-extrabold mb-6">The best developer experience of any web3 platform</h2>
-                <p class="text-lg text-zinc-300 mb-8 leading-normal">
-                    Forget complex SDKs, smart contracts, and vendor lock-in. With Ivy's simple REST API,
-                    use any framework, any language to build your game.
-                </p>
-                <ul class="space-y-4 text-lg text-zinc-300">
-                    <li class="flex items-start">
-                        <div class="mr-3 mt-1 bg-emerald-400 p-1">
-                            <?php echo icon(
-                                "check",
-                                "h-3 w-3 text-emerald-950",
-                            ); ?>
-                        </div>
-                        Integrate web3 with just HTTP, no blockchain knowledge required.
-                    </li>
-                    <li class="flex items-start">
-                        <div class="mr-3 mt-1 bg-emerald-400 p-1">
-                            <?php echo icon(
-                                "check",
-                                "h-3 w-3 text-emerald-950",
-                            ); ?>
-                        </div>
-                        Zero platform fees for API services: what your users pay is what you get.
-                    </li>
-                    <li class="flex items-start">
-                        <div class="mr-3 mt-1 bg-emerald-400 p-1">
-                            <?php echo icon(
-                                "check",
-                                "h-3 w-3 text-emerald-950",
-                            ); ?>
-                        </div>
-                        Fully open-source, built to be improved by anyone.
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </section>
-    <!-- Revenue Share -->
-    <section class="w-full py-20">
-        <div class="grid gap-12 lg:grid-cols-2 items-center max-w-6xl px-6 mx-auto">
-            <!-- Text Content -->
-            <div class="order-2 lg:order-1">
-                <h2 class="text-4xl font-extrabold mb-6">Earn the highest revenue share of any launch platform</h2>
-                <p class="text-lg text-zinc-300 leading-normal">
-                    Each game launched on Ivy has its own token. When users trade your token, a 1% trading fee
-                    is collected. Of that fee, 50% is awarded directly to you,
-                    available for instant withdrawal. Our 50% revenue share is higher than any other launch platform.
-                </p>
-            </div>
-
-            <div class="order-1 lg:order-2 bg-zinc-900/50 border border-zinc-800 p-8">
+            <!-- Chart moved to left side -->
+            <div class="order-1 lg:order-1 bg-zinc-800 border border-zinc-700 p-8">
                 <h3 class="text-center text-lg font-semibold mb-6 text-zinc-300">Distribution of 1% Trading Fee</h3>
                 <!-- Changed to flex-col to stack the chart and legend vertically -->
                 <div class="flex flex-col items-center justify-center gap-6">
@@ -385,27 +274,49 @@ require_once __DIR__ . "/../includes/header.php";
                         <div class="flex items-center justify-between">
                             <div class="flex items-center">
                                 <div class="w-4 h-4 bg-emerald-400 mr-3"></div>
-                                <span class="text-zinc-300">Developer rewards</span>
+                                <span class="text-zinc-300">Creator rewards</span>
                             </div>
                             <span class="font-bold text-zinc-300">50%</span>
                         </div>
                         <div class="flex items-center justify-between">
                             <div class="flex items-center">
                                 <div class="w-4 h-4 border-2 border-white box-border mr-3"></div>
-                                <span class="text-zinc-300">Protocol burn</span>
+                                <span class="text-zinc-300">IVY buyback & burn</span>
                             </div>
                             <span class="font-bold text-zinc-300">50%</span>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Text Content moved to right side -->
+            <div class="order-2 lg:order-2">
+                <h2 class="text-4xl font-extrabold mb-6">Creators earn 50% of every trade</h2>
+                <p class="text-lg text-zinc-300 leading-normal">
+                    When your gamecoin takes off, you take off with it.
+                    Every trade of your gamecoin generates a 1% fee.
+                    Half goes directly to you, available for instant withdrawal.
+                    Build games that people want to play, and get rewards when they trade.
+                </p>
+            </div>
         </div>
     </section>
     <!-- Tokenomics -->
-    <section class="w-full py-40 bg-zinc-800">
+    <section class="w-full py-40">
         <div class="grid gap-12 lg:grid-cols-2 items-center max-w-6xl px-6 mx-auto">
-            <!-- Visualization -->
-            <div class="bg-zinc-900/50 border border-zinc-800 p-8">
+            <!-- Text Content moved to left side -->
+            <div class="order-2 lg:order-1">
+                <h2 class="text-4xl font-extrabold mb-6">The more gamecoins trade, the more valuable IVY becomes</h2>
+                <p class="text-lg text-zinc-300 leading-normal">
+                    IVY is the utility token powering the gamecoin ecosystem.
+                    With every trade on every gamecoin, a portion of fees is used to buy and burn IVY tokens.
+                    As more gamecoins launch and trade volume grows, IVY becomes increasingly scarce.
+                    No new IVY will ever be minted - only burned.
+                </p>
+            </div>
+
+            <!-- Visualization moved to right side -->
+            <div class="order-1 lg:order-2 bg-zinc-800 border border-zinc-800 p-8">
                 <div class="space-y-6 max-w-sm mx-auto">
                     <!-- Step 1 -->
                     <div class="flex items-center gap-4">
@@ -445,23 +356,10 @@ require_once __DIR__ . "/../includes/header.php";
                     </div>
                 </div>
             </div>
-
-            <!-- Text Content -->
-            <div>
-                <h2 class="text-4xl font-extrabold mb-6">Sustainable, simple tokenomics</h2>
-                <p class="text-lg text-zinc-300 leading-normal">
-                    The IVY token is the utility token of the Ivy protocol. It has a fixed total supply -
-                    no more IVY will ever be minted. A 1% fee is applied to every trade made
-                    on Ivy. Of that fee, half is distributed to the game developer, and the other half
-                    is used to purchase IVY off the open market and permanently remove it from circulation.
-                    In this way, every trade made on Ivy increases the scarcity of the IVY token,
-                    providing value to token holders.
-                </p>
-            </div>
         </div>
     </section>
     <!-- Call-to-Action -->
-    <section class="w-full py-20 bg-zinc-900 text-center">
+    <section class="w-full pt-20 pb-36 bg-zinc-800 text-center">
         <div class="max-w-6xl mx-auto px-6">
             <div class="mb-8">
                 <img src="/assets/images/ivy_token_wc.webp" alt="IVY Token" class="mx-auto w-80 h-auto" />
@@ -469,24 +367,23 @@ require_once __DIR__ . "/../includes/header.php";
 
             <h2 class="text-4xl font-extrabold mb-6">Enter the future of gaming</h2>
             <p class="mx-auto mb-10 max-w-2xl text-lg text-zinc-300">
-                Join other creators, players, and token holders in the Ivy ecosystem today.
+                Play, build, and trade the next viral gamecoin on Ivy today.
             </p>
 
-            <div class="flex flex-col sm:flex-row justify-center gap-4 mt-8">
-              <a href="/docs" class="flex items-center gap-2 border-2 border-emerald-400 text-emerald-400 font-bold text-lg py-4 px-8 hover:bg-zinc-800 justify-center">
-                <?php echo icon("book", "h-5 w-5 mr-2"); ?>
-                Read the Docs
-              </a>
-              <a href="/" class="flex items-center gap-2 border-2 border-emerald-400 text-emerald-400 font-bold text-lg py-4 px-8 hover:bg-zinc-800 justify-center">
-                <?php echo icon("compass", "h-5 w-5 mr-2"); ?>
-                Explore Games
-              </a>
-              <a href="/token" class="flex items-center gap-2 border-2 border-emerald-400 text-emerald-400 font-bold text-lg py-4 px-8 hover:bg-zinc-800 justify-center">
-                <?php echo icon("token", "h-5 w-5 mr-2"); ?>
-                Buy IVY
-              </a>
+            <div class="flex flex-col lg:flex-row justify-center gap-4 mt-8">
+                <a href="/" class="flex items-center gap-2 border-2 border-emerald-400 text-emerald-400 font-bold text-lg py-4 px-8 hover:bg-zinc-700 justify-center">
+                    <?php echo icon("compass", "h-5 w-5 mr-2"); ?>
+                    Explore Gamecoins
+                </a>
+                <a href="/upload" class="flex items-center gap-2 border-2 border-emerald-400 text-emerald-400 font-bold text-lg py-4 px-8 hover:bg-zinc-700 justify-center">
+                    <?php echo icon("trending-up", "h-5 w-5 mr-2"); ?>
+                    Launch Gamecoin
+                </a>
+                <a href="/token" class="flex items-center gap-2 border-2 border-emerald-400 text-emerald-400 font-bold text-lg py-4 px-8 hover:bg-zinc-700 justify-center">
+                    <?php echo icon("token", "h-5 w-5 mr-2"); ?>
+                    Buy IVY
+                </a>
             </div>
-
         </div>
     </section>
 </main>

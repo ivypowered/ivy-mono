@@ -16,11 +16,11 @@ use crate::event::{
 };
 use crate::game::Game;
 use crate::jsonl::{JsonReader, JsonWriter};
+use crate::leaderboard::Leaderboard;
 use crate::public::Public;
 use crate::quote::Quote;
 use crate::signature::Signature;
 use crate::sqrt_curve::SqrtCurve;
-use crate::tv_board::{Tv, TvBoard, TvEntry};
 use crate::util::{
     from_game_amount, from_ivy_amount, from_usdc_amount, to_ivy_amount, to_usdc_amount,
 };
@@ -30,6 +30,12 @@ use crate::volume::Volume;
 // ==================
 // === Constants ===
 // ==================
+
+#[derive(Serialize)]
+pub struct VlbEntry {
+    user: Public,
+    volume: f32,
+}
 
 /// The maximum number of candles in a chart; beyond this, they are dropped, oldest first.
 const MAX_CANDLES: usize = 4096;
@@ -43,6 +49,43 @@ const MIN_HOT_GAME_COUNT: usize = 50;
 const HOT_GAME_LIST_REFRESH_INTERVAL: u64 = 10;
 /// The maximum number of games featured on the about page.
 const MAX_FEATURED_GAMES: usize = 5;
+
+/// Games prevented from appearing on the front page
+/// (necessary for rebrand)
+const HIDDEN_GAMES: [Public; 8] = [
+    Public([
+        7, 27, 26, 178, 95, 164, 78, 157, 89, 71, 15, 108, 156, 52, 71, 63, 206, 243, 11, 245, 23,
+        113, 8, 64, 37, 237, 155, 197, 192, 131, 93, 52,
+    ]),
+    Public([
+        169, 91, 152, 74, 6, 229, 120, 56, 233, 219, 77, 46, 92, 156, 221, 163, 62, 81, 52, 178,
+        156, 156, 90, 9, 109, 134, 134, 141, 14, 173, 166, 64,
+    ]),
+    Public([
+        144, 64, 57, 244, 223, 207, 29, 238, 107, 209, 91, 32, 219, 6, 36, 62, 246, 62, 198, 220,
+        248, 173, 81, 228, 30, 130, 222, 129, 10, 130, 226, 244,
+    ]),
+    Public([
+        3, 218, 142, 203, 242, 154, 24, 62, 76, 103, 226, 68, 61, 145, 31, 241, 1, 17, 48, 53, 241,
+        129, 74, 137, 63, 104, 151, 86, 129, 68, 42, 194,
+    ]),
+    Public([
+        134, 240, 88, 11, 82, 141, 43, 218, 32, 149, 249, 237, 210, 208, 251, 51, 34, 101, 234,
+        209, 10, 178, 63, 244, 174, 78, 213, 162, 81, 25, 253, 58,
+    ]),
+    Public([
+        42, 208, 93, 159, 86, 240, 54, 181, 52, 201, 40, 75, 46, 240, 150, 23, 53, 40, 171, 95,
+        195, 14, 140, 179, 187, 233, 29, 254, 207, 132, 161, 172,
+    ]),
+    Public([
+        246, 233, 66, 126, 188, 31, 113, 226, 243, 237, 71, 218, 21, 118, 192, 75, 181, 56, 252,
+        85, 192, 218, 190, 244, 230, 90, 97, 71, 226, 95, 81, 79,
+    ]),
+    Public([
+        96, 3, 225, 56, 255, 73, 250, 26, 191, 170, 81, 34, 4, 72, 42, 197, 29, 70, 38, 196, 238,
+        198, 11, 148, 113, 18, 82, 250, 224, 183, 165, 44,
+    ]),
+];
 
 // =======================
 // === Helper Functions ===
@@ -252,7 +295,8 @@ pub struct GlobalInfo {
 struct StateData {
     // Game data
     address_to_game_meta: HashMap<Public, GameMeta>, // game_address -> GameMeta
-    address_to_ivy_tv_board: HashMap<Public, TvBoard>, // game_address -> TvBoard
+    volume_lb: Leaderboard<Public, u64>,             // global volume leaderboard in mil ($0.001)
+    address_to_volume_lb: HashMap<Public, Leaderboard<Public, u64>>, // game -> ld in mil
     game_list: Vec<Game>,                            // Chronological list of all games
     top_games: BTreeSet<TopGameEntry>,               // Games sorted by market cap (desc)
     hot_game_cache: Vec<usize>,                      // Indices of hot games (cached)
@@ -308,6 +352,10 @@ impl StateData {
     // --- Event Processing Methods ---
 
     fn process_game_create(&mut self, timestamp: u64, create_data: GameCreateEvent) {
+        if HIDDEN_GAMES.contains(&create_data.game) {
+            return;
+        }
+
         if self.address_to_game_meta.contains_key(&create_data.game) {
             eprintln!(
                 "warning: Corrupted state? Received multiple GameCreateEvent for game {}",
@@ -365,6 +413,10 @@ impl StateData {
     }
 
     fn process_game_edit(&mut self, edit_data: GameEditEvent) {
+        if HIDDEN_GAMES.contains(&edit_data.game) {
+            return;
+        }
+
         let game_meta = match self.address_to_game_meta.get(&edit_data.game) {
             Some(meta) => meta,
             None => {
@@ -390,6 +442,10 @@ impl StateData {
         signature: Signature,
         swap_data: GameSwapEvent,
     ) {
+        if HIDDEN_GAMES.contains(&swap_data.game) {
+            return;
+        }
+
         // Calculate trade value in USDC and check against minimum threshold
         let ivy_amount = from_ivy_amount(swap_data.ivy_amount);
         let usdc_value = ivy_amount * self.ivy_price;
@@ -448,23 +504,21 @@ impl StateData {
         self.update_game_tvl(old_ivy_balance, new_ivy_balance, starting_ivy_balance);
 
         // Add volume to global volume array
-        self.volume_24h.append(usd_to_mil(usdc_value), timestamp);
+        let usdc_value_mil = usd_to_mil(usdc_value);
+        self.volume_24h.append(usdc_value_mil, timestamp);
 
-        // Update leaderboard if both it + user are extant, otherwise finish here!
+        // Get user if extant
         let user = match swap_data.user {
             Some(v) => v,
             None => return,
         };
-        let tv_board = match self.address_to_ivy_tv_board.get_mut(&swap_data.game) {
-            Some(v) => v,
-            None => return,
-        };
-        // Increase user's volume score for this game
-        if swap_data.is_referral == Some(true) {
-            tv_board.add_referred_volume(user, swap_data.ivy_amount);
-        } else {
-            tv_board.add_personal_volume(user, swap_data.ivy_amount);
-        }
+        // Increase game volume leaderboard
+        self.address_to_volume_lb
+            .entry(swap_data.game)
+            .or_insert_with(|| Leaderboard::new())
+            .increment(user, usdc_value_mil);
+        // Increase global volume leaderboard
+        self.volume_lb.increment(user, usdc_value_mil);
     }
 
     fn process_game_burn(
@@ -473,6 +527,10 @@ impl StateData {
         signature: Signature,
         burn_data: GameBurnEvent,
     ) {
+        if HIDDEN_GAMES.contains(&burn_data.game) {
+            return;
+        }
+
         self.burns
             .entry(Burn {
                 game: burn_data.game,
@@ -490,6 +548,10 @@ impl StateData {
         signature: Signature,
         deposit_data: GameDepositEvent,
     ) {
+        if HIDDEN_GAMES.contains(&deposit_data.game) {
+            return;
+        }
+
         self.deposits
             .entry(Deposit {
                 game: deposit_data.game,
@@ -507,6 +569,10 @@ impl StateData {
         signature: Signature,
         withdraw_data: GameWithdrawEvent,
     ) {
+        if HIDDEN_GAMES.contains(&withdraw_data.game) {
+            return;
+        }
+
         self.withdraws
             .entry(Withdraw {
                 game: withdraw_data.game,
@@ -520,15 +586,15 @@ impl StateData {
     }
 
     fn process_game_promote(&mut self, promote_data: GamePromoteEvent) {
+        if HIDDEN_GAMES.contains(&promote_data.game) {
+            return;
+        }
+
         // Promote to official launch status
         if let Some(game_meta) = self.address_to_game_meta.get(&promote_data.game) {
             let game = &mut self.game_list[game_meta.index];
             game.is_official_launch = true;
         }
-        // Create leaderboard for total volume
-        self.address_to_ivy_tv_board
-            .entry(promote_data.game)
-            .or_insert_with(|| TvBoard::new());
     }
 
     fn process_world_create(&mut self, timestamp: u64, create_data: WorldCreateEvent) {
@@ -586,6 +652,10 @@ impl StateData {
     }
 
     fn process_comment_event(&mut self, comment_data: CommentEvent) {
+        if HIDDEN_GAMES.contains(&comment_data.game) {
+            return;
+        }
+
         let game_meta = match self.address_to_game_meta.get_mut(&comment_data.game) {
             Some(meta) => meta,
             None => {
@@ -660,7 +730,8 @@ impl State {
         // Initialize empty state data
         let mut state_data = StateData {
             address_to_game_meta: HashMap::new(),
-            address_to_ivy_tv_board: HashMap::new(),
+            address_to_volume_lb: HashMap::new(),
+            volume_lb: Leaderboard::new(),
             top_games: BTreeSet::new(),
             hot_game_cache: Vec::new(),
             game_list: Vec::new(),
@@ -1224,24 +1295,34 @@ impl State {
         }
     }
 
-    pub fn query_tv_board(&self, game: Public, count: usize, skip: usize) -> Vec<TvEntry> {
-        self.data
-            .read()
-            .unwrap()
-            .address_to_ivy_tv_board
-            .get(&game)
-            .map(|tv| tv.query_descending(count, skip))
-            .unwrap_or(Vec::new())
+    pub fn query_volume_lb(&self, game: Public, count: usize, skip: usize) -> Vec<VlbEntry> {
+        match self.data.read().unwrap().address_to_volume_lb.get(&game) {
+            None => Vec::new(),
+            Some(lb) => lb
+                .range(skip, count)
+                .map(|(&user, &mil)| VlbEntry {
+                    user,
+                    volume: mil_to_usd(mil),
+                })
+                .collect(),
+        }
     }
 
-    pub fn get_tv(&self, game: Public, user: Public) -> Tv {
+    pub fn get_volume_lb(&self, user: Public) -> f32 {
         self.data
             .read()
             .unwrap()
-            .address_to_ivy_tv_board
-            .get(&game)
-            .map(|tv| tv.get_tv(&user))
-            .flatten()
-            .unwrap_or(Tv::default())
+            .volume_lb
+            .get(&user)
+            .map(|&x| mil_to_usd(x))
+            .unwrap_or_default()
+    }
+
+    pub fn get_volume_lb_multiple(&self, users: &[Public]) -> Vec<f32> {
+        let lb = &self.data.read().unwrap().volume_lb;
+        users
+            .iter()
+            .map(|u| lb.get(&u).map(|&x| mil_to_usd(x)).unwrap_or_default())
+            .collect()
     }
 }

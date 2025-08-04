@@ -170,8 +170,6 @@ pub struct GameSwapEvent {
     pub game_amount: u64,
     #[serde(rename = "isBuy")]
     pub is_buy: bool,
-    #[serde(rename = "isReferral")]
-    pub is_referral: Option<bool>,
 }
 impl_event_type!(GameSwapEvent, "gameSwapEvent", GameSwap);
 

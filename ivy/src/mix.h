@@ -103,8 +103,6 @@ typedef struct {
     SolAccountInfo ata_program;
     // #idl readonly
     SolAccountInfo system_program;
-    // #idl readonly
-    SolAccountInfo referrer;
 } MixUsdcToGameAccounts;
 
 // #idl instruction discriminator mix_usdc_to_game
@@ -181,7 +179,6 @@ static void mix_usdc_to_game(
             .token_program = accounts->token_program,
             .ata_program = accounts->ata_program,
             .system_program = accounts->system_program,
-            .referrer = accounts->referrer,
         };
 
         GameSwapData game_swap_data = {
@@ -239,8 +236,6 @@ typedef struct {
     SolAccountInfo ata_program;
     // #idl readonly
     SolAccountInfo system_program;
-    // #idl readonly
-    SolAccountInfo referrer;
 } MixGameToUsdcAccounts;
 
 // #idl instruction discriminator mix_game_to_usdc
@@ -282,7 +277,6 @@ static void mix_game_to_usdc(
             .token_program = accounts->token_program,
             .ata_program = accounts->ata_program,
             .system_program = accounts->system_program,
-            .referrer = accounts->referrer,
         };
 
         GameSwapData game_swap_data = {

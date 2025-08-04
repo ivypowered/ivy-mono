@@ -144,7 +144,6 @@ export async function createBuyTransaction(
     inputDecimals: number,
     minOutput: number,
     txBase64: string | null,
-    referrer: PublicKey | null,
 ): Promise<Transaction | VersionedTransaction> {
     const inputRaw = toRaw(input, inputDecimals);
     const minOutputRaw = toRaw(minOutput, GAME_DECIMALS);
@@ -152,25 +151,12 @@ export async function createBuyTransaction(
     // Case 1: IVY -> GAME (direct swap)
     if (inputToken.equals(IVY_MINT)) {
         // Simple direct swap from IVY to GAME
-        return await Game.swap(
-            game,
-            inputRaw,
-            minOutputRaw,
-            true,
-            user,
-            referrer || undefined,
-        );
+        return await Game.swap(game, inputRaw, minOutputRaw, true, user);
     }
 
     // Case 2: USDC -> IVY -> GAME
     if (inputToken.equals(USDC_MINT)) {
-        return await Mix.usdcToGame(
-            game,
-            inputRaw,
-            minOutputRaw,
-            user,
-            referrer || undefined,
-        );
+        return await Mix.usdcToGame(game, inputRaw, minOutputRaw, user);
     }
 
     // Case 3: * -> USDC -> IVY -> GAME
@@ -187,7 +173,6 @@ export async function createBuyTransaction(
                 user,
                 jupInstruction.keys,
                 jupInstruction.data,
-                referrer || undefined,
             ).then((tx) => tx.instructions),
         IVY_CU_ESTIMATE_WITH_GAME,
         () => {},
@@ -208,7 +193,6 @@ export async function createSellTransaction(
     outputDecimals: number,
     txBase64: string | null,
     transformMessage: (msg: TransactionMessage) => void,
-    referrer: PublicKey | null,
 ): Promise<Transaction | VersionedTransaction> {
     const inputRaw = toRaw(input, GAME_DECIMALS);
     const minOutputRaw = toRaw(minOutput, outputDecimals);
@@ -216,25 +200,12 @@ export async function createSellTransaction(
     // Case 1: GAME -> IVY (direct swap)
     if (outputToken.equals(IVY_MINT)) {
         // Simple direct swap from GAME to IVY
-        return await Game.swap(
-            game,
-            inputRaw,
-            minOutputRaw,
-            false,
-            user,
-            referrer || undefined,
-        );
+        return await Game.swap(game, inputRaw, minOutputRaw, false, user);
     }
 
     // Case 2: GAME -> IVY -> USDC
     if (outputToken.equals(USDC_MINT)) {
-        return await Mix.gameToUsdc(
-            game,
-            inputRaw,
-            minOutputRaw,
-            user,
-            referrer || undefined,
-        );
+        return await Mix.gameToUsdc(game, inputRaw, minOutputRaw, user);
     }
 
     // Case 3: GAME -> Any token via Jupiter
@@ -252,7 +223,6 @@ export async function createSellTransaction(
                 user,
                 jupInstruction.keys,
                 jupInstruction.data,
-                referrer || undefined,
             ).then((tx) => tx.instructions),
         IVY_CU_ESTIMATE_WITH_GAME,
         transformMessage,

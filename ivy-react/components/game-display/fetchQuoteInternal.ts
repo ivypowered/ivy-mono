@@ -25,7 +25,6 @@ export async function fetchQuoteInternal(
     inputAmount: number,
     outputAmount: number,
     slippageBps: number,
-    referrer: PublicKey | null,
 ): Promise<Quote> {
     if (!inputAmount || outputAmount) {
         throw new Error("Only ExactIn, non-zero swaps are supported");
@@ -102,7 +101,6 @@ export async function fetchQuoteInternal(
                 /* inputDecimals */ inputToken.decimals,
                 /* minOutput */ q.minOutput,
                 /* txBase64 */ q.txBase64,
-                /* referrer */ referrer,
             );
         quote = q;
     } else {
@@ -128,7 +126,6 @@ export async function fetchQuoteInternal(
                 /* outputDecimals */ outputToken.decimals,
                 /* txBase64 */ q.txBase64,
                 /* transformMessage */ q.transformMessage,
-                /* referrer */ referrer,
             );
         quote = q;
     }
