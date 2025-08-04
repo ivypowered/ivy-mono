@@ -6,8 +6,7 @@
  */
 
 $title = "ivy | keygen";
-$description =
-    "Generate a Solana keypair on Ivy: web3 gaming, radically simplified";
+$description = "Generate a Solana keypair on Ivy: the gamecoin launchpad";
 require_once __DIR__ . "/../includes/header.php";
 require_once __DIR__ . "/../includes/icon.php";
 ?>

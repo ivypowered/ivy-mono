@@ -25,7 +25,7 @@ if ($status === "success") {
 }
 $title = "ivy | upload $upload_result";
 $description =
-    "View the results of your game upload on Ivy: web3 gaming, radically simplified";
+    "View the results of your game upload on Ivy: the gamecoin launchpad";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

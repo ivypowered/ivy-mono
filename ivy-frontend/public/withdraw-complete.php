@@ -53,7 +53,7 @@ $formatted_withdraw_amount = number_format($withdraw_amount / 1000000000, 2);
 
 $title = "ivy | withdraw complete";
 $description =
-    "View the result of your withdrawal on Ivy: web3 gaming, radically simplified";
+    "View the result of your withdrawal on Ivy: the gamecoin launchpad";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

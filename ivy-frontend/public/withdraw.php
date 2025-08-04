@@ -157,8 +157,7 @@ $formatted_withdraw_amount = empty($error_message)
     : "0.00";
 
 $title = "ivy | withdraw";
-$description =
-    "Withdraw tokens from a game on Ivy: web3 gaming, radically simplified";
+$description = "Withdraw tokens from a game on Ivy: the gamecoin launchpad";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

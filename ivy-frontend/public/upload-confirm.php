@@ -80,8 +80,7 @@ if (empty($errors)) {
 }
 
 $title = "ivy | upload confirmation";
-$description =
-    "Confirm the upload of your game on Ivy: web3 gaming, radically simplified";
+$description = "Confirm the upload of your game on Ivy: the gamecoin launchpad";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

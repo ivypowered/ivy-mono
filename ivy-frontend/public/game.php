@@ -41,7 +41,7 @@ if (!$address) {
 
 // Include the header
 $title = "ivy | $name ($symbol)";
-$description = "Trade $symbol on Ivy: web3 gaming, radically simplified";
+$description = "Trade $symbol on Ivy: the gamecoin launchpad";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

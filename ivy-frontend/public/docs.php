@@ -49,7 +49,7 @@ $extra_head = <<<HTML
 <script>hljs.highlightAll();</script>
 HTML;
 $title = "ivy | docs: $name";
-$description = "View the $name page on the documentation for Ivy: web3 gaming, radically simplified";
+$description = "View the $name page on the documentation for Ivy: the gamecoin launchpad";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

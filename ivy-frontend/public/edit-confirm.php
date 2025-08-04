@@ -112,8 +112,7 @@ if (empty($errors)) {
 }
 
 $title = "ivy | edit confirmation";
-$description =
-    "Confirm your edits to your game on Ivy: web3 gaming, radically simplified";
+$description = "Confirm your edits to your game on Ivy: the gamecoin launchpad";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

@@ -151,7 +151,7 @@ if (isset($_GET["error"])) {
 }
 
 $title = "ivy | upload";
-$description = "Upload your game to Ivy: web3 gaming, radically simplified";
+$description = "Upload your game to Ivy: the gamecoin launchpad";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

@@ -68,8 +68,7 @@ $has_next_page = count($games) == $games_per_page;
 $has_prev_page = $current_page > 1;
 
 $title = "ivy | explore";
-$description =
-    "Explore the latest games on Ivy: web3 gaming, radically simplified";
+$description = "Explore the latest on Ivy: the gamecoin launchpad";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

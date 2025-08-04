@@ -22,7 +22,7 @@ $game_explorer_link = $game_address
 
 $title = "ivy | edit done";
 $description =
-    "View the results of your game edit on Ivy: web3 gaming, radically simplified";
+    "View the results of your game edit on Ivy: the gamecoin launchpad";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

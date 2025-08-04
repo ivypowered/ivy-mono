@@ -237,7 +237,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $game !== null) {
 }
 
 $title = "ivy | edit";
-$description = "Edit your game on Ivy: web3 gaming, radically simplified";
+$description = "Edit your game on Ivy: the gamecoin launchpad";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 

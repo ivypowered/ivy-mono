@@ -70,7 +70,7 @@ if (!empty($search_query_raw)) {
 
 // --- Page Rendering ---
 $title = "ivy | search: $search_query_raw";
-$description = "View search results on Ivy: web3 gaming, radically simplified";
+$description = "View search results on Ivy: the gamecoin launchpad";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
