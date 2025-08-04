@@ -22,7 +22,8 @@ use crate::quote::Quote;
 use crate::signature::Signature;
 use crate::sqrt_curve::SqrtCurve;
 use crate::util::{
-    from_game_amount, from_ivy_amount, from_usdc_amount, to_ivy_amount, to_usdc_amount,
+    from_game_amount, from_ivy_amount, from_usdc_amount, mil_to_usd, to_ivy_amount, to_usdc_amount,
+    usd_to_mil,
 };
 use crate::vendor::constant_product::ConstantProductCurve;
 use crate::volume::Volume;
@@ -90,19 +91,6 @@ const HIDDEN_GAMES: [Public; 8] = [
 // =======================
 // === Helper Functions ===
 // =======================
-
-/// Convert a float USD value into a `u64` tenths of a cent (mils)
-fn usd_to_mil(v: f32) -> u64 {
-    if !v.is_normal() {
-        return 0;
-    }
-    (v * 1000.0) as u64
-}
-
-/// Convert tenths of a cent into a float USD value
-fn mil_to_usd(v: u64) -> f32 {
-    (v as f32) / 1000.0
-}
 
 /// Normalize a string for searching: trim, lowercase, ASCII only, no spaces.
 fn normalize_string(s: &str) -> String {
@@ -287,6 +275,28 @@ pub struct GlobalInfo {
     featured_games: Vec<GlobalGame>,
 }
 
+pub struct Pnl {
+    pub in_mil: u64,
+    pub out_mil: u64,
+    pub position_raw: u64,
+}
+
+#[derive(Serialize, Clone, Copy)]
+pub struct PnlEntry {
+    pub user: Public,
+    pub in_usd: f32,
+    pub out_usd: f32,
+    pub position: f32,
+}
+
+#[derive(Serialize, Clone, Copy)]
+pub struct PnlResponse {
+    pub in_usd: f32,
+    pub out_usd: f32,
+    pub position: f32,
+    pub price: f32,
+}
+
 // ======================================
 // === Internal State Representation ===
 // ======================================
@@ -295,8 +305,9 @@ pub struct GlobalInfo {
 struct StateData {
     // Game data
     address_to_game_meta: HashMap<Public, GameMeta>, // game_address -> GameMeta
-    volume_lb: Leaderboard<Public, u64>,             // global volume leaderboard in mil ($0.001)
+    volume_map: HashMap<Public, u64>,                // global volume map in mil ($0.001)
     address_to_volume_lb: HashMap<Public, Leaderboard<Public, u64>>, // game -> ld in mil
+    address_to_pnl_map: HashMap<Public, HashMap<Public, Pnl>>, // game -> (user -> pnl)
     game_list: Vec<Game>,                            // Chronological list of all games
     top_games: BTreeSet<TopGameEntry>,               // Games sorted by market cap (desc)
     hot_game_cache: Vec<usize>,                      // Indices of hot games (cached)
@@ -518,7 +529,25 @@ impl StateData {
             .or_insert_with(|| Leaderboard::new())
             .increment(user, usdc_value_mil);
         // Increase global volume leaderboard
-        self.volume_lb.increment(user, usdc_value_mil);
+        *self.volume_map.entry(user).or_default() += usdc_value_mil;
+        // Update user PnL for game
+        let pnl = self
+            .address_to_pnl_map
+            .entry(swap_data.game)
+            .or_insert_with(|| HashMap::new())
+            .entry(user)
+            .or_insert_with(|| Pnl {
+                in_mil: 0,
+                out_mil: 0,
+                position_raw: 0,
+            });
+        if swap_data.is_buy {
+            pnl.in_mil += usdc_value_mil;
+            pnl.position_raw += swap_data.game_amount;
+        } else {
+            pnl.out_mil += usdc_value_mil;
+            pnl.position_raw = pnl.position_raw.saturating_sub(swap_data.game_amount);
+        }
     }
 
     fn process_game_burn(
@@ -731,7 +760,8 @@ impl State {
         let mut state_data = StateData {
             address_to_game_meta: HashMap::new(),
             address_to_volume_lb: HashMap::new(),
-            volume_lb: Leaderboard::new(),
+            address_to_pnl_map: HashMap::new(),
+            volume_map: HashMap::new(),
             top_games: BTreeSet::new(),
             hot_game_cache: Vec::new(),
             game_list: Vec::new(),
@@ -1308,21 +1338,96 @@ impl State {
         }
     }
 
-    pub fn get_volume_lb(&self, user: Public) -> f32 {
+    pub fn get_volume(&self, user: Public) -> f32 {
         self.data
             .read()
             .unwrap()
-            .volume_lb
+            .volume_map
             .get(&user)
             .map(|&x| mil_to_usd(x))
             .unwrap_or_default()
     }
 
-    pub fn get_volume_lb_multiple(&self, users: &[Public]) -> Vec<f32> {
-        let lb = &self.data.read().unwrap().volume_lb;
+    pub fn get_volume_multiple(&self, users: &[Public]) -> Vec<f32> {
+        let lb = &self.data.read().unwrap().volume_map;
         users
             .iter()
             .map(|u| lb.get(&u).map(|&x| mil_to_usd(x)).unwrap_or_default())
             .collect()
+    }
+
+    pub fn query_pnl_lb(&self, game: Public, count: usize, skip: usize) -> Vec<PnlEntry> {
+        let data = self.data.read().unwrap();
+        let price = data
+            .address_to_game_meta
+            .get(&game)
+            .map(|x| data.game_list[x.index].last_price_usd)
+            .unwrap_or_default();
+        let pnl_map = match data.address_to_pnl_map.get(&game) {
+            Some(v) => v,
+            None => return Vec::new(),
+        };
+        let mut entries: Vec<PnlEntry> = pnl_map
+            .iter()
+            .map(|(&user, p)| PnlEntry {
+                user,
+                in_usd: mil_to_usd(p.in_mil),
+                out_usd: mil_to_usd(p.out_mil),
+                position: from_game_amount(p.position_raw),
+            })
+            .collect();
+        entries.sort_by(|a, b| {
+            let out_a = a.out_usd + a.position * price;
+            let out_b = b.out_usd + b.position * price;
+            let ratio_a = out_a / a.in_usd;
+            let ratio_b = out_b / b.in_usd;
+            ratio_b.total_cmp(&ratio_a)
+        });
+        if skip == 0 {
+            // happy: can just trim
+            entries.truncate(count);
+            return entries;
+        }
+        if count == 0 || skip >= entries.len() {
+            return Vec::new();
+        }
+        let left = skip;
+        let right = if (skip + count) >= entries.len() {
+            entries.len()
+        } else {
+            skip + count
+        };
+        return entries[left..right].to_vec();
+    }
+
+    pub fn get_pnl(&self, game: Public, user: Public) -> PnlResponse {
+        let data = self.data.read().unwrap();
+        let price = data
+            .address_to_game_meta
+            .get(&game)
+            .map(|x| data.game_list[x.index].last_price_usd)
+            .unwrap_or_default();
+        let pnl = match data
+            .address_to_pnl_map
+            .get(&game)
+            .map(|x| x.get(&user))
+            .flatten()
+        {
+            Some(v) => v,
+            None => {
+                return PnlResponse {
+                    in_usd: 0.0,
+                    out_usd: 0.0,
+                    position: 0.0,
+                    price,
+                }
+            }
+        };
+        PnlResponse {
+            in_usd: mil_to_usd(pnl.in_mil),
+            out_usd: mil_to_usd(pnl.out_mil),
+            position: from_game_amount(pnl.position_raw),
+            price,
+        }
     }
 }

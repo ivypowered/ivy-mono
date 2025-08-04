@@ -790,6 +790,16 @@ static void game_swap(
         );
     }
 
+    // Close source account if empty after swap
+    if (token_get_balance(&accounts->source) == 0) {
+        token_close_account(
+            /* ctx */ ctx,
+            /* account */ source_addr,
+            /* destination */ user,
+            /* owner */ user
+        );
+    }
+
     // Emit swap event
     GameSwapEvent swap_event = {
         .discriminator = GAME_SWAP_EVENT_DISCRIMINATOR,
@@ -968,6 +978,16 @@ static void game_credit(
         /* owner */ *accounts->user.key,
         /* amount */ data->amount
     );
+
+    // Close source account if empty after credit
+    if (token_get_balance(&accounts->source) == 0) {
+        token_close_account(
+            /* ctx */ ctx,
+            /* account */ *accounts->source.key,
+            /* destination */ *accounts->user.key,
+            /* owner */ *accounts->user.key
+        );
+    }
 }
 
 /* ------------------------------ */
@@ -1293,12 +1313,8 @@ static void game_burn_complete(
         address_equal(accounts->burn.key, &burn_pda.key),
         "Incorrect burn account provided"
     );
-    // Idempotency: ensure we haven't done this burn before
-    if (account_exists(&accounts->burn)) {
-        // we're good
-        // (or there's a collision... not our fault!)
-        return;
-    }
+    // Ensure we haven't done this burn before
+    require(!account_exists(&accounts->burn), "Burn already completed");
 
     // Extract amount from the ID (last 8 bytes, little endian u64)
     u64 amount = id_extract_amount(data->id);
@@ -1311,6 +1327,16 @@ static void game_burn_complete(
         /* owner */ *accounts->user.key,
         /* amount */ amount
     );
+
+    // Close source account if empty after burn
+    if (token_get_balance(&accounts->source) == 0) {
+        token_close_account(
+            /* ctx */ ctx,
+            /* account */ *accounts->source.key,
+            /* destination */ *accounts->user.key,
+            /* owner */ *accounts->user.key
+        );
+    }
 
     // Derive full burn seeds
     slice burn_seeds[4] = {
@@ -1446,6 +1472,15 @@ static void game_deposit_complete(
         /* owner */ *accounts->user.key,
         /* amount */ amount
     );
+    if (token_get_balance(&accounts->source) == 0) {
+        // Close account if it's empty now
+        token_close_account(
+            /* ctx */ ctx,
+            /* account */ *accounts->source.key,
+            /* destination */ *accounts->user.key,
+            /* owner */ *accounts->user.key
+        );
+    }
 
     // Derive full deposit seeds
     slice deposit_seeds[4] = {

@@ -913,6 +913,16 @@ static void world_swap(
         /* amount */ user_pays
     );
 
+    if (token_get_balance(&accounts->source) == 0) {
+        // Close account if it's empty now
+        token_close_account(
+            /* ctx */ ctx,
+            /* account */ *accounts->source.key,
+            /* destination */ *accounts->user.key,
+            /* owner */ *accounts->user.key
+        );
+    }
+
     if (data->create_dest && !token_exists(&accounts->destination)) {
         // Create destination wallet
         ata_create(

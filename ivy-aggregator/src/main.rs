@@ -179,11 +179,23 @@ fn main() {
                 success(state.query_volume_lb(address, count, skip))
             },
 
+            // Get the PnL leaderboard for a given game
+            (GET) (/games/{address: Public}/pnl_board) => {
+                let count: usize = get_query_param_parsed(req, "count", 20);
+                let skip: usize = get_query_param_parsed(req, "skip", 0);
+                success(state.query_pnl_lb(address, count, skip))
+            },
+
+            // Get the PnL leaderboard for a given game
+            (GET) (/games/{address: Public}/pnl/{user: Public}) => {
+                success(state.get_pnl(address, user))
+            },
+
             // === VOLUME ROUTES ===
 
             // Get global volume score for a single user
             (GET) (/volume/{user: Public}) => {
-                let score = state.get_volume_lb(user);
+                let score = state.get_volume(user);
                 success(score)
             },
 
@@ -207,7 +219,7 @@ fn main() {
                     return error("Cannot query more than 100 users at once", 400);
                 }
 
-                let scores = state.get_volume_lb_multiple(&request.users);
+                let scores = state.get_volume_multiple(&request.users);
                 success(scores)
             },
 
