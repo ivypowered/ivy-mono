@@ -43,9 +43,9 @@ async function fetchJupiterExactIn(
     // space for Lighthouse assertions, or else users will
     // receive the dangerous dApp warning.)
     // So, we'll be conservative and limit Jupiter
-    // to 32 accounts, so we have a comfortable buffer
+    // to 24 accounts, so we have a comfortable buffer
     // of space.
-    let maxAccounts = 32;
+    let maxAccounts = 24;
     while (true) {
         orderResponse = await Jup.fetchOrder(
             inputToken,

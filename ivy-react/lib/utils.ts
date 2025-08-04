@@ -201,30 +201,55 @@ export async function processTransaction(
     }
 
     // 3) Sign and send the transaction
-    onStatus(PROCESS_TRANSACTION_SIGNING);
-    const txSigned = await signTransaction(tx);
-    if (txSigned instanceof VersionedTransaction) {
-        txSigned.signatures = txSigned.signatures.filter((s) => {
-            for (const p of previousSignatures) {
-                if (p.length !== s.length) {
-                    continue;
-                }
-                let eq = true;
-                for (let i = 0; i < p.length; i++) {
-                    if (p[i] !== s[i]) {
-                        eq = false;
-                        break;
+    let signature: string;
+    const w = window as {
+        phantom?: {
+            solana?: {
+                isPhantom: boolean;
+                signAndSendTransaction: (
+                    tx: Transaction | VersionedTransaction,
+                ) => Promise<{
+                    signature: string;
+                }>;
+            };
+        };
+    };
+    const host = window.location.hostname;
+    if (
+        host !== "127.0.0.1" &&
+        host !== "localhost" &&
+        w.phantom?.solana?.isPhantom
+    ) {
+        // We're using Phantom, let's use their special fn
+        onStatus(PROCESS_TRANSACTION_SENDING);
+        const result = await w.phantom.solana.signAndSendTransaction(tx);
+        signature = result.signature;
+    } else {
+        onStatus(PROCESS_TRANSACTION_SIGNING);
+        const txSigned = await signTransaction(tx);
+        if (txSigned instanceof VersionedTransaction) {
+            txSigned.signatures = txSigned.signatures.filter((s) => {
+                for (const p of previousSignatures) {
+                    if (p.length !== s.length) {
+                        continue;
+                    }
+                    let eq = true;
+                    for (let i = 0; i < p.length; i++) {
+                        if (p[i] !== s[i]) {
+                            eq = false;
+                            break;
+                        }
+                    }
+                    if (eq) {
+                        return false;
                     }
                 }
-                if (eq) {
-                    return false;
-                }
-            }
-            return true;
-        });
+                return true;
+            });
+        }
+        onStatus(PROCESS_TRANSACTION_SENDING);
+        signature = await Api.sendTransaction(txSigned);
     }
-    onStatus(PROCESS_TRANSACTION_SENDING);
-    const signature = await Api.sendTransaction(txSigned);
 
     // 4) Confirm the transaction
     onStatus(PROCESS_TRANSACTION_CONFIRMING);
