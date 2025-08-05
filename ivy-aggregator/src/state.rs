@@ -1356,7 +1356,13 @@ impl State {
             .collect()
     }
 
-    pub fn query_pnl_lb(&self, game: Public, count: usize, skip: usize) -> Vec<PnlEntry> {
+    pub fn query_pnl_lb(
+        &self,
+        game: Public,
+        count: usize,
+        skip: usize,
+        realized: bool,
+    ) -> Vec<PnlEntry> {
         let data = self.data.read().unwrap();
         let price = data
             .address_to_game_meta
@@ -1376,13 +1382,23 @@ impl State {
                 position: from_game_amount(p.position_raw),
             })
             .collect();
-        entries.sort_by(|a, b| {
-            let out_a = a.out_usd + a.position * price;
-            let out_b = b.out_usd + b.position * price;
-            let ratio_a = out_a / a.in_usd;
-            let ratio_b = out_b / b.in_usd;
-            ratio_b.total_cmp(&ratio_a)
-        });
+        if realized {
+            // sort by realized gains
+            entries.sort_by(|a, b| {
+                let ratio_a = a.out_usd / a.in_usd;
+                let ratio_b = b.out_usd / b.in_usd;
+                ratio_b.total_cmp(&ratio_a)
+            });
+        } else {
+            // sort by realized + unrealized gains
+            entries.sort_by(|a, b| {
+                let out_a = a.out_usd + a.position * price;
+                let out_b = b.out_usd + b.position * price;
+                let ratio_a = out_a / a.in_usd;
+                let ratio_b = out_b / b.in_usd;
+                ratio_b.total_cmp(&ratio_a)
+            });
+        }
         if skip == 0 {
             // happy: can just trim
             entries.truncate(count);

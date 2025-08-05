@@ -183,7 +183,8 @@ fn main() {
             (GET) (/games/{address: Public}/pnl_board) => {
                 let count: usize = get_query_param_parsed(req, "count", 20);
                 let skip: usize = get_query_param_parsed(req, "skip", 0);
-                success(state.query_pnl_lb(address, count, skip))
+                let realized: bool = get_query_param_parsed(req, "realized", false);
+                success(state.query_pnl_lb(address, count, skip, realized))
             },
 
             // Get the PnL leaderboard for a given game
