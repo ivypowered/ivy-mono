@@ -1319,7 +1319,7 @@ impl State {
             .collect();
         GlobalInfo {
             games_listed: data.game_list.len() as u64,
-            tvl: from_ivy_amount(data.game_tvl),
+            tvl: data.ivy_price * from_ivy_amount(data.game_tvl),
             volume_24h: mil_to_usd(data.volume_24h.get()),
             featured_games,
         }

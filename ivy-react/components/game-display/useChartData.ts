@@ -6,6 +6,7 @@ import { useState, useRef, useEffect } from "react";
 import { ChartInterval, ChartCandle } from "../chart/chartTypes";
 
 const CHART_UPDATE_INTERVAL = 3; // in seconds
+const CHART_MAX_CANDLES = 500; // max candles
 
 export function useChartData(gameAddress: string, interval: ChartInterval) {
     const [data, setData] = useState<ChartCandle[]>([]);
@@ -63,7 +64,7 @@ export function useChartData(gameAddress: string, interval: ChartInterval) {
             if (gameAddressRef.current === IVY_MINT_B58) {
                 return Api.getIvyChart(
                     intervalRef.current as ChartKind,
-                    100,
+                    CHART_MAX_CANDLES,
                     afterInclusive,
                 );
             }
@@ -72,7 +73,7 @@ export function useChartData(gameAddress: string, interval: ChartInterval) {
             return Api.getGameChart(
                 gameMint,
                 intervalRef.current as ChartKind,
-                100,
+                CHART_MAX_CANDLES,
                 afterInclusive,
             );
         };
