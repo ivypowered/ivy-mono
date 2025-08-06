@@ -12,7 +12,7 @@ import {
 import { useWallet } from "./wallet/WalletProvider";
 
 export function WalletButton({ mobile }: { mobile: boolean }) {
-    const { connected, publicKey, disconnect, setShowModal } = useWallet();
+    const { connected, publicKey, disconnect, openModal } = useWallet();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [hasCopied, setHasCopied] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -26,7 +26,7 @@ export function WalletButton({ mobile }: { mobile: boolean }) {
 
     // Function to connect wallet
     const connectWallet = () => {
-        setShowModal(true);
+        openModal();
     };
 
     // Function to disconnect wallet

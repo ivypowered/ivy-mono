@@ -115,7 +115,7 @@ export default function Home() {
             </header>
 
             {/* Main Content - Game */}
-            <WalletProvider autoConnect={true}>
+            <WalletProvider>
                 <></>
                 {
                     <GameDisplay

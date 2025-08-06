@@ -56,7 +56,7 @@ function Root({
     }
 
     return (
-        <WalletProvider autoConnect={true}>
+        <WalletProvider>
             {gameElement &&
                 gameData &&
                 createPortal(

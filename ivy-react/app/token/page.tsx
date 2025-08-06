@@ -10,16 +10,12 @@ import { WalletProvider } from "@/components/wallet/WalletProvider";
 
 export default function Token() {
     const ivy_game = useMemo(() => {
-        return createIvyGame(
-            // 90 days ago for mock timestamp
-            {
-                create_timestamp:
-                    Math.floor(new Date().getTime() / 1000) - 60 * 60 * 24 * 90,
-                ivy_price: 5,
-                ivy_mkt_cap: 12500,
-                ivy_change_24h: 4,
-            },
-        );
+        return createIvyGame({
+            create_timestamp: 1747436909,
+            ivy_price: 5,
+            ivy_mkt_cap: 12500,
+            ivy_change_24h: 4,
+        });
     }, []);
 
     return (
@@ -106,7 +102,7 @@ export default function Token() {
             </header>
 
             {/* Main Content - Game */}
-            <WalletProvider autoConnect={true}>
+            <WalletProvider>
                 <GameDisplay game={ivy_game} showComments={false} />
             </WalletProvider>
 

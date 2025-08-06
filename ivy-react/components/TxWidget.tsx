@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
-import { useWallet } from "./wallet/WalletProvider";
+import { useWallet } from "@/components/wallet/WalletProvider";
 import {
     PROCESS_TRANSACTION_CONFIRMING,
     PROCESS_TRANSACTION_RETRIEVING,
@@ -135,7 +135,7 @@ interface TransactionHandlerProps {
     button_id: string;
 }
 export function TxWidget({ button_id }: TransactionHandlerProps) {
-    const { connected, publicKey, signTransaction, setShowModal } = useWallet();
+    const { connected, publicKey, signTransaction, openModal } = useWallet();
     const txData = useMemo(() => getTransactionData(button_id), [button_id]);
 
     // Initialize button click handler
@@ -145,7 +145,7 @@ export function TxWidget({ button_id }: TransactionHandlerProps) {
 
         const handleClick = () => {
             if (currentStatus === TransactionStatus.WALLET_NEEDED) {
-                setShowModal(true);
+                openModal();
             } else if (currentStatus === TransactionStatus.READY) {
                 executeTransaction();
             }

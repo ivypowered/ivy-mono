@@ -1,7 +1,4 @@
 import { useEffect, useRef } from "react";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
-dayjs.extend(utc);
 import {
     ColorType,
     CrosshairMode,
@@ -19,6 +16,25 @@ interface ChartBaseProps {
     isLoading?: boolean;
     interval: ChartInterval;
 }
+
+// Helper function to format UTC dates
+const formatUTCDate = (
+    timestamp: number,
+    format: "year-month" | "month-day" | "hour-minute",
+) => {
+    const date = new Date(timestamp * 1000);
+
+    switch (format) {
+        case "year-month":
+            return `${date.getUTCFullYear()}/${date.getUTCMonth() + 1}`;
+        case "month-day":
+            return `${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
+        case "hour-minute":
+            return `${date.getUTCHours().toString().padStart(2, "0")}:${date.getUTCMinutes().toString().padStart(2, "0")}`;
+        default:
+            return "";
+    }
+};
 
 export function ChartBase({
     data,
@@ -70,16 +86,10 @@ export function ChartBase({
                     tickMarkType: TickMarkType,
                 ) => {
                     if (tickMarkType === 0)
-                        return dayjs(time * 1000)
-                            .utc()
-                            .format("YYYY/M");
+                        return formatUTCDate(time, "year-month");
                     if (tickMarkType < 3)
-                        return dayjs(time * 1000)
-                            .utc()
-                            .format("M/D");
-                    return dayjs(time * 1000)
-                        .utc()
-                        .format("H:mm");
+                        return formatUTCDate(time, "month-day");
+                    return formatUTCDate(time, "hour-minute");
                 },
             },
         });

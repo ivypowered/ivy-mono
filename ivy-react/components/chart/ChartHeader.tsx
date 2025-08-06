@@ -1,7 +1,5 @@
 "use client";
 
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
 import {
     CHART_INTERVALS,
     type ChartInterval,
@@ -9,8 +7,6 @@ import {
     type ChartTab,
 } from "./chartTypes";
 import Link from "next/link";
-
-dayjs.extend(relativeTime);
 
 const PlayIconFilled = (props: React.SVGProps<SVGSVGElement>) => (
     <svg
@@ -55,6 +51,42 @@ const formatCurrency = (num: number | undefined): string => {
         currency: "USD",
         maximumFractionDigits: Math.abs(num) >= 1 ? 2 : 6,
     }).format(num);
+};
+
+const fromNow = (date: Date): string => {
+    const timestamp = date.getTime();
+    const now = Date.now();
+    const diff = now - timestamp;
+    if (diff < 0) {
+        return "just now";
+    }
+
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    const months = Math.floor(days / 30);
+    const years = Math.floor(days / 365);
+
+    if (years > 0) {
+        return years === 1 ? "a year ago" : `${years} years ago`;
+    }
+    if (months > 0) {
+        return months === 1 ? "a month ago" : `${months} months ago`;
+    }
+    if (days > 0) {
+        return days === 1 ? "a day ago" : `${days} days ago`;
+    }
+    if (hours > 0) {
+        return hours === 1 ? "an hour ago" : `${hours} hours ago`;
+    }
+    if (minutes > 0) {
+        return minutes === 1 ? "a minute ago" : `${minutes} minutes ago`;
+    }
+    if (seconds > 0) {
+        return seconds === 1 ? "a second ago" : `${seconds} seconds ago`;
+    }
+    return "just now";
 };
 
 // Sub-components
@@ -115,7 +147,7 @@ const MarketData = ({
     createdAt,
 }: {
     marketCap?: number;
-    createdAt?: Date | string;
+    createdAt?: Date;
 }) => (
     <div className="flex flex-col sm:flex-row gap-2 sm:gap-6">
         {marketCap && (
@@ -131,7 +163,7 @@ const MarketData = ({
                 <span className="text-zinc-500 text-xs uppercase block">
                     CREATED
                 </span>
-                <div className="font-bold">{dayjs(createdAt).fromNow()}</div>
+                <div className="font-bold">{fromNow(createdAt)}</div>
             </div>
         )}
     </div>
@@ -142,7 +174,7 @@ interface ChartHeaderProps {
     priceUsd?: number;
     changePercentUsd?: number;
     marketCap?: number;
-    createdAt?: Date | string;
+    createdAt?: Date;
     interval: ChartInterval;
     setInterval: (i: ChartInterval) => void;
     activeTab: ChartTab;

@@ -28,12 +28,12 @@ import {
 } from "@/import/ivy-sdk";
 import { infinitely } from "@/lib/utils";
 import { ChartBase } from "../chart/ChartBase";
-import { useWallet } from "../wallet/WalletProvider";
 import { useTokens } from "@/lib/hooks";
 import { TreasuryManager } from "./TreasuryManager";
 import { useChartData } from "./useChartData";
 import { fetchQuoteInternal } from "./fetchQuoteInternal";
 import { Comments } from "./Comments";
+import { useWallet } from "../wallet/WalletProvider";
 
 // Mock tokens
 const COMMON_TOKENS = [
@@ -110,8 +110,7 @@ export function GameDisplay({
     game: GameObject;
     showComments: boolean;
 }) {
-    const { publicKey, signTransaction, signMessage, setShowModal } =
-        useWallet();
+    const { publicKey, signTransaction, signMessage, openModal } = useWallet();
     const tokens = useTokens();
     const [metadata, setMetadata] = useState<WebMetadata | undefined>(
         game.metadata_override,
@@ -352,7 +351,7 @@ export function GameDisplay({
                     setSubscribeKey((k) => k + 1);
                     break;
                 case "connect_wallet":
-                    setShowModal(true);
+                    openModal();
                     break;
                 case "reload_balance":
                     // reload_balance rate limiting
@@ -450,7 +449,7 @@ export function GameDisplay({
         };
         window.addEventListener("message", onMessage);
         return () => window.removeEventListener("message", onMessage);
-    }, [frameOrigin, game, publicKey, setShowModal, signMessage]);
+    }, [frameOrigin, game, publicKey, openModal, signMessage]);
 
     const reloadBalancesRef = useRef<(() => void) | null>(null);
     const updateBalanceRef = useRef<
@@ -462,7 +461,7 @@ export function GameDisplay({
             <div className="w-full max-w-[1080px] px-4">
                 <SwapProvider
                     connectWallet={() => {
-                        setShowModal(true);
+                        openModal();
                     }}
                     commonTokens={COMMON_TOKENS}
                     fetchBalance={fetchBalance}
@@ -586,7 +585,7 @@ export function GameDisplay({
                         <Comments
                             gameAddress={game.address}
                             userAddress={publicKey?.toBase58()}
-                            onConnectWallet={() => setShowModal(true)}
+                            onConnectWallet={() => openModal()}
                             signTransaction={
                                 signTransaction ||
                                 (() => {

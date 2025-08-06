@@ -61,9 +61,12 @@ genrule(
         npm run build
         cp ./.next/static/widget/index.js $$ROOT_DIR/$(location ivy-react.js)
 
+        # vendored wallets, loaded on-demand when necessary
+        zip -j $$ROOT_DIR/$(location ivy-react-vendors.zip) .next/static/chunks/vendors*.js
+
         # create big file to give to tw later to generate styles :)
         find ./components ./app -type f -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.mdx" | xargs cat > $$ROOT_DIR/$(location ivy-react-tw-input.tsx)
     """,
-    outs = ["ivy-react.js", "ivy-react-tw-input.tsx"],
+    outs = ["ivy-react.js", "ivy-react-tw-input.tsx", "ivy-react-vendors.zip"],
     visibility = ["//visibility:public"],
 )

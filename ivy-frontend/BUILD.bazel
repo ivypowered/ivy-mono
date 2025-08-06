@@ -5,6 +5,7 @@ genrule(
         "//ivy-docs:docs.zip",
         "//ivy-react:ivy-react.js",
         "//ivy-react:ivy-react-tw-input.tsx",
+        "//ivy-react:ivy-react-vendors.zip",
     ],
     local = True,
     cmd = """
@@ -20,6 +21,14 @@ genrule(
         mkdir docs_build
         cd docs_build
         unzip -o $$ROOT_DIR/$(location //ivy-docs:docs.zip)
+        cd ..
+
+        # vendors
+        mkdir -p public/_next/static/chunks
+        cd public/_next/static/chunks
+        rm -rf *
+        unzip -o $$ROOT_DIR/$(location //ivy-react:ivy-react-vendors.zip)
+        cd ../../../..
 
         date +%s.%N > $$ROOT_DIR/$@
     """,
