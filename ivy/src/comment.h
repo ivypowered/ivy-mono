@@ -30,7 +30,6 @@ static const char* const COMMENT_BUFFER_PREFIX = "comment_buffer";
 static const u64 COMMENT_MAX_LEN = 280;
 
 /// An Anchor string (length followed by data)
-/// (we check for this explicitly in anchor.py)
 typedef struct {
     u32 len;
     u8 data[];
@@ -44,6 +43,7 @@ typedef struct {
     u64 comment_index;
     u64 timestamp;
     u64 buf_index;
+    // #idl string
     AnchorString text;
 } CommentEvent;
 
@@ -133,6 +133,7 @@ typedef struct {
 
 // #idl instruction data comment_post
 typedef struct {
+    // #idl string
     AnchorString text;
 } CommentPostData;
 

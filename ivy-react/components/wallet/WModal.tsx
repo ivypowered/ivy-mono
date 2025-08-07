@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { X, ExternalLink, ArrowLeft } from "lucide-react";
 import { useWContext } from "./WProvider";
 import { WalletAdapter, WalletReadyState } from "@solana/wallet-adapter-base";
+import { KEYPAIR_WALLET_ADAPTER } from "./WProvider";
+import { Keypair } from "@solana/web3.js";
 
 interface WModalProps {
     accentColor: "emerald" | "sky";
@@ -13,6 +15,7 @@ interface WModalProps {
 // Wallet connection state
 interface WalletConnectionState {
     installDialog: WalletAdapter | null;
+    keypairDialog: boolean;
 }
 
 // Color mapping for dynamic accent colors
@@ -37,14 +40,30 @@ export function WModal({ accentColor, logoSrc }: WModalProps) {
     // Get color classes based on accent color
     const colors = colorMap[accentColor];
 
+    // Whether to include the Keypair wallet based on URL query param
+    const [includeKeypair, setIncludeKeypair] = useState<boolean>(false);
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            setIncludeKeypair(params.get("showKeypairWallet") === "true");
+        }
+    }, []);
+
     // Wallet connection state
     const [walletConnection, setWalletConnection] =
         useState<WalletConnectionState>({
             installDialog: null,
+            keypairDialog: false,
         });
 
     // Shared error state
     const [error, setError] = useState<string | null>(null);
+
+    // Keypair input state
+    const [secretKeyText, setSecretKeyText] = useState<string>("");
+    const [validationError, setValidationError] = useState<string | null>(null);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     // Context and hooks
     const { wallets, connect, connecting, connected, isModalOpen, closeModal } =
@@ -60,17 +79,65 @@ export function WModal({ accentColor, logoSrc }: WModalProps) {
     // Reset state when modal closes
     useEffect(() => {
         if (!isModalOpen) {
-            setWalletConnection({ installDialog: null });
+            setWalletConnection({ installDialog: null, keypairDialog: false });
             setError(null);
+            setSecretKeyText("");
+            setValidationError(null);
+            setSubmitError(null);
         }
     }, [isModalOpen]);
 
+    // Only show Keypair wallet when includeKeypair=true
+    const displayWallets = useMemo(
+        () =>
+            includeKeypair
+                ? wallets
+                : wallets.filter((w) => w !== KEYPAIR_WALLET_ADAPTER),
+        [wallets, includeKeypair],
+    );
+
     if (!isModalOpen) return null;
+
+    // Validation for secret key input (basic JSON + byte array shape)
+    const validateSecretKeyInput = (text: string): string | null => {
+        if (!text.trim()) return "Secret key is required.";
+        try {
+            const parsed = JSON.parse(text);
+            if (!Array.isArray(parsed))
+                return "Secret key must be a JSON array of bytes.";
+            const allBytes = parsed.every(
+                (n: unknown) =>
+                    Number.isInteger(n) &&
+                    (n as number) >= 0 &&
+                    (n as number) <= 255,
+            );
+            if (!allBytes)
+                return "Array must contain integers between 0 and 255.";
+            return null;
+        } catch {
+            return "Invalid JSON.";
+        }
+    };
+
+    const onSecretKeyChange = (v: string) => {
+        setSecretKeyText(v);
+        setSubmitError(null);
+        setValidationError(validateSecretKeyInput(v));
+    };
 
     // Wallet connection handlers
     const handleWalletConnect = (wallet: WalletAdapter) => {
+        // Special handling for Keypair wallet
+        if (wallet === KEYPAIR_WALLET_ADAPTER) {
+            setWalletConnection({ installDialog: null, keypairDialog: true });
+            return;
+        }
+
         if (wallet.readyState === WalletReadyState.NotDetected) {
-            setWalletConnection({ installDialog: wallet });
+            setWalletConnection({
+                installDialog: wallet,
+                keypairDialog: false,
+            });
             return;
         }
         try {
@@ -78,6 +145,24 @@ export function WModal({ accentColor, logoSrc }: WModalProps) {
         } catch (error) {
             console.error("Failed to connect wallet:", error);
             setError("Failed to connect wallet. Please try again.");
+        }
+    };
+
+    const handleSubmitKeypair = () => {
+        setSubmitError(null);
+        try {
+            const parsed = JSON.parse(secretKeyText);
+            const secret = Uint8Array.from(parsed);
+            // Validate by attempting to construct a Keypair
+            const kp = Keypair.fromSecretKey(secret);
+            // If valid, set on adapter and connect
+            KEYPAIR_WALLET_ADAPTER.setKeypair(kp);
+            connect(KEYPAIR_WALLET_ADAPTER.name);
+        } catch (e) {
+            console.error("Invalid keypair secret:", e);
+            setSubmitError(
+                "Invalid secret key. Please ensure it's a valid JSON-encoded secret key.",
+            );
         }
     };
 
@@ -97,8 +182,66 @@ export function WModal({ accentColor, logoSrc }: WModalProps) {
                         <X size={24} />
                     </button>
 
-                    {/* Installation Dialog */}
-                    {walletConnection.installDialog ? (
+                    {/* Keypair Secret Input Dialog */}
+                    {walletConnection.keypairDialog ? (
+                        <div className="text-center">
+                            <div className="flex justify-center mb-6">
+                                {KEYPAIR_WALLET_ADAPTER.icon && (
+                                    <img
+                                        src={KEYPAIR_WALLET_ADAPTER.icon}
+                                        alt={KEYPAIR_WALLET_ADAPTER.name}
+                                        className="h-20 w-20"
+                                    />
+                                )}
+                            </div>
+
+                            <h2 className="text-lg font-semibold text-white mb-3">
+                                Use a keypair
+                            </h2>
+
+                            <textarea
+                                value={secretKeyText}
+                                onChange={(e) =>
+                                    onSecretKeyChange(e.target.value)
+                                }
+                                placeholder="[12,34,56, ...]"
+                                className={`w-full px-3 py-2 bg-zinc-800 text-white border-2 ${colors.border} ${colors.focus} outline-none`}
+                                rows={5}
+                            />
+
+                            {(validationError || submitError) && (
+                                <div className="mt-3 p-3 bg-red-900/20 border border-red-500 text-red-400 text-sm text-left">
+                                    {validationError || submitError}
+                                </div>
+                            )}
+
+                            <div className="flex justify-center gap-3 mt-6">
+                                <button
+                                    onClick={() =>
+                                        setWalletConnection({
+                                            installDialog: null,
+                                            keypairDialog: false,
+                                        })
+                                    }
+                                    className={`inline-flex items-center gap-2 px-4 py-2 border-2 ${colors.border} bg-zinc-800 text-white hover:bg-zinc-700 cursor-pointer`}
+                                    disabled={connecting}
+                                >
+                                    <ArrowLeft size={16} />
+                                    Back
+                                </button>
+                                <button
+                                    onClick={handleSubmitKeypair}
+                                    className={`px-4 py-2 border-2 ${colors.border} bg-zinc-800 text-white ${!validationError && !connecting ? "hover:bg-zinc-700 cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
+                                    disabled={!!validationError || connecting}
+                                >
+                                    {connecting
+                                        ? "Connecting..."
+                                        : "Use keypair"}
+                                </button>
+                            </div>
+                        </div>
+                    ) : walletConnection.installDialog ? (
+                        // Installation Dialog
                         <div className="text-center">
                             <div className="flex justify-center mb-6">
                                 {walletConnection.installDialog.icon && (
@@ -153,7 +296,10 @@ export function WModal({ accentColor, logoSrc }: WModalProps) {
 
                             <button
                                 onClick={() =>
-                                    setWalletConnection({ installDialog: null })
+                                    setWalletConnection({
+                                        installDialog: null,
+                                        keypairDialog: false,
+                                    })
                                 }
                                 className={`inline-flex items-center gap-2 px-4 py-2 border-2 ${colors.border} bg-zinc-800 text-white hover:bg-zinc-700 cursor-pointer`}
                             >
@@ -186,7 +332,7 @@ export function WModal({ accentColor, logoSrc }: WModalProps) {
 
                             {/* Wallet Options */}
                             <div className="space-y-3">
-                                {wallets.map((wallet) => (
+                                {displayWallets.map((wallet) => (
                                     <button
                                         key={wallet.name}
                                         onClick={() =>

@@ -330,4 +330,9 @@ static const void* sol_memchr(const void* ptr, u8 ch, u64 count) {
     return NULL;
 }
 
+#if !defined(offsetof) || \
+    (__has_feature(modules) && !__building_module(_Builtin_stddef))
+    #define offsetof(t, d) __builtin_offsetof(t, d)
+#endif
+
 #endif

@@ -227,17 +227,16 @@ export class Game {
         const ins = await ivy_program.methods
             .gameCreate(
                 seed_array,
-                str2zt(name, 64),
-                str2zt(symbol, 16),
-                str2zt(game_url, 128),
-                str2zt(cover_url, 128),
-                str2zt(metadata_url, 128),
                 new BN(ivy_purchase),
                 new BN(min_game_received),
                 new BN(recent_slot),
                 swap_alt_nonce,
                 true, // create `destination` if not exist
-                mkpad(6),
+                name,
+                symbol,
+                game_url,
+                cover_url,
+                metadata_url,
             )
             .accounts({
                 game: game,

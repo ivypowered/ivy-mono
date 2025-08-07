@@ -113,11 +113,20 @@ static slice reader_read_slice(reader* r, u64 length) {
 static slice reader_read_slice_borrowed(reader* r, u64 length) {
     require(
         r->offset <= UINT64_MAX - length && r->offset + length <= r->len,
-        "Reader buffer overflow (borrowed slice)"
+        "Reader buffer overflow"
     );
     slice val = slice_new(r->ptr + r->offset, length); // Borrow directly
     r->offset += length;
     return val;
+}
+
+/// Read an Anchor string and advance the offset.
+/// anchor string = (len: u32, data: u8[])
+/// The returned slice points directly into the reader's buffer.
+/// WARNING: The slice is only valid as long as the reader's buffer is valid.
+static slice reader_read_anchor_string_borrowed(reader* r) {
+    u32 len = reader_read_u32(r);
+    return reader_read_slice_borrowed(r, len);
 }
 
 /// Peek at the next byte without advancing the offset

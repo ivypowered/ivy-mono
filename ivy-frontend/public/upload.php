@@ -107,6 +107,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 throw new Exception("Failed to upload game metadata");
             }
 
+            // 4. Fetch game seed
+            $seed = call_backend("/game-seed", "POST");
+
             // Calculate tokens to receive
             $ivy_initial_liquidity = $ivy_info["ivy_initial_liquidity"];
             $game_initial_liquidity = $ivy_info["game_initial_liquidity"];
@@ -121,6 +124,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             // Redirect to confirmation page with GET parameters
             $redirect_params = [
+                "seed" => $seed,
                 "name" => $game_name,
                 "symbol" => $game_symbol,
                 "game_url" => $game_url,

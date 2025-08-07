@@ -460,9 +460,7 @@ export function GameDisplay({
         <div className="w-full flex flex-col items-center py-8">
             <div className="w-full max-w-[1080px] px-4">
                 <SwapProvider
-                    connectWallet={() => {
-                        openModal();
-                    }}
+                    connectWallet={openModal}
                     commonTokens={COMMON_TOKENS}
                     fetchBalance={fetchBalance}
                     fetchTransactionEffects={fetchTransactionEffects}

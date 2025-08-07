@@ -23,6 +23,7 @@ import { confirmTransaction } from "./functions/confirmTransaction";
 import {
     EVENTS_MAX_CONCURRENT_REQUESTS,
     EVENTS_USE_BATCH,
+    KEYGEN_URL,
     LISTEN_PORT,
     PINATA_GATEWAY,
     PINATA_JWT,
@@ -94,7 +95,7 @@ const cache = {
     // Trigger 1st refresh
     cache.fee.get();
 
-    // Periodically refresh the reasonable priroity fee
+    // Periodically refresh the reasonable priority fee
     setInterval(() => cache.fee.get(), 60_000);
 }
 
@@ -249,11 +250,40 @@ app.post(
     }),
 );
 
+// Generate a game seed
+app.post(
+    "/game-seed",
+    handleAsync(async (_, res) => {
+        if (!KEYGEN_URL) {
+            return res.status(200).json({
+                status: "ok",
+                data: Buffer.from(Game.generateSeed()).toString("hex"),
+            });
+        }
+        const response = await (
+            await fetch(KEYGEN_URL + "/seed", {
+                method: "POST",
+            })
+        ).json();
+        if (
+            typeof response !== "object" ||
+            typeof response["seed"] !== "string"
+        ) {
+            throw new Error("invalid response from keygen");
+        }
+        return res.status(200).json({
+            status: "ok",
+            data: response["seed"],
+        });
+    }),
+);
+
 // Create a game
 app.post(
     "/tx/game/create",
     handleAsync(async (req, res) => {
         const data = validateRequestBody(req.body, [
+            { name: "seed", type: "string" },
             { name: "name", type: "string" },
             { name: "symbol", type: "string" },
             { name: "icon_url", type: "string" },
@@ -265,7 +295,7 @@ app.post(
         ]);
 
         const user_wallet = Keypair.generate();
-        const seed = Game.generateSeed();
+        const seed = Buffer.from(data.seed, "hex") as Uint8Array;
         const recent_slot = (await cache.slot.get()) - 1;
         const world_alt = (await cache.worldAlt.get()).alt;
         const tx = await Game.create(

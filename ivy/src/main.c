@@ -260,7 +260,7 @@ extern u64 entrypoint(const u8* input) {
 
         // Setup/Configuration operations
         case GAME_CREATE_DISCRIMINATOR:
-            CALL_INSTRUCTION(
+            CALL_INSTRUCTION_WITH_LEN(
                 ctx,
                 "GameCreate",
                 game_create,

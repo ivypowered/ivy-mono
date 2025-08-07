@@ -43,9 +43,14 @@ async function fetchJupiterExactIn(
     // space for Lighthouse assertions, or else users will
     // receive the dangerous dApp warning.)
     // So, we'll be conservative and limit Jupiter
-    // to 24 accounts, so we have a comfortable buffer
+    // to 36 accounts, so we have a comfortable buffer
     // of space.
-    let maxAccounts = 24;
+    //
+    // We'll also enable `useDirectRoutes` so that
+    // Jupiter doesn't try to do order splitting or anything
+    // crazy like that, which will increase our tx size
+    // massively.
+    let maxAccounts = 36;
     while (true) {
         orderResponse = await Jup.fetchOrder(
             inputToken,
@@ -54,7 +59,7 @@ async function fetchJupiterExactIn(
             slippageBps,
             {
                 swapMode: "ExactIn",
-                onlyDirectRoutes: false,
+                onlyDirectRoutes: true,
                 asLegacyTransaction: false,
                 minimizeSlippage: false,
                 maxAccounts,

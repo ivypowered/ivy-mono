@@ -1150,17 +1150,42 @@ impl State {
             0
         };
 
-        // Get current game price
-        let game_price = initial_price * ivy_price;
-
-        let (input_amount_usd, output_amount_usd) = if is_buy {
-            let input_usd = from_ivy_amount(input_amount) * ivy_price;
-            let output_usd = from_game_amount(final_output_amount) * game_price;
-            (input_usd, output_usd)
+        // Calculate input_amount_usd by simulating IVY value on current curve
+        let input_amount_usd = if is_buy {
+            // Input is already IVY, so just use it directly
+            from_ivy_amount(input_amount) * ivy_price
         } else {
-            let input_usd = from_game_amount(input_amount) * game_price;
-            let output_usd = from_ivy_amount(final_output_amount) * ivy_price;
-            (input_usd, output_usd)
+            // Input is game tokens, simulate swapping them for IVY on the current curve
+            // This is a feeless simulation to get the true IVY value
+            let ivy_equivalent: u64 = ConstantProductCurve::swap_base_input_without_fees(
+                input_amount as u128,
+                game_balance as u128,
+                ivy_balance as u128,
+            )
+            .ok_or("Arithmetic error during input IVY value simulation")?
+            .try_into()
+            .map_err(|_| "Input IVY equivalent exceeds u64 maximum")?;
+
+            from_ivy_amount(ivy_equivalent) * ivy_price
+        };
+
+        // Calculate output_amount_usd by simulating IVY value on updated curve
+        let output_amount_usd = if is_buy {
+            // We bought game tokens, simulate selling them back for IVY on the updated curve
+            // This is a feeless simulation to get the true IVY value
+            let ivy_equivalent: u64 = ConstantProductCurve::swap_base_input_without_fees(
+                final_output_amount as u128,
+                new_game as u128,
+                new_ivy as u128,
+            )
+            .ok_or("Arithmetic error during output IVY value simulation")?
+            .try_into()
+            .map_err(|_| "Output IVY equivalent exceeds u64 maximum")?;
+
+            from_ivy_amount(ivy_equivalent) * ivy_price
+        } else {
+            // We already have IVY as output, so just use it directly
+            from_ivy_amount(final_output_amount) * ivy_price
         };
 
         Ok(Quote {
@@ -1248,29 +1273,41 @@ impl State {
             )?)
         };
 
-        let new_price = SqrtCurve::current_price(
-            from_ivy_amount(if is_buy {
-                world_data.ivy_sold.saturating_add(output_amount)
-            } else {
-                world_data.ivy_sold.saturating_sub(input_amount)
-            }) as f64,
-            input_scale,
-        ) as f32;
+        // Calculate new ivy_sold for updated curve state
+        let new_ivy_sold = if is_buy {
+            world_data.ivy_sold.saturating_add(output_amount)
+        } else {
+            world_data.ivy_sold.saturating_sub(input_amount)
+        };
+
+        let new_price =
+            SqrtCurve::current_price(from_ivy_amount(new_ivy_sold) as f64, input_scale) as f32;
 
         let price_impact_bps = (((new_price - price).abs() / price) * 10_000.0) as u16;
 
-        // Calculate USD values
+        // Calculate input_amount_usd
         let input_amount_usd = if is_buy {
             // If buying IVY with USDC, input amount is already in USDC (≈ USD)
             from_usdc_amount(input_amount)
         } else {
-            // If selling IVY for USDC, convert IVY amount to USD
-            from_ivy_amount(input_amount) * price
+            // If selling IVY for USDC, simulate feeless swap on current curve
+            let usdc_equivalent = SqrtCurve::exact_tokens_in(
+                ivy_sold,
+                input_scale,
+                from_ivy_amount(input_amount) as f64,
+            )?;
+            from_usdc_amount(to_usdc_amount(usdc_equivalent))
         };
 
+        // Calculate output_amount_usd
         let output_amount_usd = if is_buy {
-            // If buying IVY with USDC, convert IVY output to USD
-            from_ivy_amount(output_amount) * price
+            // If buying IVY with USDC, simulate selling IVY back for USDC on updated curve
+            let usdc_equivalent = SqrtCurve::exact_tokens_in(
+                from_ivy_amount(new_ivy_sold) as f64,
+                input_scale,
+                from_ivy_amount(output_amount) as f64,
+            )?;
+            from_usdc_amount(to_usdc_amount(usdc_equivalent))
         } else {
             // If selling IVY for USDC, output amount is already in USDC (≈ USD)
             from_usdc_amount(output_amount)

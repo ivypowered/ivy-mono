@@ -11,6 +11,7 @@ require_once __DIR__ . "/../includes/api.php";
 $errors = [];
 
 // Variables that will store the game data
+$game_seed = "";
 $game_name = $game_symbol = $game_url = "";
 $game_address = $icon_url = $cover_url = $metadata_url = "";
 $ivy_purchase = $min_game_received = "";
@@ -18,6 +19,7 @@ $transaction_data = [];
 
 // Check if the required GET params are present
 $required_params = [
+    "seed",
     "name",
     "symbol",
     "game_url",
@@ -37,6 +39,7 @@ foreach ($required_params as $param) {
 // Only proceed if we have all required parameters
 if (empty($errors)) {
     // Get parameters from URL
+    $game_seed = $_GET["seed"];
     $game_name = $_GET["name"];
     $game_symbol = $_GET["symbol"];
     $game_url = $_GET["game_url"];
@@ -49,6 +52,7 @@ if (empty($errors)) {
     try {
         // Create the game
         $game_data = [
+            "seed" => $game_seed,
             "name" => $game_name,
             "symbol" => $game_symbol,
             "icon_url" => $icon_url,

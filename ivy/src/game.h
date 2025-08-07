@@ -11,6 +11,7 @@
 #include <ivy-lib/ed25519.h>
 #include <ivy-lib/metadata.h>
 #include <ivy-lib/rent.h>
+#include <ivy-lib/rw.h>
 #include <ivy-lib/system.h>
 #include <ivy-lib/token.h>
 #include <ivy-lib/types.h>
@@ -222,16 +223,15 @@ typedef struct {
 // #idl instruction data game_create
 typedef struct {
     bytes32 seed;
-    bytes64 name;
-    bytes16 symbol;
-    bytes128 game_url;
-    bytes128 cover_url;
-    bytes128 metadata_url;
     u64 ivy_purchase;
     u64 min_game_received;
     u64 swap_alt_slot;
     u8 swap_alt_nonce;
     bool create_dest;
+    // the following will directly insert the strings in the given
+    // memory location in the data (no padding)
+    // #idl strings name symbol game_url cover_url metadata_url
+    u8 str_params[];
 } GameCreateData;
 
 // #idl instruction discriminator game_create
@@ -239,8 +239,21 @@ static const u64 GAME_CREATE_DISCRIMINATOR = UINT64_C(0x4f1ea41b5cbb8f52);
 
 // #idl instruction declaration
 static void game_create(
-    const Context* ctx, const GameCreateAccounts* accounts, const GameCreateData* data
+    const Context* ctx,
+    const GameCreateAccounts* accounts,
+    const GameCreateData* data,
+    u64 data_len
 ) {
+    // Load the string params
+    reader r = reader_new(
+        data->str_params, safe_sub_64(data_len, offsetof(GameCreateData, str_params))
+    );
+    slice name = reader_read_anchor_string_borrowed(&r);
+    slice symbol = reader_read_anchor_string_borrowed(&r);
+    slice game_url = reader_read_anchor_string_borrowed(&r);
+    slice cover_url = reader_read_anchor_string_borrowed(&r);
+    slice metadata_url = reader_read_anchor_string_borrowed(&r);
+
     // Verify that our seeds match the game address
     // We MUST do this: see SECURITY.md
     slice game_seeds[2] = {
@@ -276,8 +289,12 @@ static void game_create(
     g->discriminator = GAME_DISCRIMINATOR;
     g->owner = user;
     g->withdraw_authority = ADDRESS_ZERO;
-    g->game_url = data->game_url;
-    g->cover_url = data->cover_url;
+    g->game_url = (bytes128){};
+    require(game_url.len <= sizeof(g->game_url), "Game URL too large");
+    sol_memcpy(g->game_url.x, game_url.addr, game_url.len);
+    g->cover_url = (bytes128){};
+    require(cover_url.len <= sizeof(g->cover_url), "Cover URL too large");
+    sol_memcpy(g->cover_url.x, cover_url.addr, cover_url.len);
     sol_memset(g->reserved, 0, sizeof(g->reserved));
     g->is_official_launch = false;
     g->seed = data->seed;
@@ -373,32 +390,21 @@ static void game_create(
     );
 
     // UTF-8 validation
+    require(utf8_validate(name.addr, name.len), "game name is not valid UTF-8");
+    require(utf8_validate(symbol.addr, symbol.len), "game symbol is not valid UTF-8");
+    require(utf8_validate(game_url.addr, game_url.len), "game URL is not valid UTF-8");
     require(
-        utf8_validate_zt(&data->name, sizeof(data->name)),
-        "game name is not valid UTF-8"
-    );
-    require(
-        utf8_validate_zt(&data->symbol, sizeof(data->symbol)),
-        "game symbol is not valid UTF-8"
-    );
-    require(
-        utf8_validate_zt(&data->game_url, sizeof(data->game_url)),
-        "game URL is not valid UTF-8"
-    );
-    require(
-        utf8_validate_zt(&data->cover_url, sizeof(data->cover_url)),
+        utf8_validate(cover_url.addr, cover_url.len),
         "game cover URL is not valid UTF-8"
     );
     require(
-        utf8_validate_zt(&data->metadata_url, sizeof(data->metadata_url)),
+        utf8_validate(metadata_url.addr, metadata_url.len),
         "game metadata URL is not valid UTF-8"
     );
 
     // Create token metadata with game as update authority
     MetadataDataV2 metadata_data = {
-        .name = slice_from_str_safe(&data->name, sizeof(data->name)),
-        .symbol = slice_from_str_safe(&data->symbol, sizeof(data->symbol)),
-        .uri = slice_from_str_safe(&data->metadata_url, sizeof(data->metadata_url))
+        .name = name, .symbol = symbol, .uri = metadata_url
     };
 
     metadata_create(
@@ -527,11 +533,15 @@ static void game_create(
             .game = game_address,
             .mint = mint_address,
             .swap_alt = swap_alt,
-            .name = data->name,
-            .symbol = data->symbol,
+            .name = (bytes64){},
+            .symbol = (bytes16){},
             .ivy_balance = world->ivy_initial_liquidity,
             .game_balance = world->game_initial_liquidity
         };
+        require(name.len <= sizeof(create_event.name), "Name too large");
+        sol_memcpy(create_event.name.x, name.addr, name.len);
+        require(symbol.len <= sizeof(create_event.symbol), "Symbol too large");
+        sol_memcpy(create_event.symbol.x, symbol.addr, symbol.len);
 
         event_emit(
             /* ctx */ ctx,
@@ -549,10 +559,19 @@ static void game_create(
             .game = game_address,
             .owner = user,
             .withdraw_authority = ADDRESS_ZERO,
-            .game_url = data->game_url,
-            .cover_url = data->cover_url,
-            .metadata_url = data->metadata_url,
+            .game_url = (bytes128){},
+            .cover_url = (bytes128){},
+            .metadata_url = (bytes128){},
         };
+        require(game_url.len <= sizeof(edit_event.game_url), "Game URL too large");
+        sol_memcpy(edit_event.game_url.x, game_url.addr, game_url.len);
+        require(cover_url.len <= sizeof(edit_event.cover_url), "Cover URL too large");
+        sol_memcpy(edit_event.cover_url.x, cover_url.addr, cover_url.len);
+        require(
+            metadata_url.len <= sizeof(edit_event.metadata_url),
+            "Metadata URL too large"
+        );
+        sol_memcpy(edit_event.metadata_url.x, metadata_url.addr, metadata_url.len);
 
         event_emit(
             /* ctx */ ctx,

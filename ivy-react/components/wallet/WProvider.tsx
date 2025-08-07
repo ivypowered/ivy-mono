@@ -17,6 +17,7 @@ import {
     SolflareWalletAdapter,
     TorusWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
+import { KeypairWalletAdapter } from "@/lib/KeypairWalletAdapter";
 
 interface WContextValue {
     wallets: WalletAdapter[];
@@ -36,17 +37,20 @@ const WContext = createContext<WContextValue | null>(null);
 
 interface WProviderProps extends PropsWithChildren {
     autoConnect: boolean;
+    initialIsOpen?: boolean;
 }
 
 interface WInnerProviderProps extends PropsWithChildren {
     autoConnect: boolean;
     wallets: WalletAdapter[];
+    initialIsOpen: boolean;
 }
 
 function WInnerProvider({
     autoConnect,
     children,
     wallets,
+    initialIsOpen,
 }: WInnerProviderProps) {
     const wctx = useWallet();
 
@@ -78,7 +82,7 @@ function WInnerProvider({
         },
         [wctx],
     );
-    const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+    const [isModalOpen, setIsModalOpen] = useState<boolean>(initialIsOpen);
 
     const contextValue = useMemo<WContextValue>(
         () => ({
@@ -115,19 +119,30 @@ function WInnerProvider({
     );
 }
 
-export function WProvider({ autoConnect, children }: WProviderProps) {
+export const KEYPAIR_WALLET_ADAPTER = new KeypairWalletAdapter();
+
+export function WProvider({
+    autoConnect,
+    children,
+    initialIsOpen,
+}: WProviderProps) {
     const wallets = useMemo(
         () => [
             new PhantomWalletAdapter(),
             new SolflareWalletAdapter(),
             new CoinbaseWalletAdapter(),
             new TorusWalletAdapter(),
+            KEYPAIR_WALLET_ADAPTER,
         ],
         [],
     );
     return (
         <WalletProvider wallets={wallets} autoConnect={autoConnect}>
-            <WInnerProvider wallets={wallets} autoConnect={autoConnect}>
+            <WInnerProvider
+                wallets={wallets}
+                autoConnect={autoConnect}
+                initialIsOpen={!!initialIsOpen}
+            >
                 {children}
             </WInnerProvider>
         </WalletProvider>

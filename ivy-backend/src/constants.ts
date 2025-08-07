@@ -10,6 +10,7 @@ export const LISTEN_PORT = process.env["LISTEN_PORT"] || 4000;
 export const RPC_URL = process.env["RPC_URL"] || "http://127.0.0.1:8899";
 export const PINATA_JWT = process.env["PINATA_JWT"] || "";
 export const PINATA_GATEWAY = process.env["PINATA_GATEWAY"] || "";
+export const KEYGEN_URL = process.env["KEYGEN_URL"] || "";
 export const MAX_UPLOAD_LENGTH = 2 * 1024 * 1024; // 2 MB
 export const MAX_UPLOAD_B64_LENGTH =
     Math.ceil((MAX_UPLOAD_LENGTH * 4) / 3) + 814; // 2 MB in base64 + account for extra characters

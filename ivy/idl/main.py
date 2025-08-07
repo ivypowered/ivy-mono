@@ -6,12 +6,12 @@ import sys
 import glob
 import os
 import time
-from typing import Any
+from typing import Any, cast
 
 from solders.pubkey import Pubkey
 from anchor import parse_c_type
 from parser import parse_file
-from ty import CFile, CStruct
+from ty import CFile, CVariable
 
 # Define color codes for terminal output
 class Colors:
@@ -158,13 +158,23 @@ for file in all_files:
 
             # parse struct args
             if len(struct.vars) < 1:
-                fail("event must have at least 1 field")
+                fail(f"in {struct.name}: event must have at least 1 field")
             disc_sv = struct.vars[0]
             if disc_sv.name != "discriminator" or disc_sv.type != "u64":
-                fail("event's 1st field must be `u64 discriminator`")
+                fail(f"in {struct.name}: event's 1st field must be `u64 discriminator`")
             struct_fields = []
             for sv in struct.vars[1:]:
                 if sv.is_const:
+                    continue
+                if sv.pragma:
+                    pragma_args = sv.pragma.split()
+                    if len(pragma_args) != 1 or pragma_args[0] != "string":
+                        fail(f"in {struct.name}: pragma in event must be of type string")
+                        continue
+                    struct_fields.append({
+                        "name": sv.name,
+                        "type": "string"
+                    })
                     continue
                 struct_fields.append({
                     "name": sv.name,
@@ -213,11 +223,11 @@ for file in all_files:
                     args = sv.pragma.split()
                     if len(args) > 0 and args[0] == "reference":
                         if len(args) < 2:
-                            fail("pragma reference requires 1 argument")
+                            fail(f"in {ins_name}: pragma reference requires 1 argument")
                         struct_name = args[1]
                         idl_accounts = idl_accounts_by_struct_name.get(struct_name, None)
                         if idl_accounts is None:
-                            fail("can't find referenced account struct " + struct_name)
+                            fail(f"in {ins_name}: can't find referenced account struct " + struct_name)
                             exit(1)
                         accounts_list.extend(idl_accounts)
                         continue
@@ -247,9 +257,36 @@ for file in all_files:
             current_offset = 0
             pad_index = 0
             max_alignment = 0
+            seen_string = False
 
             for sv in struct.vars:
+                if sv.pragma:
+                    fp_args = sv.pragma.split()
+                    if len(fp_args) < 1 or (fp_args[0] != "string" and fp_args[0] != "strings"):
+                        fail(f"in {json.dumps(ins_name)}: instruction data pragma must be of type string or strings")
+                        continue
+                    seen_string = True
+                    if fp_args[0] == "string":
+                        # insert it directly, program must handle padding
+                        args_list.append({
+                            "name": sv.name,
+                            "type": "string"
+                        })
+                        continue
+                    fp_strings = fp_args[1:]
+                    if len(fp_strings) == 0:
+                        fail(f"in {json.dumps(ins_name)}: no string names provided to strings pragma")
+                    for s in fp_strings:
+                        # insert it directly
+                        args_list.append({
+                            "name": s,
+                            "type": "string"
+                        })
+                    continue
+                if seen_string:
+                    fail(f"in {json.dumps(ins_name)}: padding issues: cannot have normal fields following string pragma")
                 c_type = parse_c_type(sv.type)
+                name = sv.name
 
                 # Determine field alignment
                 field_alignment = c_type.alignment
@@ -267,7 +304,7 @@ for file in all_files:
 
                 # Add the field
                 args_list.append({
-                    "name": sv.name,
+                    "name": name,
                     "type": c_type.anchor_type
                 })
 
@@ -275,7 +312,7 @@ for file in all_files:
                 current_offset += c_type.size
 
             # Add padding at the end to make the total struct size a multiple of its max alignment
-            if max_alignment > 0 and current_offset % max_alignment != 0:
+            if not seen_string and max_alignment > 0 and current_offset % max_alignment != 0:
                 end_padding = max_alignment - (current_offset % max_alignment)
                 args_list.append({
                     "name": f"pad{pad_index}",

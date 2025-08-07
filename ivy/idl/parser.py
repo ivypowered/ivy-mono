@@ -95,9 +95,9 @@ class TokenStream:
 
 # parses a struct. expects to begin at the first token after `struct`
 # should start at depth = 1 and return control at depth = 1
-def parse_struct(ts: TokenStream) -> tuple[str, List[CVariable]]:
+def parse_struct(ts: TokenStream) -> tuple[str, list[CVariable]]:
     struct_name = ""
-    struct_vars = []
+    struct_vars: list[CVariable] = []
 
     # Skip until opening brace
     while ts.has_more():
@@ -132,7 +132,7 @@ def parse_struct(ts: TokenStream) -> tuple[str, List[CVariable]]:
             pragma = None
             statement = []
         elif kind in Token.Comment:
-            pragma = pragma or parse_pragma(value)
+            pragma = parse_pragma(value) or pragma
         else:
             # Collect tokens for the current statement
             statement.append(token)

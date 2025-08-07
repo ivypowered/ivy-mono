@@ -62,8 +62,6 @@ def parse_c_type(c_type: str) -> CType:
             alignment=1,
             anchor_type={"array": ["u8", size]}
         )
-    elif c_type == "AnchorString":
-        return CType(size=4, alignment=4, anchor_type="string")
 
     # For custom or complex types
     return CType(size=8, alignment=8, anchor_type=c_type)

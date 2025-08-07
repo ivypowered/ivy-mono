@@ -55,7 +55,7 @@ export function WalletButton({ mobile }: { mobile: boolean }) {
             // Reset copy state after 1 second
             setTimeout(() => {
                 setHasCopied(false);
-            }, 1000);
+            }, 750);
         }
     };
 
