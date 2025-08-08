@@ -1,27 +1,10 @@
 import { PublicKey } from "@solana/web3.js";
 
 // Interfaces for Jupiter API Responses
-export interface JupiterOrderResponse {
-    mode: string;
-    swapType: string;
-    router: string;
-    requestId: string;
-    inAmount: string;
-    outAmount: string;
-    otherAmountThreshold: string;
-    swapMode: "ExactIn" | "ExactOut";
-    slippageBps: number;
-    priceImpactPct: string;
-    routePlan: RoutePlan[];
-    inputMint: string;
-    outputMint: string;
-    feeMint: string;
-    feeBps: number;
-    prioritizationFeeLamports: number;
-    transaction: string | null;
-    gasless: boolean;
-    taker: string | null;
-    totalTime: number;
+export interface JupiterPriceResponse {
+    prices: {
+        [mintAddress: string]: number;
+    };
 }
 
 export interface RoutePlan {
@@ -40,28 +23,54 @@ export interface SwapInfo {
     outputMint: string;
 }
 
-export interface JupiterPriceResponse {
-    prices: {
-        [mintAddress: string]: number;
-    };
+// Lite API: GET /swap/v1/quote response
+export interface JupiterQuoteResponse {
+    inputMint: string;
+    inAmount: string;
+    outputMint: string;
+    outAmount: string;
+    otherAmountThreshold: string;
+    swapMode: "ExactIn" | "ExactOut";
+    slippageBps: number;
+    priceImpactPct: string;
+    routePlan: RoutePlan[];
+    contextSlot?: number;
+    timeTaken?: number;
+    platformFee?: unknown;
 }
 
-export interface JupiterOrderOptions {
+// Lite API: POST /swap/v1/swap response
+export interface JupiterSwapResponse {
+    swapTransaction: string;
+    lastValidBlockHeight: number;
+    prioritizationFeeLamports?: number;
+}
+
+export interface JupiterQuoteOptions {
     swapMode?: "ExactIn" | "ExactOut";
     onlyDirectRoutes?: boolean;
     asLegacyTransaction?: boolean;
     maxAccounts?: number;
-    minimizeSlippage?: boolean;
+    dexes?: string[];
     excludeDexes?: string[];
-    excludeRouters?: string[];
-    broadcastFeeType?: "maxCap" | "normal" | "off";
-    priorityFeeLamports?: number | "auto";
-    useWsol?: boolean;
-    taker?: string;
+    restrictIntermediateTokens?: boolean; // default true
+    dynamicSlippage?: boolean;
+}
+
+export interface JupiterBuildSwapOptions {
+    wrapAndUnwrapSol?: boolean; // default true by API, we'll default to false to match earlier useWSOL=false behavior
+    asLegacyTransaction?: boolean; // must match quote if used
+    destinationTokenAccount?: string;
+    dynamicComputeUnitLimit?: boolean; // recommended true
+    skipUserAccountsRpcCalls?: boolean;
+    computeUnitPriceMicroLamports?: number;
+    blockhashSlotsToExpiry?: number;
+    // prioritizationFeeLamports?: object; // optional (Jup supports object form), omit for now
 }
 
 export class Jup {
-    private static JUPITER_API_URL = "https://ultra-api.jup.ag";
+    // Lite API base
+    private static JUPITER_LITE_API_URL = "https://lite-api.jup.ag";
     private static JUPITER_PRICE_API_URL = "https://fe-api.jup.ag/api/v1";
 
     static async fetchPrices(mints: PublicKey[]): Promise<number[]> {
@@ -101,13 +110,14 @@ export class Jup {
         }
     }
 
-    static async fetchOrder(
+    // Lite API: GET /swap/v1/quote
+    static async fetchQuote(
         inputMint: PublicKey,
         outputMint: PublicKey,
         amount: number | string,
         slippageBps: number,
-        options?: JupiterOrderOptions,
-    ): Promise<JupiterOrderResponse> {
+        options?: JupiterQuoteOptions,
+    ): Promise<JupiterQuoteResponse> {
         const params = new URLSearchParams({
             inputMint: inputMint.toBase58(),
             outputMint: outputMint.toBase58(),
@@ -116,71 +126,35 @@ export class Jup {
             swapMode: options?.swapMode ?? "ExactIn",
         });
 
-        // Add optional parameters if they are provided
         if (options?.onlyDirectRoutes !== undefined) {
-            params.append(
-                "onlyDirectRoutes",
-                options.onlyDirectRoutes.toString(),
-            );
+            params.append("onlyDirectRoutes", String(options.onlyDirectRoutes));
         }
-
         if (options?.asLegacyTransaction !== undefined) {
             params.append(
                 "asLegacyTransaction",
-                options.asLegacyTransaction.toString(),
+                String(options.asLegacyTransaction),
             );
         }
-
         if (options?.maxAccounts !== undefined) {
-            params.append("maxAccounts", options.maxAccounts.toString());
+            params.append("maxAccounts", String(options.maxAccounts));
         }
-
-        if (options?.minimizeSlippage !== undefined) {
+        if (options?.restrictIntermediateTokens !== undefined) {
             params.append(
-                "minimizeSlippage",
-                options.minimizeSlippage.toString(),
+                "restrictIntermediateTokens",
+                String(options.restrictIntermediateTokens),
             );
         }
-
-        // Always include excludeDexes and excludeRouters params even if empty
-        // This ensures Jupiter won't use their "gasless" (proprietary market maker) system
-        const excludeDexes = options?.excludeDexes?.length
-            ? options.excludeDexes.join(",")
-            : "";
-        params.append("excludeDexes", excludeDexes);
-
-        const excludeRouters = options?.excludeRouters?.length
-            ? options.excludeRouters.join(",")
-            : "";
-        params.append("excludeRouters", excludeRouters);
-
-        if (options?.broadcastFeeType !== undefined) {
-            params.append("broadcastFeeType", options.broadcastFeeType);
-        } else {
-            params.append("broadcastFeeType", "maxCap");
+        if (options?.dynamicSlippage !== undefined) {
+            params.append("dynamicSlippage", String(options.dynamicSlippage));
+        }
+        if (options?.dexes?.length) {
+            params.append("dexes", options.dexes.join(","));
+        }
+        if (options?.excludeDexes?.length) {
+            params.append("excludeDexes", options.excludeDexes.join(","));
         }
 
-        if (options?.priorityFeeLamports !== undefined) {
-            params.append(
-                "priorityFeeLamports",
-                options.priorityFeeLamports.toString(),
-            );
-        } else {
-            params.append("priorityFeeLamports", "1000000");
-        }
-
-        if (options?.useWsol !== undefined) {
-            params.append("useWsol", options.useWsol.toString());
-        } else {
-            params.append("useWsol", "false");
-        }
-
-        // Add taker (user public key) if provided
-        if (options?.taker) {
-            params.append("taker", options.taker);
-        }
-
-        const url = `${this.JUPITER_API_URL}/order?${params.toString()}`;
+        const url = `${this.JUPITER_LITE_API_URL}/swap/v1/quote?${params.toString()}`;
 
         try {
             const response = await fetch(url, {
@@ -192,15 +166,75 @@ export class Jup {
 
             if (!response.ok) {
                 const errorBody = await response.text();
-                console.error("Jupiter Order API Error:", errorBody);
+                console.error("Jupiter Quote API Error:", errorBody);
                 throw new Error(
-                    `Failed to fetch Jupiter order: ${response.status} ${response.statusText}`,
+                    `Failed to fetch Jupiter quote: ${response.status} ${response.statusText}`,
                 );
             }
 
-            return await response.json();
+            return (await response.json()) as JupiterQuoteResponse;
         } catch (error) {
-            console.error("Error fetching Jupiter order:", error);
+            console.error("Error fetching Jupiter quote:", error);
+            throw error;
+        }
+    }
+
+    // Lite API: POST /swap/v1/swap
+    static async buildSwap(
+        userPublicKey: PublicKey,
+        quoteResponse: JupiterQuoteResponse,
+        options?: JupiterBuildSwapOptions,
+    ): Promise<JupiterSwapResponse> {
+        const url = `${this.JUPITER_LITE_API_URL}/swap/v1/swap`;
+        const body: Record<string, unknown> = {
+            userPublicKey: userPublicKey.toBase58(),
+            quoteResponse,
+        };
+        if (options?.wrapAndUnwrapSol) {
+            body.wrapAndUnwrapSol = options.wrapAndUnwrapSol;
+        }
+        if (options?.asLegacyTransaction) {
+            body.asLegacyTransaction = options.asLegacyTransaction;
+        }
+        if (options?.dynamicComputeUnitLimit) {
+            body.dynamicComputeUnitLimit = options.dynamicComputeUnitLimit;
+        }
+        if (options?.skipUserAccountsRpcCalls) {
+            body.skipUserAccountsRpcCalls = options.skipUserAccountsRpcCalls;
+        }
+
+        if (options?.destinationTokenAccount) {
+            body.destinationTokenAccount = options.destinationTokenAccount;
+        }
+        if (options?.computeUnitPriceMicroLamports !== undefined) {
+            body.computeUnitPriceMicroLamports =
+                options.computeUnitPriceMicroLamports;
+        }
+        if (options?.blockhashSlotsToExpiry !== undefined) {
+            body.blockhashSlotsToExpiry = options.blockhashSlotsToExpiry;
+        }
+
+        try {
+            const resp = await fetch(url, {
+                method: "POST",
+                headers: {
+                    Accept: "application/json",
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(body),
+            });
+
+            if (!resp.ok) {
+                const errorBody = await resp.text();
+                console.error("Jupiter Swap API Error:", errorBody);
+                throw new Error(
+                    `Failed to build Jupiter swap: ${resp.status} ${resp.statusText}`,
+                );
+            }
+
+            return (await resp.json()) as JupiterSwapResponse;
+        } catch (error) {
+            console.error("Error building Jupiter swap:", error);
             throw error;
         }
     }

@@ -51,7 +51,7 @@ export async function fetchQuoteInternal(
                 /* input */ q.input,
                 /* inputDecimals */ inputToken.decimals,
                 /* minOutput */ q.minOutput,
-                /* txBase64 */ q.txBase64,
+                /* jupQuoteResponse */ q.jupQuoteResponse,
             );
         quote = q;
     } else if (
@@ -75,7 +75,7 @@ export async function fetchQuoteInternal(
                 /* input */ q.input,
                 /* minOutput */ q.minOutput,
                 /* outputDecimals */ outputToken.decimals,
-                /* txBase64 */ q.txBase64,
+                /* jupQuoteResponse */ q.jupQuoteResponse,
                 /* transformMessage */ q.transformMessage,
             );
         quote = q;
@@ -100,7 +100,7 @@ export async function fetchQuoteInternal(
                 /* input */ q.input,
                 /* inputDecimals */ inputToken.decimals,
                 /* minOutput */ q.minOutput,
-                /* txBase64 */ q.txBase64,
+                /* jupQuoteResponse */ q.jupQuoteResponse,
             );
         quote = q;
     } else {
@@ -124,7 +124,7 @@ export async function fetchQuoteInternal(
                 /* input */ q.input,
                 /* minOutput */ q.minOutput,
                 /* outputDecimals */ outputToken.decimals,
-                /* txBase64 */ q.txBase64,
+                /* jupQuoteResponse */ q.jupQuoteResponse,
                 /* transformMessage */ q.transformMessage,
             );
         quote = q;

@@ -4,7 +4,12 @@ import {
     PublicKey,
     Transaction,
 } from "@solana/web3.js";
-import { LISTEN_PORT, MAX_UPLOAD_LENGTH, RPC_URL } from "./constants";
+import {
+    LISTEN_PORT,
+    MAX_UPLOAD_LENGTH,
+    PRIORITY_FEE_URL,
+    RPC_URL,
+} from "./constants";
 import { PinataSDK } from "pinata";
 import { PINATA_JWT, PINATA_GATEWAY, MAX_UPLOAD_B64_LENGTH } from "./constants";
 import * as fs from "fs";
@@ -153,6 +158,23 @@ const JUPITER_AGGREGATOR_V6 = new PublicKey(
 export async function getReasonablePriorityFee(
     connection: Connection,
 ): Promise<number> {
+    if (PRIORITY_FEE_URL) {
+        // Call priority fee microservice instead
+        // We do this because in production, this function
+        // takes so long that it stalls the entire server
+        // and prevents other backend requests from being
+        // processed (javascript, am I right!!!!)
+        const response = await (await fetch(PRIORITY_FEE_URL)).json();
+        if (
+            typeof response !== "object" ||
+            typeof response.reasonablePriorityFee !== "number"
+        ) {
+            throw new Error(
+                `invalid response from priority fee svc: ${response}`,
+            );
+        }
+        return response.reasonablePriorityFee;
+    }
     // Retrieve last 1,000 confirmed Jupiter transactions
     const signatures = (
         await connection.getSignaturesForAddress(
@@ -164,7 +186,7 @@ export async function getReasonablePriorityFee(
         )
     ).map((x) => x.signature);
     const transactions = (
-        await connection.getParsedTransactions(signatures, {
+        await connection.getTransactions(signatures, {
             maxSupportedTransactionVersion: 0,
         })
     ).filter((x) => !!x);

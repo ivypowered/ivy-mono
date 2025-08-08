@@ -1,3 +1,4 @@
+// ivy-react/lib/execute.ts
 import {
     AddressLookupTableAccount,
     ComputeBudgetProgram,
@@ -22,6 +23,7 @@ import {
     Mix,
     World,
 } from "@/import/ivy-sdk";
+import { Jup, JupiterQuoteResponse } from "./jup";
 
 /**
  * Converts an amount to raw value based on decimals
@@ -47,17 +49,36 @@ async function fetchAltAccounts(
     });
 }
 
+// Binance 3, ~891M USDC
+const BIG_USDC_HOLDER = new PublicKey(
+    "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+);
+
 async function getPatchedJupiterTransaction(
     alt: PublicKey | null,
-    txBase64: string,
+    jupiterUser: PublicKey, // who to build the Jupiter swap for
+    quoteResponse: JupiterQuoteResponse,
     patch: (ix: TransactionInstruction) => Promise<TransactionInstruction[]>,
     additionalComputeUnits: number,
     transformMessage: (msg: TransactionMessage) => void,
     useWorldAlt: boolean,
 ): Promise<VersionedTransaction> {
-    const tx = VersionedTransaction.deserialize(
-        Buffer.from(txBase64, "base64"),
+    // Build the Jupiter swap from the quote
+    const { swapTransaction } = await Jup.buildSwap(
+        jupiterUser,
+        quoteResponse,
+        {
+            wrapAndUnwrapSol: false, // match previous useWsol=false behavior
+            asLegacyTransaction: false,
+            dynamicComputeUnitLimit: true,
+        },
     );
+
+    const tx = VersionedTransaction.deserialize(
+        Buffer.from(swapTransaction, "base64"),
+    );
+
+    // Resolve ALTs: all Jupiter ALTs + optional extra ALT(s) we need to compose with
     const altKeys = tx.message.addressTableLookups.map((x) => x.accountKey);
     if (alt) {
         altKeys.push(alt);
@@ -73,18 +94,19 @@ async function getPatchedJupiterTransaction(
         altAccountsPre.push(worldAlt);
         altAccounts = altAccountsPre;
     }
+
+    // Decompile using only the ALTs Jupiter included in its message
     const message = TransactionMessage.decompile(tx.message, {
         addressLookupTableAccounts: altAccounts.slice(
             0,
             tx.message.addressTableLookups.length,
         ),
     });
+
+    // Transform the message (e.g. BIG_USDC_HOLDER -> user, inject ATAs, etc.)
     transformMessage(message);
 
-    // Find Jupiter `route` / `shared_accounts_route` instruction
-    // (We must filter for those instructions specifically, as Jupiter also includes
-    // a `create_account` instruction that is called to create destination
-    // associated token accounts)
+    // Find Jupiter route/shared_accounts_route instruction to patch
     const jupInstructionIndex = message.instructions.findIndex(
         (ix) =>
             ix.programId.equals(JUP_PROGRAM_ID) &&
@@ -106,10 +128,7 @@ async function getPatchedJupiterTransaction(
         ...message.instructions.slice(jupInstructionIndex + 1),
     ];
 
-    // We're going to consume some additional compute units
-    // because we're performing extra computation in our
-    // patched instruction, and we have to account for that
-    // fact since Jupiter sets a compute limit.
+    // Increase compute unit limit to account for our additional work
     for (const ins of message.instructions) {
         if (
             !ins.programId.equals(ComputeBudgetProgram.programId) ||
@@ -124,6 +143,7 @@ async function getPatchedJupiterTransaction(
         break;
     }
 
+    // Recompile with our combined set of ALTs (Jupiter's + optional World/extra)
     tx.message = message.compileToV0Message(altAccounts);
     return tx;
 }
@@ -143,14 +163,13 @@ export async function createBuyTransaction(
     input: number,
     inputDecimals: number,
     minOutput: number,
-    txBase64: string | null,
+    jupQuoteResponse: JupiterQuoteResponse | null,
 ): Promise<Transaction | VersionedTransaction> {
     const inputRaw = toRaw(input, inputDecimals);
     const minOutputRaw = toRaw(minOutput, GAME_DECIMALS);
 
     // Case 1: IVY -> GAME (direct swap)
     if (inputToken.equals(IVY_MINT)) {
-        // Simple direct swap from IVY to GAME
         return await Game.swap(game, inputRaw, minOutputRaw, true, user);
     }
 
@@ -159,13 +178,17 @@ export async function createBuyTransaction(
         return await Mix.usdcToGame(game, inputRaw, minOutputRaw, user);
     }
 
-    // Case 3: * -> USDC -> IVY -> GAME
-    if (!txBase64) {
-        throw new Error("Jupiter txBase64 required for non-IVY/USDC inputs");
+    // Case 3: * -> USDC -> IVY -> GAME (via Jupiter for first hop)
+    if (!jupQuoteResponse) {
+        throw new Error(
+            "Jupiter quoteResponse required for non-IVY/USDC inputs",
+        );
     }
+
     return getPatchedJupiterTransaction(
         gameSwapAlt,
-        txBase64,
+        user, // Jupiter leg is from user's input token -> USDC
+        jupQuoteResponse,
         (jupInstruction) =>
             Mix.anyToGame(
                 game,
@@ -191,7 +214,7 @@ export async function createSellTransaction(
     input: number,
     minOutput: number,
     outputDecimals: number,
-    txBase64: string | null,
+    jupQuoteResponse: JupiterQuoteResponse | null,
     transformMessage: (msg: TransactionMessage) => void,
 ): Promise<Transaction | VersionedTransaction> {
     const inputRaw = toRaw(input, GAME_DECIMALS);
@@ -199,7 +222,6 @@ export async function createSellTransaction(
 
     // Case 1: GAME -> IVY (direct swap)
     if (outputToken.equals(IVY_MINT)) {
-        // Simple direct swap from GAME to IVY
         return await Game.swap(game, inputRaw, minOutputRaw, false, user);
     }
 
@@ -208,14 +230,17 @@ export async function createSellTransaction(
         return await Mix.gameToUsdc(game, inputRaw, minOutputRaw, user);
     }
 
-    // Case 3: GAME -> Any token via Jupiter
-    if (!txBase64) {
-        throw new Error("Jupiter txBase64 required for non-IVY/USDC outputs");
+    // Case 3: GAME -> IVY -> USDC -> * (via Jupiter for last hop)
+    if (!jupQuoteResponse) {
+        throw new Error(
+            "Jupiter quoteResponse required for non-IVY/USDC outputs",
+        );
     }
 
     return getPatchedJupiterTransaction(
         gameSwapAlt,
-        txBase64,
+        BIG_USDC_HOLDER, // Build Jupiter leg (USDC -> *) against the big holder, then transform to user
+        jupQuoteResponse,
         (jupInstruction) =>
             Mix.gameToAny(
                 game,
@@ -239,25 +264,25 @@ export async function createBuyIvyTransaction(
     input: number,
     inputDecimals: number,
     minOutput: number,
-    txBase64: string | null,
+    jupQuoteResponse: JupiterQuoteResponse | null,
 ): Promise<Transaction | VersionedTransaction> {
     const inputRaw = toRaw(input, inputDecimals);
     const minOutputRaw = toRaw(minOutput, IVY_DECIMALS);
 
     // Case 1: USDC -> IVY (direct swap)
     if (inputToken.equals(USDC_MINT)) {
-        // Direct world swap from USDC to IVY
         return await World.swap(inputRaw, minOutputRaw, true, user);
     }
 
-    // Case 2: * -> IVY via Jupiter
-    if (!txBase64) {
-        throw new Error("Jupiter txBase64 required for non-USDC inputs");
+    // Case 2: * -> USDC -> IVY (via Jupiter for first hop)
+    if (!jupQuoteResponse) {
+        throw new Error("Jupiter quoteResponse required for non-USDC inputs");
     }
 
     return getPatchedJupiterTransaction(
         null,
-        txBase64,
+        user, // Jupiter leg is from user's input token -> USDC
+        jupQuoteResponse,
         (jupInstruction) =>
             Mix.anyToIvy(
                 minOutputRaw,
@@ -280,7 +305,7 @@ export async function createSellIvyTransaction(
     input: number,
     minOutput: number,
     outputDecimals: number,
-    txBase64: string | null,
+    jupQuoteResponse: JupiterQuoteResponse | null,
     transformMessage: (msg: TransactionMessage) => void,
 ): Promise<Transaction | VersionedTransaction> {
     const inputRaw = toRaw(input, IVY_DECIMALS);
@@ -288,18 +313,18 @@ export async function createSellIvyTransaction(
 
     // Case 1: IVY -> USDC (direct swap)
     if (outputToken.equals(USDC_MINT)) {
-        // Direct world swap from IVY to USDC
         return await World.swap(inputRaw, minOutputRaw, false, user);
     }
 
-    // Case 2: IVY -> Any token via Jupiter
-    if (!txBase64) {
-        throw new Error("Jupiter txBase64 required for non-USDC outputs");
+    // Case 2: IVY -> USDC -> * (via Jupiter for last hop)
+    if (!jupQuoteResponse) {
+        throw new Error("Jupiter quoteResponse required for non-USDC outputs");
     }
 
     return getPatchedJupiterTransaction(
         null,
-        txBase64,
+        BIG_USDC_HOLDER, // Build Jupiter leg (USDC -> *) against the big holder, then transform to user
+        jupQuoteResponse,
         (jupInstruction) =>
             Mix.ivyToAny(
                 inputRaw,

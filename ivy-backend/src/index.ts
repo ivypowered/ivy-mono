@@ -260,11 +260,22 @@ app.post(
                 data: Buffer.from(Game.generateSeed()).toString("hex"),
             });
         }
-        const response = await (
-            await fetch(KEYGEN_URL + "/seed", {
-                method: "POST",
-            })
-        ).json();
+        const seed_url = KEYGEN_URL + "/seed";
+        let response;
+        try {
+            response = await (
+                await fetch(seed_url, {
+                    method: "POST",
+                })
+            ).json();
+        } catch (e) {
+            if (!(e instanceof Error)) {
+                throw e;
+            }
+            throw new Error(
+                `can't fetch ${seed_url}: ${e.message} @ ${e.stack}`,
+            );
+        }
         if (
             typeof response !== "object" ||
             typeof response["seed"] !== "string"

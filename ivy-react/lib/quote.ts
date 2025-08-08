@@ -15,23 +15,17 @@ import {
     getAssociatedTokenAddressSync,
 } from "@/import/ivy-sdk";
 import { Api } from "./api";
-import { Jup, JupiterOrderResponse } from "./jup";
+import { Jup, JupiterQuoteResponse } from "./jup";
 import { createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";
 
-/// The maximum Jupiter TX size in bytes
-const MAX_JUP_TX_SIZE = 950;
-
-/// Fetch an ExactIn order from Jupiter
-/// The `user` must have the required `inAmountRaw`
-/// tokens, or this function will fail.
+/// Fetch an ExactIn quote from Jupiter Lite API
 async function fetchJupiterExactIn(
-    user: PublicKey | undefined,
+    user: PublicKey | undefined, // unused by quote; kept for signature compatibility
     inputToken: PublicKey,
     outputToken: PublicKey,
     inAmountRaw: number,
     slippageBps: number,
 ) {
-    let orderResponse: JupiterOrderResponse;
     // When composing mixed transactions,
     // the maximum total # of unique accounts used is 18.
     // So, Jupiter can technically use up to 46
@@ -43,67 +37,40 @@ async function fetchJupiterExactIn(
     // space for Lighthouse assertions, or else users will
     // receive the dangerous dApp warning.)
     // So, we'll be conservative and limit Jupiter
-    // to 36 accounts, so we have a comfortable buffer
+    // to 24 accounts, so we have a comfortable buffer
     // of space.
     //
     // We'll also enable `useDirectRoutes` so that
     // Jupiter doesn't try to do order splitting or anything
     // crazy like that, which will increase our tx size
     // massively.
-    let maxAccounts = 36;
-    while (true) {
-        orderResponse = await Jup.fetchOrder(
-            inputToken,
-            outputToken,
-            inAmountRaw,
-            slippageBps,
-            {
-                swapMode: "ExactIn",
-                onlyDirectRoutes: true,
-                asLegacyTransaction: false,
-                minimizeSlippage: false,
-                maxAccounts,
-                taker: user ? user.toBase58() : undefined,
-                // only support Metis (jupiter aggregator v6)
-                excludeRouters: [
-                    "jupiterz",
-                    "hashflow",
-                    "dflow",
-                    "pyth",
-                    "okx",
-                ],
-                // for some reason, Obric V2 fails in all transactions
-                // with the error "Rejected". so, we won't use it here
-                excludeDexes: ["Obric V2"],
-            },
-        );
-        if (
-            !orderResponse.transaction ||
-            orderResponse.transaction.length <
-                Math.ceil(MAX_JUP_TX_SIZE * (4 / 3))
-        ) {
-            break;
-        }
-        // try again, sometimes tx goes outside limits anyway!
-        // so we've got to make sure it's within our bounds
-        // (decrease max accounts as we keep going to ensure
-        // we get a different route that's closer to our goal)
-        maxAccounts -= 2;
-        if (maxAccounts < 2) {
-            throw new Error(
-                "can't find good jup route, already decreased max accounts to 2...",
-            );
-        }
-    }
+    const maxAccounts = 24;
 
-    // Extract required data from response
-    const inputRaw = parseInt(orderResponse.inAmount);
-    const outputRaw = parseInt(orderResponse.outAmount);
+    const quoteResponse = await Jup.fetchQuote(
+        inputToken,
+        outputToken,
+        inAmountRaw,
+        slippageBps,
+        {
+            swapMode: "ExactIn",
+            onlyDirectRoutes: true,
+            asLegacyTransaction: false,
+            maxAccounts,
+            // prefer stability
+            restrictIntermediateTokens: true,
+            // for some reason, Obric V2 fails in all transactions
+            // with the error "Rejected". so, we won't use it here
+            excludeDexes: ["Obric V2"],
+        },
+    );
 
-    const priceImpactBps = parseFloat(orderResponse.priceImpactPct) * 10000; // Convert to basis points
+    const inputRaw = parseInt(quoteResponse.inAmount);
+    const outputRaw = parseInt(quoteResponse.outAmount);
+
+    const priceImpactBps = parseFloat(quoteResponse.priceImpactPct) * 10000; // Convert to basis points
 
     // Extract route stops if available
-    const routePlan = orderResponse.routePlan || [];
+    const routePlan = quoteResponse.routePlan || [];
     const stopsList = routePlan
         .map((plan) => plan.swapInfo?.label || "")
         .filter((x) => x.length > 0);
@@ -114,7 +81,7 @@ async function fetchJupiterExactIn(
         outputRaw,
         stops,
         priceImpactBps,
-        txBase64: orderResponse.transaction,
+        jupQuoteResponse: quoteResponse,
     };
 }
 
@@ -263,7 +230,7 @@ export async function fetchBuyQuote(
     inputAmount: number,
     inputDecimals: number,
     slippageBps: number,
-): Promise<Quote & { txBase64: string | null }> {
+): Promise<Quote & { jupQuoteResponse: JupiterQuoteResponse | null }> {
     const inputRaw = inputAmount * Math.pow(10, inputDecimals);
 
     if (inputToken.equals(IVY_MINT)) {
@@ -285,15 +252,13 @@ export async function fetchBuyQuote(
             stops: ["Ivy"],
             priceImpactBps: quoteData.price_impact_bps,
             slippageBps,
-            txBase64: null,
+            jupQuoteResponse: null,
         };
     }
 
     if (inputToken.equals(USDC_MINT)) {
         // USDC -> IVY -> GAME: Fetch both quotes concurrently
-        const ivyQuotePromise = Api.getIvyQuote(inputRaw, true);
-        const ivyQuote = await ivyQuotePromise;
-
+        const ivyQuote = await Api.getIvyQuote(inputRaw, true);
         const gameQuote = await Api.getGameQuote(
             game,
             ivyQuote.output_amount,
@@ -316,12 +281,11 @@ export async function fetchBuyQuote(
             stops: ["Ivy"],
             priceImpactBps: gameQuote.price_impact_bps,
             slippageBps,
-            txBase64: null,
+            jupQuoteResponse: null,
         };
     }
 
     // * -> USDC -> IVY -> GAME
-    // First hop: * -> USDC through Jupiter, fetch concurrently with token price
     const [jupiterQuote, inputTokenPrices] = await Promise.all([
         fetchJupiterExactIn(user, inputToken, USDC_MINT, inputRaw, slippageBps),
         Jup.fetchPrices([inputToken]),
@@ -355,7 +319,7 @@ export async function fetchBuyQuote(
         stops: [...jupiterQuote.stops, "Ivy"],
         priceImpactBps: gameQuote.price_impact_bps,
         slippageBps,
-        txBase64: jupiterQuote.txBase64,
+        jupQuoteResponse: jupiterQuote.jupQuoteResponse,
     };
 }
 
@@ -368,7 +332,7 @@ export async function fetchSellQuote(
     slippageBps: number,
 ): Promise<
     Quote & {
-        txBase64: string | null;
+        jupQuoteResponse: JupiterQuoteResponse | null;
         transformMessage: (msg: TransactionMessage) => void;
     }
 > {
@@ -393,17 +357,14 @@ export async function fetchSellQuote(
             stops: ["Ivy"],
             priceImpactBps: quoteData.price_impact_bps,
             slippageBps,
-            txBase64: null,
+            jupQuoteResponse: null,
             transformMessage: () => {},
         };
     }
 
     if (outputToken.equals(USDC_MINT)) {
         // GAME -> IVY -> USDC
-        // First fetch GAME -> IVY quote
         const ivyQuote = await Api.getGameQuote(game, inputRaw, false);
-
-        // Then fetch IVY -> USDC quote
         const usdcQuote = await Api.getIvyQuote(ivyQuote.output_amount, false);
 
         const usdcOutputRaw = usdcQuote.output_amount;
@@ -422,23 +383,19 @@ export async function fetchSellQuote(
             stops: ["Ivy"],
             priceImpactBps: ivyQuote.price_impact_bps,
             slippageBps,
-            txBase64: null,
+            jupQuoteResponse: null,
             transformMessage: () => {},
         };
     }
 
     // GAME -> IVY -> USDC -> *
-    // First hop: GAME -> IVY
     const ivyQuote = await Api.getGameQuote(game, inputRaw, false);
-
-    // Second hop: IVY -> USDC
     const usdcQuote = await Api.getIvyQuote(ivyQuote.output_amount, false);
 
-    // Third hop: USDC -> * through Jupiter (requires transformation)
-    // Get Jupiter quote and token price concurrently
+    // USDC -> * through Jupiter (requires transformation)
     const [jupiterQuote, outputTokenPrices] = await Promise.all([
         fetchJupiterExactIn(
-            user ? BIG_USDC_HOLDER : undefined,
+            user ? BIG_USDC_HOLDER : undefined, // use placeholder user during quote-time if user exists
             USDC_MINT,
             outputToken,
             usdcQuote.output_amount,
@@ -467,7 +424,7 @@ export async function fetchSellQuote(
         stops: ["Ivy", ...jupiterQuote.stops],
         priceImpactBps: ivyQuote.price_impact_bps,
         slippageBps,
-        txBase64: jupiterQuote.txBase64,
+        jupQuoteResponse: jupiterQuote.jupQuoteResponse,
         transformMessage: user
             ? (msg) => transformMessage(msg, user, outputToken)
             : () => {},
@@ -482,7 +439,7 @@ export async function fetchBuyIvyQuote(
     slippageBps: number,
 ): Promise<
     Quote & {
-        txBase64: string | null;
+        jupQuoteResponse: JupiterQuoteResponse | null;
     }
 > {
     const inputRaw = inputAmount * Math.pow(10, inputDecimals);
@@ -506,11 +463,10 @@ export async function fetchBuyIvyQuote(
             stops: ["Ivy"],
             priceImpactBps: ivyQuote.price_impact_bps,
             slippageBps,
-            txBase64: null,
+            jupQuoteResponse: null,
         };
     } else {
         // * -> USDC -> IVY (via Jupiter for first hop)
-        // First hop: * -> USDC
         const [jupiterQuote, inputTokenPrices] = await Promise.all([
             fetchJupiterExactIn(
                 user,
@@ -543,7 +499,7 @@ export async function fetchBuyIvyQuote(
             stops: [...jupiterQuote.stops, "Ivy"],
             priceImpactBps: ivyQuote.price_impact_bps,
             slippageBps,
-            txBase64: jupiterQuote.txBase64,
+            jupQuoteResponse: jupiterQuote.jupQuoteResponse,
         };
     }
 }
@@ -556,7 +512,7 @@ export async function fetchSellIvyQuote(
     slippageBps: number,
 ): Promise<
     Quote & {
-        txBase64: string | null;
+        jupQuoteResponse: JupiterQuoteResponse | null;
         transformMessage: (msg: TransactionMessage) => void;
     }
 > {
@@ -581,15 +537,13 @@ export async function fetchSellIvyQuote(
             stops: ["Ivy"],
             priceImpactBps: usdcQuote.price_impact_bps,
             slippageBps,
-            txBase64: null,
+            jupQuoteResponse: null,
             transformMessage: () => {},
         };
     } else {
         // IVY -> USDC -> * (via Jupiter for second hop)
-        // First hop: IVY -> USDC
         const usdcQuote = await Api.getIvyQuote(inputRaw, false);
 
-        // Second hop: USDC -> * (requires transformation)
         const [jupiterQuote, outputTokenPrices] = await Promise.all([
             fetchJupiterExactIn(
                 user ? BIG_USDC_HOLDER : undefined,
@@ -620,7 +574,7 @@ export async function fetchSellIvyQuote(
             stops: ["Ivy", ...jupiterQuote.stops],
             priceImpactBps: usdcQuote.price_impact_bps,
             slippageBps,
-            txBase64: jupiterQuote.txBase64,
+            jupQuoteResponse: jupiterQuote.jupQuoteResponse,
             transformMessage: user
                 ? (msg) => transformMessage(msg, user, outputToken)
                 : () => {},
