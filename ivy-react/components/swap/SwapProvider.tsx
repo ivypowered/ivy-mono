@@ -90,6 +90,8 @@ export function SwapProvider({
         selector: Selector.None,
 
         txHash: "",
+        txInput: 0,
+        txOutput: 0,
         errorDetails: "",
         txSeconds: 0,
     }));
@@ -410,6 +412,8 @@ export function SwapProvider({
                     ...prev,
                     inputAmount: 0,
                     outputAmount: 0,
+                    txInput: quote.input,
+                    txOutput: quote.output,
                     isSuccessOpen: true,
                     txSeconds: end - start,
                     txHash: signature,

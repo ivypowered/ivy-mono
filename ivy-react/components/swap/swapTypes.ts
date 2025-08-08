@@ -51,6 +51,8 @@ export interface SwapState {
 
     // Transaction State
     txHash: string;
+    txInput: number;
+    txOutput: number;
     errorDetails: string;
     txSeconds: number;
 }
