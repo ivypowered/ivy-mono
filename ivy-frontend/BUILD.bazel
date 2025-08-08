@@ -14,6 +14,7 @@ genrule(
 
         # react
         cp --no-preserve=mode $$ROOT_DIR/$(location //ivy-react:ivy-react.js) public/assets/js/ivy-react.js
+        mkdir -p import
         cp --no-preserve=mode $$ROOT_DIR/$(location //ivy-react:ivy-react-tw-input.tsx) import/ivy-react-tw-input.tsx
 
         # docs

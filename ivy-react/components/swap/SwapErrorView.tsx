@@ -55,7 +55,7 @@ export function SwapErrorView() {
                             isErrorExpanded ? "h-[150px]" : "h-0"
                         }`}
                     >
-                        <div className="text-sm text-zinc-400 max-h-[142px] overflow-y-auto pr-2 mt-2 border-2 border-zinc-700 p-2">
+                        <div className="text-sm text-zinc-400 max-h-[142px] overflow-y-auto pr-2 mt-2 border-2 border-zinc-700 p-2 break-all whitespace-pre-wrap">
                             {errorDetails}
                         </div>
                     </div>
