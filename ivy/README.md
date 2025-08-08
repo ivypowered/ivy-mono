@@ -23,7 +23,7 @@ If you're developing this project locally and run into IDE errors, it might help
 ```sh
 CompileFlags:
   Add:
-    - "-I/home/<your username>/.local/share/solana/install/active_release/bin/sdk/sbf/c/inc"
+    - "-I/home/<your username>/.local/share/solana/install/active_release/bin/platform-tools-sdk/sbf/c/inc"
     - "-Iinclude"
 ```
 

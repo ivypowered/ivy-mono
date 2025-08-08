@@ -5,7 +5,7 @@
 #include "rw.h"
 
 static const char* const EVENT_AUTHORITY_PREFIX = "__event_authority";
-static const u64 EVENT_IX_TAG = 0x1d9acb512ea545e4; // per anchor
+static const u64 EVENT_IX_TAG = UINT64_C(0x1d9acb512ea545e4); // per anchor
 
 /// Derives the program's event authority.
 static ProgramDerivedAddress event_derive_authority(address program_id) {

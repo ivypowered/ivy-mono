@@ -42,10 +42,6 @@ interface SendTransactionResponse {
     signature: string;
 }
 
-interface TokenDeltas {
-    [mintAddress: string]: number;
-}
-
 export interface Context {
     blockhash: string;
     lastValidBlockHeight: number;
@@ -208,21 +204,6 @@ export class Api {
         Api.fetchApi<unknown>(
             `/tx/confirm/${signature}?lastValidBlockHeight=${lastValidBlockHeight}`,
         );
-    }
-
-    /** Gets token balance changes from a transaction */
-    static async getTransactionTokenDeltas(
-        user: PublicKey,
-        signature: string,
-    ): Promise<TokenDeltas> {
-        return Api.fetchApi<TokenDeltas>("/tx-token-deltas", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                user: user.toBase58(),
-                signature: signature,
-            }),
-        });
     }
 
     /** Gets the latest blockhash and last valid block height */

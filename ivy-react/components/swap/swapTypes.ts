@@ -50,8 +50,6 @@ export interface SwapState {
     selector: Selector;
 
     // Transaction State
-    txInput: number;
-    txOutput: number;
     txHash: string;
     errorDetails: string;
     txSeconds: number;

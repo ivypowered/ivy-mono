@@ -37,15 +37,6 @@ interface SwapProviderProps {
     commonTokens: SwapToken[];
     connectWallet: () => void;
     fetchBalance: (user: PublicKey, token: SwapToken) => Promise<number>;
-    fetchTransactionEffects: (
-        user: PublicKey,
-        signature: string,
-        inputMint: string,
-        outputMint: string,
-    ) => Promise<{
-        input: number;
-        output: number;
-    }>;
     fetchQuote: (
         user: PublicKey | undefined,
         inputToken: SwapToken,
@@ -74,7 +65,6 @@ export function SwapProvider({
     commonTokens,
     connectWallet,
     fetchBalance,
-    fetchTransactionEffects,
     fetchQuote,
     initialInputToken,
     initialOutputToken,
@@ -99,8 +89,6 @@ export function SwapProvider({
         btn: user ? Btn.ConnectWallet : Btn.EnterAnAmount,
         selector: Selector.None,
 
-        txInput: 0,
-        txOutput: 0,
         txHash: "",
         errorDetails: "",
         txSeconds: 0,
@@ -392,9 +380,6 @@ export function SwapProvider({
             try {
                 if (!quote) throw new Error("No quote available");
                 if (!user) throw new Error("Wallet not connected");
-                const inputAmount = quote.input;
-                const inputMint = state.inputToken.mint;
-                const outputMint = state.outputToken.mint;
                 const onStatus = (status: number) => {
                     switch (status) {
                         case PROCESS_TRANSACTION_RETRIEVING:
@@ -420,15 +405,6 @@ export function SwapProvider({
                     signTransaction,
                     onStatus,
                 );
-                const eff = await fetchTransactionEffects(
-                    user,
-                    signature,
-                    inputMint,
-                    outputMint,
-                );
-                const input =
-                    inputMint === WSOL_MINT_B58 ? inputAmount : eff.input;
-                const output = eff.output;
                 const end = Math.floor(new Date().getTime() / 1000);
                 setState((prev) => ({
                     ...prev,
@@ -436,8 +412,6 @@ export function SwapProvider({
                     outputAmount: 0,
                     isSuccessOpen: true,
                     txSeconds: end - start,
-                    txInput: input,
-                    txOutput: output,
                     txHash: signature,
                 }));
             } catch (error) {

@@ -52,7 +52,7 @@ genrule(
 
         # Define common paths
         SOLANA_PATH="$$HOME/.local/share/solana/install/active_release/bin"
-        SDK_PATH="$${SOLANA_PATH}/sdk/sbf/c"
+        SDK_PATH="$${SOLANA_PATH}/platform-tools-sdk/sbf/c"
         LLVM_PATH="$${SDK_PATH}/../dependencies/platform-tools/llvm"
         RUST_PATH="$${SDK_PATH}/../dependencies/platform-tools/rust"
         TARGET_DIR="./target/deploy"
@@ -62,7 +62,7 @@ genrule(
         mkdir -p $$TARGET_DIR
 
         # Install C toolchain if we haven't already
-        bash $$SOLANA_PATH/sdk/sbf/scripts/install.sh
+        bash $$SOLANA_PATH/platform-tools-sdk/sbf/scripts/install.sh
 
         # Compilation step
         $${LLVM_PATH}/bin/clang \\

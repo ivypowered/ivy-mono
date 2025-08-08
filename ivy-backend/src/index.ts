@@ -872,66 +872,6 @@ app.post(
     }),
 );
 
-// Get a map (mint -> delta) detailing how the provided
-// transaction affected the user's token balances
-app.post(
-    "/tx-token-deltas",
-    handleAsync(async (req, res) => {
-        const data = validateRequestBody(req.body, [
-            { name: "user", type: "string" },
-            { name: "signature", type: "string" },
-        ]);
-
-        const user = parsePublicKey(data.user, "user");
-        const signature = String(data.signature);
-        const signature_length = bs58.decode(signature).length;
-        if (signature_length !== 64) {
-            throw new Error(
-                "incorrect signature length: expected 64 bytes, got " +
-                    signature_length,
-            );
-        }
-
-        let result: VersionedTransactionResponse | null = null;
-        // Fetch TX with retry logic - transaction might not have
-        // propagated to this node yet
-        for (let i = 0; i < 10; i++) {
-            result = await connection.getTransaction(signature, {
-                maxSupportedTransactionVersion: 1,
-            });
-            if (result) {
-                break;
-            }
-            await new Promise((res) => setTimeout(res, 1000));
-        }
-        if (!result) {
-            throw new Error("Can't find signature " + signature);
-        }
-        const owner = user.toString();
-        const b: Record<string, number> = {};
-        result.meta?.postTokenBalances
-            ?.filter((x) => x.owner == owner)
-            .forEach((x) => (b[x.mint] = x.uiTokenAmount.uiAmount || 0));
-        result.meta?.preTokenBalances
-            ?.filter((x) => x.owner == owner)
-            .forEach(
-                (x) =>
-                    (b[x.mint] =
-                        (b[x.mint] || 0) - (x.uiTokenAmount.uiAmount || 0)),
-            );
-        let sol_change = 0;
-        sol_change += (result.meta?.postBalances?.[0] || 0) / 1e9;
-        sol_change += (result.meta?.fee || 0) / 1e9;
-        sol_change -= (result.meta?.preBalances?.[0] || 0) / 1e9;
-        b[WSOL_MINT.toBase58()] = sol_change;
-
-        return res.status(200).json({
-            status: "ok",
-            data: b,
-        });
-    }),
-);
-
 // Get blockchain context to help craft transactions :)
 app.get(
     "/ctx",

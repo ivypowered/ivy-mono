@@ -13,12 +13,12 @@ genrule(
         # generate library + headers
         HOME="/home/$$(echo "$$ROOT_DIR" | cut -d'/' -f3)" cargo build-sbf
         # patch headers
-        python3 patch.py ./target/sbf-solana-solana/release/r128.h
+        python3 patch.py ./target/sbpf-solana-solana/release/r128.h
         # tree out directory
         tree ./target 1>&2
         # copy to outfiles
-        cp ./target/sbf-solana-solana/release/r128.h $$ROOT_DIR/$(location r128.h)
-        cp ./target/sbf-solana-solana/release/libr128.a $$ROOT_DIR/$(location libr128.a)
+        cp ./target/sbpf-solana-solana/release/r128.h $$ROOT_DIR/$(location r128.h)
+        cp ./target/sbpf-solana-solana/release/libr128.a $$ROOT_DIR/$(location libr128.a)
     """,
     outs = ["r128.h", "libr128.a"],
     visibility = ["//visibility:public"],

@@ -155,6 +155,7 @@ export async function createAndUploadMetadata(
 const JUPITER_AGGREGATOR_V6 = new PublicKey(
     "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
 );
+const MAX_PRIORITY_FEE = 999999;
 export async function getReasonablePriorityFee(
     connection: Connection,
 ): Promise<number> {
@@ -203,13 +204,14 @@ export async function getReasonablePriorityFee(
         );
     });
 
-    // Take their median
+    // Take the 1st tertile
     if (priorityFees.length === 0) {
         return 0;
     }
     priorityFees.sort((a, b) => a - b);
-    const medianPriorityFee = priorityFees[Math.floor(priorityFees.length / 2)];
+    const reasonablePriorityFee =
+        priorityFees[Math.floor(priorityFees.length / 3)];
 
     // Cap final result as a safety measure
-    return Math.min(5_000_000, medianPriorityFee);
+    return Math.min(MAX_PRIORITY_FEE, reasonablePriorityFee);
 }

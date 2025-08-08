@@ -69,31 +69,6 @@ const COMMON_TOKENS = [
 
 const SOL = COMMON_TOKENS[0];
 
-async function fetchTransactionEffects(
-    user: PublicKey,
-    signature: string,
-    inputMint: string,
-    outputMint: string,
-): Promise<{ input: number; output: number }> {
-    const tokenDeltas = await Api.getTransactionTokenDeltas(user, signature);
-    const inputDelta = tokenDeltas[inputMint] || 0;
-    const outputDelta = tokenDeltas[outputMint] || 0;
-    if (inputDelta > 0) {
-        throw new Error(
-            `inconsistency: TX swap input -> output resulted in POSITIVE input +${inputDelta}??`,
-        );
-    }
-    if (outputDelta < 0) {
-        throw new Error(
-            `inconsistency: TX swap input -> output resulted in NEGATIVE output ${outputDelta}??`,
-        );
-    }
-    return {
-        input: Math.abs(inputDelta),
-        output: outputDelta,
-    };
-}
-
 async function fetchBalance(
     user: PublicKey,
     token: SwapToken,
@@ -463,7 +438,6 @@ export function GameDisplay({
                     connectWallet={openModal}
                     commonTokens={COMMON_TOKENS}
                     fetchBalance={fetchBalance}
-                    fetchTransactionEffects={fetchTransactionEffects}
                     fetchQuote={fetchQuote}
                     reloadBalances={reloadBalancesRef.current || (() => {})}
                     signTransaction={
