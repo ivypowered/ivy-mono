@@ -89,7 +89,7 @@ export async function getEffects(
             }),
             connection.getBlockHeight(),
         ]);
-        if (txMaybe !== null) {
+        if (txMaybe !== null && txMaybe.meta?.innerInstructions) {
             tx = txMaybe;
             break;
         }
@@ -105,17 +105,12 @@ export async function getEffects(
     if (tx.meta?.err) {
         throw new Error("Transaction failed: " + tx.meta.err.toString());
     }
-    const jupIndex = tx.transaction.message.staticAccountKeys.findIndex((x) =>
-        x.equals(JUPITER_AGGREGATOR_V6),
-    );
+    const jupIndex = tx.transaction.message.staticAccountKeys.findIndex((x) => {
+        x.equals(JUPITER_AGGREGATOR_V6);
+    });
     const ivyIndex = tx.transaction.message.staticAccountKeys.findIndex((x) =>
         x.equals(IVY_PROGRAM_ID),
     );
-    if (jupIndex < 0 && ivyIndex < 0) {
-        throw new Error(
-            "Can't get effects for a non-Jupiter, non-Ivy transaction",
-        );
-    }
     const absDelta: Record<string, string> = {};
     const inputMintB58 = inputMint.toBase58();
     const outputMintB58 = outputMint.toBase58();
@@ -144,24 +139,32 @@ export async function getEffects(
                     absDelta[USDC_MINT_B58] ||= usdcAmount.toString();
                 }
                 continue;
-            } else if (ins.programIdIndex === jupIndex) {
-                const r = new Reader(data);
-                if (!r.readEqual(JUP_SWAP_EVENT_PFX)) {
-                    // Not a jupiter swap event
-                    continue;
-                }
-                if (!r.readPublicKey()) continue; // amm
-                const inputMint = r.readPublicKey();
-                if (!inputMint) continue;
-                const inputAmountRaw = r.readUint64LE();
-                if (!inputAmountRaw) continue;
-                const outputMint = r.readPublicKey();
-                if (!outputMint) continue;
-                const outputAmountRaw = r.readUint64LE();
-                if (!outputAmountRaw) continue;
-                absDelta[inputMint.toBase58()] ||= inputAmountRaw.toString();
-                absDelta[outputMint.toBase58()] ||= outputAmountRaw.toString();
             }
+            if (jupIndex >= 0 && ins.programIdIndex !== jupIndex) {
+                // we know the jup index, and the given ins does not have it
+                continue;
+            }
+            // we don't know the jup index. this does not mean that it does not
+            // exist: the Jupiter program might be passed to the tx via an ALT,
+            // in this case we cannot know its index without fetching ALTs
+            // from the blockchain (another RPC request). so, we will just try
+            // to deserialize all data as a jupiter swap event
+            const r = new Reader(data);
+            if (!r.readEqual(JUP_SWAP_EVENT_PFX)) {
+                // Not a jupiter swap event
+                continue;
+            }
+            if (!r.readPublicKey()) continue; // amm
+            const inputMint = r.readPublicKey();
+            if (!inputMint) continue;
+            const inputAmountRaw = r.readUint64LE();
+            if (!inputAmountRaw) continue;
+            const outputMint = r.readPublicKey();
+            if (!outputMint) continue;
+            const outputAmountRaw = r.readUint64LE();
+            if (!outputAmountRaw) continue;
+            absDelta[inputMint.toBase58()] ||= inputAmountRaw.toString();
+            absDelta[outputMint.toBase58()] ||= outputAmountRaw.toString();
             if (absDelta[inputMintB58] && absDelta[outputMintB58]) {
                 found = true;
                 break;
