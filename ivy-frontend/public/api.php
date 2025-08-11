@@ -3,7 +3,7 @@
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header(
-    "Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept, Authorization"
+    "Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept, Authorization",
 );
 
 // Handle preflight OPTIONS request
@@ -97,7 +97,7 @@ if ($request_method === "POST") {
             send_response(
                 "err",
                 "Invalid JSON in request body: " . json_last_error_msg(),
-                400
+                400,
             );
         }
     }
@@ -128,6 +128,7 @@ $routes = [
     ["pattern" => "#^GET /id$#i", "action" => "backend"],
     ["pattern" => "#^POST /tx/send$#i", "action" => "backend"],
     ["pattern" => "#^GET /tx/confirm#i", "action" => "backend"],
+    ["pattern" => "#^GET /tx/effects#i", "action" => "backend"],
     ["pattern" => "#^POST /accounts-data$#i", "action" => "backend"],
     ["pattern" => "#^POST /token-balance$#i", "action" => "backend"],
     ["pattern" => "#^POST /treasury-balance$#i", "action" => "backend"],
