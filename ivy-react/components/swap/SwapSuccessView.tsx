@@ -33,7 +33,7 @@ export function SwapSuccessView() {
                 </h2>
 
                 {/* Token swap details */}
-                <div className="p-4 w-full">
+                <div className="border border-emerald-400 p-4 w-full">
                     <div className="flex items-center justify-center gap-2 text-sm sm:text-base">
                         {/* From token - smaller font but same precision */}
                         <div className="flex items-center justify-center shrink-0">

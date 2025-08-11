@@ -426,8 +426,10 @@ export function SwapProvider({
                     onStatus,
                     confirmFn,
                 );
-                const txInput = parseInt(inputRaw) / inputToken.decimals;
-                const txOutput = parseInt(outputRaw) / outputToken.decimals;
+                const txInput =
+                    parseInt(inputRaw) / Math.pow(10, inputToken.decimals);
+                const txOutput =
+                    parseInt(outputRaw) / Math.pow(10, outputToken.decimals);
                 const end = new Date().getTime() / 1000;
                 setState((prev) => ({
                     ...prev,
