@@ -103,7 +103,7 @@ export async function getEffects(
         delay = Math.min(delay * 1.4, GET_EFFECTS_MAX_DELAY);
     }
     if (tx.meta?.err) {
-        throw new Error("Transaction failed: " + tx.meta.err.toString());
+        throw new Error("Transaction failed: " + JSON.stringify(tx.meta.err));
     }
     const jupIndex = tx.transaction.message.staticAccountKeys.findIndex((x) => {
         x.equals(JUPITER_AGGREGATOR_V6);
