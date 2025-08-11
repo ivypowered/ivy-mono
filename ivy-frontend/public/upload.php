@@ -238,16 +238,16 @@ require_once __DIR__ . "/../includes/header.php";
                         <input type="hidden" id="il_exponent" name="il_exponent" value="<?php echo htmlspecialchars(
                             $il_exponent,
                         ); ?>">
-                        <div id="il-options" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <button type="button" class="il-option bg-emerald-950 text-emerald-400 border-2 border-emerald-400 p-3 text-center hover:border-emerald-300" data-exp="0">
+                        <div id="il-options" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <button type="button" class="il-option bg-emerald-950 text-emerald-400 border-2 border-emerald-400 p-3 text-center" data-exp="0">
                                 <div class="font-bold" data-il-usd>$0.00</div>
                                 <div class="text-sm" data-il-ivy>0 IVY</div>
                             </button>
-                            <button type="button" class="il-option bg-emerald-950 text-emerald-400 border-2 border-emerald-400 p-3 text-center hover:border-emerald-300" data-exp="1">
+                            <button type="button" class="il-option bg-emerald-950 text-emerald-400 border-2 border-emerald-400 p-3 text-center" data-exp="1">
                                 <div class="font-bold" data-il-usd>$0.00</div>
                                 <div class="text-sm" data-il-ivy>0 IVY</div>
                             </button>
-                            <button type="button" class="il-option bg-emerald-950 text-emerald-400 border-2 border-emerald-400 p-3 text-center hover:border-emerald-300" data-exp="2">
+                            <button type="button" class="il-option bg-emerald-950 text-emerald-400 border-2 border-emerald-400 p-3 text-center" data-exp="2">
                                 <div class="font-bold" data-il-usd>$0.00</div>
                                 <div class="text-sm" data-il-ivy>0 IVY</div>
                             </button>
