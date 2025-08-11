@@ -105,6 +105,10 @@ export async function processTransaction(
         tx: Transaction | VersionedTransaction,
     ) => Promise<Transaction | VersionedTransaction>,
     onStatus: (status: number) => void,
+    confirmFn?: (
+        signature: string,
+        lastValidBlockHeight: number,
+    ) => Promise<void>,
 ): Promise<string> {
     // 1) Fetch both the context and the transaction
     onStatus(PROCESS_TRANSACTION_RETRIEVING);
@@ -253,7 +257,8 @@ export async function processTransaction(
 
     // 4) Confirm the transaction
     onStatus(PROCESS_TRANSACTION_CONFIRMING);
-    await Api.confirmTransaction(signature, ctx.lastValidBlockHeight);
+    confirmFn ||= Api.confirmTransaction;
+    await confirmFn(signature, ctx.lastValidBlockHeight);
 
     // 5) We're finished!
     return signature;

@@ -117,6 +117,19 @@ export class Game {
     }
 
     /**
+     * Derive just the game mint from the game address
+     */
+    static deriveMint(game: PublicKey): PublicKey {
+        if (!(game instanceof PublicKey)) {
+            throw new Error("non-PublicKey passed to deriveMint");
+        }
+        return PublicKey.createProgramAddressSync(
+            [GAME_PREFIXES.mint, game.toBuffer()],
+            IVY_PROGRAM_ID,
+        );
+    }
+
+    /**
      * Derive all game blockchain addresses from game address
      */
     public static deriveAddresses(game: PublicKey): GameAddresses {

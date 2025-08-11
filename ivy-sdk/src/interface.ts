@@ -93,9 +93,9 @@ export const IVY_MINT = PublicKey.findProgramAddressSync(
     [Buffer.from(WORLD_PREFIXES.mint)],
     IVY_PROGRAM_ID,
 )[0];
-export const USDC_MINT = new PublicKey(
-    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-);
+export const IVY_MINT_B58 = IVY_MINT.toBase58();
+export const USDC_MINT_B58 = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+export const USDC_MINT = new PublicKey(USDC_MINT_B58);
 
 export type GameData = Awaited<
     ReturnType<Program<Ivy>["account"]["game"]["fetch"]>

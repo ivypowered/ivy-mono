@@ -826,8 +826,8 @@ static void game_swap(
         .user = *accounts->user.key,
         .ivy_balance = game->ivy_balance,
         .game_balance = game->game_balance,
-        .ivy_amount = data->is_buy ? amount_to_curve : amount_from_curve,
-        .game_amount = data->is_buy ? amount_from_curve : amount_to_curve,
+        .ivy_amount = data->is_buy ? user_pays : user_receives,
+        .game_amount = data->is_buy ? user_receives : user_pays,
         .is_buy = data->is_buy,
     };
 

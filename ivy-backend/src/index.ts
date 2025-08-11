@@ -5,10 +5,8 @@ import {
     Keypair,
     PublicKey,
     SendTransactionError,
-    Signer,
     Transaction,
     VersionedTransaction,
-    VersionedTransactionResponse,
 } from "@solana/web3.js";
 import {
     getEvents,
@@ -48,6 +46,7 @@ import {
     getAssociatedTokenAddressSync,
     TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
+import { getEffects } from "./functions/getEffects";
 
 // --- Setup ---
 const app = express();
@@ -543,70 +542,6 @@ app.post(
     }),
 );
 
-/// Test for TX expiration or failure
-// (we don't need this anymore; still useful code)
-if ((() => false)()) {
-    app.get(
-        "/tx/is-expired-or-failed/:signature",
-        handleAsync(async (req, res) => {
-            const { signature } = req.params;
-            const { lastValidBlockHeight } = req.query;
-
-            if (!signature) {
-                throw new Error("Missing required parameter: signature");
-            }
-            if (
-                !lastValidBlockHeight ||
-                typeof lastValidBlockHeight !== "string"
-            ) {
-                throw new Error(
-                    "Missing or invalid required query param: lastValidBlockHeight",
-                );
-            }
-
-            const lastValidBlockHeightInteger = parseInt(
-                lastValidBlockHeight as string,
-            );
-            if (isNaN(lastValidBlockHeightInteger)) {
-                throw new Error("lastValidBlockHeight must be a valid number");
-            }
-
-            // 1. Fetch block height
-            const currentBlockHeight =
-                await connection.getBlockHeight("confirmed");
-
-            // 2. Get signature status (this MUST happen after).
-            const tx = await connection.getSignatureStatus(signature, {
-                // Solana node will search its full TX history for the Transaction
-                // This is necessary for correctness
-                searchTransactionHistory: true,
-            });
-
-            // We are expired if:
-            // - At time t2, the transaction does not exist on the blockchain.
-            // - At time t1 < t2, the block height surpassed the last valid block height.
-            // This is because a Solana transaction will not be included in
-            // a block height greater than its last valid block height.
-            //
-            // Note that we cannot switch t1 and t2, otherwise,
-            // if (block height) < (last valid block height),
-            // we could fetch the tx from the blockchain, it could not exist,
-            // some time could pass, and a (block height) > (last valid block height)
-            // could be returned. Then, `isExpired` would be true, and we would be cooked!
-            const isExpired =
-                !tx.value && currentBlockHeight > lastValidBlockHeightInteger;
-
-            // If the TX has an error, it's failed.
-            const isFailed = tx.value && tx.value.err ? true : false;
-
-            return res.status(200).json({
-                status: "ok",
-                data: isExpired || isFailed,
-            });
-        }),
-    );
-}
-
 // Get the game balance for a user
 app.get(
     "/games/:game/balances/:user",
@@ -774,6 +709,63 @@ app.get(
         return res.status(200).json({
             status: "ok",
             data: null,
+        });
+    }),
+);
+
+/// Get the effects (input + output amount) for a given transaction hash
+app.get(
+    "/tx/effects/:signature",
+    handleAsync(async (req, res) => {
+        const { signature } = req.params;
+        const {
+            inputMint: inputMintStr,
+            outputMint: outputMintStr,
+            lastValidBlockHeight: lastValidBlockHeightStr,
+        } = req.query;
+
+        if (!signature) {
+            throw new Error("Missing required parameter: signature");
+        }
+        if (
+            lastValidBlockHeightStr &&
+            typeof lastValidBlockHeightStr !== "string"
+        ) {
+            throw new Error(
+                "Missing or invalid required query param: lastValidBlockHeight",
+            );
+        }
+        if (!inputMintStr || typeof inputMintStr !== "string") {
+            throw new Error(
+                "Missing or invalid required query param: inputMint",
+            );
+        }
+        if (!outputMintStr || typeof outputMintStr !== "string") {
+            throw new Error(
+                "Missing or invalid required query param: outputMint",
+            );
+        }
+        const inputMint = parsePublicKey(inputMintStr, "inputMint");
+        const outputMint = parsePublicKey(outputMintStr, "outputMint");
+        let lastValidBlockHeight: number | undefined = undefined;
+        if (lastValidBlockHeightStr) {
+            lastValidBlockHeight = parseInt(lastValidBlockHeightStr);
+            if (isNaN(lastValidBlockHeight)) {
+                throw new Error("lastValidBlockHeight must be a valid number");
+            }
+        }
+
+        const { inputRaw, outputRaw } = await getEffects(
+            connection,
+            signature,
+            inputMint,
+            outputMint,
+            lastValidBlockHeight,
+        );
+
+        return res.status(200).json({
+            status: "ok",
+            data: { inputRaw, outputRaw },
         });
     }),
 );

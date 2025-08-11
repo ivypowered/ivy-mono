@@ -29,6 +29,7 @@ import { PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { useQuoteResult } from "./QuoteProvider";
 import { useBalance } from "./BalanceProvider";
 import { useMediaQuery } from "@/lib/use-media-query";
+import { Api } from "@/lib/api";
 
 const SwapContext = createContext<SwapContextValue | undefined>(undefined);
 
@@ -380,6 +381,8 @@ export function SwapProvider({
             })),
         executeSwap: async () => {
             try {
+                const inputToken = state.inputToken;
+                const outputToken = state.outputToken;
                 if (!quote) throw new Error("No quote available");
                 if (!user) throw new Error("Wallet not connected");
                 const onStatus = (status: number) => {
@@ -400,20 +403,38 @@ export function SwapProvider({
                             break;
                     }
                 };
-                const start = Math.floor(new Date().getTime() / 1000);
+                const start = new Date().getTime() / 1000;
+                let inputRaw: string = "";
+                let outputRaw: string = "";
+                const confirmFn = async (
+                    signature: string,
+                    lastValidBlockHeight: number,
+                ) => {
+                    const res = await Api.getEffects(
+                        signature,
+                        inputToken.mint,
+                        outputToken.mint,
+                        lastValidBlockHeight,
+                    );
+                    inputRaw = res.inputRaw;
+                    outputRaw = res.outputRaw;
+                };
                 const signature = await processTransaction(
                     quote.getTransaction(),
                     user,
                     signTransaction,
                     onStatus,
+                    confirmFn,
                 );
-                const end = Math.floor(new Date().getTime() / 1000);
+                const txInput = parseInt(inputRaw) / inputToken.decimals;
+                const txOutput = parseInt(outputRaw) / outputToken.decimals;
+                const end = new Date().getTime() / 1000;
                 setState((prev) => ({
                     ...prev,
                     inputAmount: 0,
                     outputAmount: 0,
-                    txInput: quote.input,
-                    txOutput: quote.output,
+                    txInput,
+                    txOutput,
                     isSuccessOpen: true,
                     txSeconds: end - start,
                     txHash: signature,

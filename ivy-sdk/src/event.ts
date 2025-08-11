@@ -69,6 +69,36 @@ async function getSignatureInfos(
     return sigs_reversed.reverse();
 }
 
+/// Try to decode an Ivy event from the given
+/// CPI instruction data, throwing if there is an error
+/// in decoding, or returning `null` if the provided
+/// data does not represent an Ivy event.
+export function decodeEvent(
+    data: Buffer,
+): { name: string; data: Record<string, any> } | null {
+    if (data.length < 16) {
+        return null;
+    }
+    if (data.readBigUInt64LE(0) != EVENT_IX_TAG) {
+        // not an event
+        return null;
+    }
+    const evt = ivy_program.coder.events.decode(
+        base64.encode(data.subarray(8)),
+    );
+    if (!evt) {
+        throw new Error("failed to decode event: undefined");
+    }
+    const evt_data = evt.data;
+    if (typeof evt_data !== "object") {
+        throw new Error("failed to decode event data: not object");
+    }
+    return {
+        name: evt.name,
+        data: evt_data,
+    };
+}
+
 /// Returns program events in chronological order.
 export async function getEvents(
     connection: Connection,
@@ -127,14 +157,10 @@ export async function getEvents(
         }
 
         // Find Ivy program key index in the transaction
-        const account_keys = [
-            ...tx.transaction.message.staticAccountKeys,
-            ...(tx.meta?.loadedAddresses?.writable || []),
-            ...(tx.meta?.loadedAddresses?.readonly || []),
-        ];
-        const program_key_index = account_keys.findIndex((key) =>
-            key.equals(IVY_PROGRAM_ID),
-        );
+        const program_key_index =
+            tx.transaction.message.staticAccountKeys.findIndex((key) =>
+                key.equals(IVY_PROGRAM_ID),
+            );
         if (program_key_index === -1) {
             throw new Error(
                 "tx doesn't contain Ivy program, but" +
@@ -155,30 +181,19 @@ export async function getEvents(
                 }
 
                 const data = bs58.decode(ins.data);
-                if (data.length < 16) {
-                    continue;
-                }
-                if (data.readBigUInt64LE(0) != EVENT_IX_TAG) {
-                    // not an event
-                    continue;
-                }
-                const evt = ivy_program.coder.events.decode(
-                    base64.encode(data.subarray(8)),
-                );
+                const evt = decodeEvent(data);
                 if (!evt) {
-                    throw new Error("failed to decode event: undefined");
+                    // Not an event
+                    continue;
                 }
-                const evt_data = evt.data;
-                if (typeof evt_data !== "object") {
-                    throw new Error("failed to decode event data: not object");
-                }
-                for (const key in evt_data) {
-                    const val = (evt_data as any)[key];
+
+                for (const key in evt.data) {
+                    const val = evt.data[key];
                     if (val instanceof BN) {
-                        (evt_data as any)[key] = val.toString();
+                        evt.data[key] = val.toString();
                     }
                     if (val instanceof PublicKey) {
-                        (evt_data as any)[key] = val.toBase58();
+                        evt.data[key] = val.toBase58();
                     }
                     // deserialize arrays as zero-terminated strings
                     // unless they're of length 32, in which case we
@@ -187,12 +202,12 @@ export async function getEvents(
                     // this is hacky and should probably be changed at
                     // some later date :)
                     if (val instanceof Array && val.length !== 32) {
-                        (evt_data as any)[key] = zt2str(val);
+                        evt.data[key] = zt2str(val);
                     }
                 }
                 events.push({
                     name: evt.name,
-                    data: evt_data,
+                    data: evt.data,
                     signature,
                     timestamp,
                 });

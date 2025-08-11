@@ -10,7 +10,9 @@ export {
     METADATA_PROGRAM_ID,
     WORLD_ADDRESS,
     IVY_MINT,
+    IVY_MINT_B58,
     USDC_MINT,
+    USDC_MINT_B58,
     MAX_TEXT_LEN,
     GAME_DECIMALS,
     IVY_DECIMALS,
@@ -22,7 +24,7 @@ export {
 export { World, WorldState, WorldParams } from "./world";
 
 // Event exports
-export { getEvents, Event } from "./event";
+export { getEvents, Event, decodeEvent } from "./event";
 
 // Profile exports
 export { loadProfile } from "./profile";

@@ -32,8 +32,8 @@ export function SwapSuccessView() {
                     Swap successful
                 </h2>
 
-                {/* Token swap details - adjusted for better fit */}
-                <div className="border-2 border-emerald-400 p-4 w-full">
+                {/* Token swap details */}
+                <div className="p-4 w-full">
                     <div className="flex items-center justify-center gap-2 text-sm sm:text-base">
                         {/* From token - smaller font but same precision */}
                         <div className="flex items-center justify-center shrink-0">
@@ -77,7 +77,7 @@ export function SwapSuccessView() {
                 <div className="w-full flex items-center justify-between text-sm">
                     <div className="flex items-center space-x-2">
                         <Clock className="h-4 w-4" />
-                        <span>{txSeconds} seconds</span>
+                        <span>{txSeconds.toFixed(1)} seconds</span>
                     </div>
                     <a
                         href={`https://solscan.io/tx/${txHash}`}

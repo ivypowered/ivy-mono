@@ -61,6 +61,11 @@ export interface CommentInfo {
     comments: CommentData[];
 }
 
+export interface Effects {
+    inputRaw: string;
+    outputRaw: string;
+}
+
 type ApiResponse<T> =
     | { status: "ok"; data: T }
     | { status: "err"; msg: string };
@@ -204,6 +209,20 @@ export class Api {
         Api.fetchApi<unknown>(
             `/tx/confirm/${signature}?lastValidBlockHeight=${lastValidBlockHeight}`,
         );
+    }
+
+    /** Fetches the effects for a transaction */
+    static async getEffects(
+        signature: string,
+        inputMint: string,
+        outputMint: string,
+        lastValidBlockHeight?: number,
+    ): Promise<Effects> {
+        let path = `/tx/effects/${signature}?inputMint=${inputMint}&outputMint=${outputMint}`;
+        if (lastValidBlockHeight) {
+            path += `&lastValidBlockHeight=${lastValidBlockHeight}`;
+        }
+        return Api.fetchApi<Effects>(path);
     }
 
     /** Gets the latest blockhash and last valid block height */
