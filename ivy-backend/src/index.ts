@@ -91,8 +91,9 @@ const cache = {
 // So, to make things easier for end users,
 // we refresh it every 60 seconds
 {
-    // Trigger 1st refresh
-    cache.fee.get();
+    // Trigger 1st refresh, trying twice on error
+    // prettier-ignore
+    cache.fee.get().catch((_) => cache.fee.get().catch(_ => cache.fee.get().catch(_ => {})));
 
     // Periodically refresh the reasonable priority fee
     setInterval(() => cache.fee.get(), 60_000);
@@ -302,6 +303,7 @@ app.post(
             { name: "metadata_url", type: "string" },
             { name: "ivy_purchase", type: "string" },
             { name: "min_game_received", type: "string" },
+            { name: "il_exponent", type: "number" },
         ]);
 
         const user_wallet = Keypair.generate();
@@ -321,6 +323,7 @@ app.post(
             data.ivy_purchase,
             data.min_game_received,
             world_alt,
+            data.il_exponent,
         );
 
         const game = Game.deriveAddress(seed);
@@ -668,12 +671,13 @@ app.post(
             if (!(e instanceof SendTransactionError)) {
                 throw new Error("can't send tx: " + String(e));
             }
-            const logsStr = JSON.stringify(
-                await e.getLogs(connection),
-                null,
-                4,
+            let logs = "";
+            try {
+                logs = JSON.stringify(await e.getLogs(connection), null, 4);
+            } catch (_e) {}
+            throw new Error(
+                `${e.transactionError.message}${logs ? `\nLogs: ${logs}` : ""} `,
             );
-            throw new Error(`${e.transactionError.message}\nLogs: ${logsStr}`);
         }
 
         return res.status(200).json({

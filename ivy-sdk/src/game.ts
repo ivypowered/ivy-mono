@@ -211,6 +211,7 @@ export class Game {
         ivy_purchase: string,
         min_game_received: string,
         world_alt: AddressLookupTableAccount,
+        il_exponent: number,
     ): Promise<VersionedTransaction> {
         if (icon_url.length > MAX_TEXT_LEN) {
             throw new Error(`Icon URL too long (max ${MAX_TEXT_LEN} chars)`);
@@ -244,6 +245,7 @@ export class Game {
                 new BN(min_game_received),
                 new BN(recent_slot),
                 swap_alt_nonce,
+                il_exponent,
                 true, // create `destination` if not exist
                 name,
                 symbol,

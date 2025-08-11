@@ -227,6 +227,7 @@ typedef struct {
     u64 min_game_received;
     u64 swap_alt_slot;
     u8 swap_alt_nonce;
+    u8 il_exponent;
     bool create_dest;
     // the following will directly insert the strings in the given
     // memory location in the data (no padding)
@@ -417,18 +418,33 @@ static void game_create(
         /* data */ &metadata_data
     );
 
+    // Calculate initial liquidity
+    u64 ivy_initial_liquidity = world->ivy_initial_liquidity;
+    u64 game_initial_liquidity = world->game_initial_liquidity;
+    if (data->il_exponent == 0) {
+        // nothing
+    } else if (data->il_exponent == 1) {
+        ivy_initial_liquidity *= 10;
+        game_initial_liquidity *= 10;
+    } else if (data->il_exponent == 2) {
+        ivy_initial_liquidity *= 100;
+        game_initial_liquidity *= 100;
+    } else {
+        require(false, "invalid il_exponent");
+    }
+
     // Calculate how much user receives for initial purchase
     // (Initial purchases incur no fees)
     u64 game_received = cp_curve_exact_in(
-        /* x */ world->ivy_initial_liquidity,
-        /* y */ world->game_initial_liquidity,
+        /* x */ ivy_initial_liquidity,
+        /* y */ game_initial_liquidity,
         /* dx */ data->ivy_purchase
     );
     require(game_received >= data->min_game_received, "Slippage tolerance exceeded");
 
     // Store starting balances
-    g->ivy_balance = safe_add_64(world->ivy_initial_liquidity, data->ivy_purchase);
-    g->game_balance = safe_sub_64(world->game_initial_liquidity, game_received);
+    g->ivy_balance = safe_add_64(ivy_initial_liquidity, data->ivy_purchase);
+    g->game_balance = safe_sub_64(game_initial_liquidity, game_received);
 
     if (data->ivy_purchase > 0) {
         // Collect purchase from user to IVY wallet
@@ -535,8 +551,8 @@ static void game_create(
             .swap_alt = swap_alt,
             .name = (bytes64){},
             .symbol = (bytes16){},
-            .ivy_balance = world->ivy_initial_liquidity,
-            .game_balance = world->game_initial_liquidity
+            .ivy_balance = ivy_initial_liquidity,
+            .game_balance = game_initial_liquidity
         };
         require(name.len <= sizeof(create_event.name), "Name too large");
         sol_memcpy(create_event.name.x, name.addr, name.len);

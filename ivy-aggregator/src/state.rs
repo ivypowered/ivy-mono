@@ -393,7 +393,8 @@ impl StateData {
             create_timestamp: timestamp,
             ivy_balance: create_data.ivy_balance,
             game_balance: create_data.game_balance,
-            starting_ivy_balance: create_data.ivy_balance, // Store initial balance
+            starting_ivy_balance: create_data.ivy_balance,
+            starting_game_balance: create_data.game_balance,
             comment_buf_index: 0,
             normalized_name,
             last_price_usd: game_price_usd,
@@ -507,7 +508,7 @@ impl StateData {
             );
         }
 
-        game.mkt_cap_usd = from_ivy_amount(game.ivy_balance) * self.ivy_price;
+        game.mkt_cap_usd = from_game_amount(game.starting_game_balance) * game_price_usd;
         game.change_pct_24h = game_meta.charts.get_change_pct_24h().unwrap_or(0.0);
 
         // Update global state based on the market cap change
@@ -1036,7 +1037,8 @@ impl State {
         let data = self.data.read().unwrap();
         ChartResponse {
             candles: data.ivy_charts.query(kind, count, until_inclusive),
-            mkt_cap_usd: from_ivy_amount(data.world_data.ivy_sold) * data.ivy_price,
+            mkt_cap_usd: from_ivy_amount(data.world_data.ivy_sold + data.world_data.ivy_vested)
+                * data.ivy_price,
             change_24h: data.ivy_charts.get_change_pct_24h().unwrap_or(0.0),
         }
     }

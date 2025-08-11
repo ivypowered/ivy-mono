@@ -8,6 +8,7 @@ require_once __DIR__ . "/../includes/api.php";
 
 // Initialize variables
 $game_name = $game_symbol = $game_url = $game_description = "";
+$il_exponent = "0";
 $errors = [];
 
 // Get IVY info from aggregator
@@ -21,6 +22,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $game_url = $_POST["game_url"] ?? "";
     $game_description = $_POST["game_description"] ?? "";
     $initial_purchase = $_POST["initial_purchase"] ?? "0";
+    $il_exponent = $_POST["il_exponent"] ?? "0";
+    $il_exponent_int = intval($il_exponent);
 
     // Input validation
     if (empty($game_name)) {
@@ -36,6 +39,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (empty($game_url) || !filter_var($game_url, FILTER_VALIDATE_URL)) {
         $errors[] = "Valid game URL is required";
+    }
+
+    // Validate il_exponent
+    if ($il_exponent_int < 0 || $il_exponent_int > 2) {
+        $errors[] = "Please choose a valid initial market cap option";
     }
 
     // Validate file sizes
@@ -55,9 +63,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $errors[] = "Cover file is too large (max 3MB)";
     }
 
-    // Validate initial purchase
-    if (!intval($initial_purchase) < 0) {
-        $errors[] = "Initial purchase amount must be a positive number";
+    // Validate initial purchase (non-negative number; blank allowed)
+    if ($initial_purchase !== "" && !is_numeric($initial_purchase)) {
+        $errors[] = "Initial purchase amount must be a number";
+    } elseif (floatval($initial_purchase) < 0) {
+        $errors[] = "Initial purchase amount must be a non-negative number";
     }
 
     // If no errors, process uploads and redirect to confirmation
@@ -110,15 +120,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // 4. Fetch game seed
             $seed = call_backend("/game-seed", "POST");
 
-            // Calculate tokens to receive
-            $ivy_initial_liquidity = $ivy_info["ivy_initial_liquidity"];
-            $game_initial_liquidity = $ivy_info["game_initial_liquidity"];
+            // Scale liquidity by il_exponent (0 => x1, 1 => x10, 2 => x100)
+            $scale = pow(10, $il_exponent_int);
+            $ivy_initial_liquidity =
+                floatval($ivy_info["ivy_initial_liquidity"]) * $scale;
+            $game_initial_liquidity =
+                floatval($ivy_info["game_initial_liquidity"]) * $scale;
             $min_game_received = "0";
 
-            if (intval($initial_purchase) > 0) {
+            // Calculate tokens to receive
+            if (floatval($initial_purchase) > 0) {
+                $purchase = floatval($initial_purchase);
                 $tokens_amount =
-                    (intval($initial_purchase) * $game_initial_liquidity) /
-                    ($ivy_initial_liquidity + intval($initial_purchase));
+                    ($purchase * $game_initial_liquidity) /
+                    ($ivy_initial_liquidity + $purchase);
                 $min_game_received = strval(floor($tokens_amount));
             }
 
@@ -133,6 +148,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 "metadata_url" => $metadata_url,
                 "ivy_purchase" => $initial_purchase,
                 "min_game_received" => $min_game_received,
+                "il_exponent" => strval($il_exponent_int),
             ];
 
             header(
@@ -214,6 +230,29 @@ require_once __DIR__ . "/../includes/header.php";
                             class="w-full bg-emerald-950 border-2 border-emerald-400 p-3"
                             placeholder="https://yourgame.com" required>
                         <p class="text-sm text-emerald-400 mt-1">URL to your game that will be loaded in an iframe</p>
+                    </div>
+
+                    <!-- Initial Market Cap (il_exponent) -->
+                    <div>
+                        <label class="block mb-2 font-bold">Initial Market Cap</label>
+                        <input type="hidden" id="il_exponent" name="il_exponent" value="<?php echo htmlspecialchars(
+                            $il_exponent,
+                        ); ?>">
+                        <div id="il-options" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <button type="button" class="il-option bg-emerald-950 text-emerald-400 border-2 border-emerald-400 p-3 text-center hover:border-emerald-300" data-exp="0">
+                                <div class="font-bold" data-il-usd>$0.00</div>
+                                <div class="text-sm" data-il-ivy>0 IVY</div>
+                            </button>
+                            <button type="button" class="il-option bg-emerald-950 text-emerald-400 border-2 border-emerald-400 p-3 text-center hover:border-emerald-300" data-exp="1">
+                                <div class="font-bold" data-il-usd>$0.00</div>
+                                <div class="text-sm" data-il-ivy>0 IVY</div>
+                            </button>
+                            <button type="button" class="il-option bg-emerald-950 text-emerald-400 border-2 border-emerald-400 p-3 text-center hover:border-emerald-300" data-exp="2">
+                                <div class="font-bold" data-il-usd>$0.00</div>
+                                <div class="text-sm" data-il-ivy>0 IVY</div>
+                            </button>
+                        </div>
+                        <p class="text-sm text-emerald-400 mt-1">Select your initial market capitalization</p>
                     </div>
 
                     <!-- Initial Purchase Amount -->
@@ -369,25 +408,78 @@ require_once __DIR__ . "/../includes/header.php";
         // Check form validity on page load
         document.addEventListener('DOMContentLoaded', checkFormValidity);
 
-        // Add calculation for initial purchase
+        // Add calculation for initial purchase + il_exponent options
         document.addEventListener('DOMContentLoaded', function() {
             const initialPurchaseInput = document.getElementById('initial_purchase');
             const tokensReceived = document.getElementById('tokens_received');
             const percentageSupply = document.getElementById('percentage_supply');
 
-            // Get the values from PHP
-            const ivyInitialLiquidity = <?php echo $ivy_info[
+            // Hidden input for il_exponent
+            const ilInput = document.getElementById('il_exponent');
+            const ilButtons = Array.from(document.querySelectorAll('#il-options .il-option'));
+
+            // Base values from PHP
+            const baseIvyInitialLiquidity = <?php echo $ivy_info[
                 "ivy_initial_liquidity"
             ]; ?>;
-            const gameInitialLiquidity = <?php echo $ivy_info[
+            const baseGameInitialLiquidity = <?php echo $ivy_info[
                 "game_initial_liquidity"
             ]; ?>;
+            const ivyPrice = <?php echo isset($ivy_info["ivy_price"])
+                ? $ivy_info["ivy_price"]
+                : 0; ?>;
+
+            // Render IL option buttons with USD + IVY
+            function formatUSD(value) {
+                try {
+                    return value.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
+                } catch {
+                    return `$${value.toFixed(2)}`;
+                }
+            }
+
+            function renderILButtons() {
+                ilButtons.forEach(btn => {
+                    const exp = parseInt(btn.dataset.exp, 10);
+                    const factor = Math.pow(10, exp);
+                    const liqIVY = baseIvyInitialLiquidity * factor;
+                    const capUSD = liqIVY * ivyPrice;
+
+                    const usdEl = btn.querySelector('[data-il-usd]');
+                    const ivyEl = btn.querySelector('[data-il-ivy]');
+                    if (usdEl) usdEl.textContent = formatUSD(capUSD);
+                    if (ivyEl) ivyEl.textContent = `${Math.round(liqIVY).toLocaleString()} IVY`;
+                });
+            }
+
+            function setSelectedIL(exp) {
+                ilInput.value = String(exp);
+                ilButtons.forEach(btn => {
+                    const isActive = parseInt(btn.dataset.exp, 10) === exp;
+                    btn.classList.toggle('bg-emerald-400', isActive);
+                    btn.classList.toggle('text-emerald-950', isActive);
+                    btn.classList.toggle('font-bold', isActive);
+                    btn.classList.toggle('bg-emerald-950', !isActive);
+                    btn.classList.toggle('text-emerald-400', !isActive);
+                });
+                updateTokenCalculation();
+            }
+
+            ilButtons.forEach(btn => {
+                btn.addEventListener('click', () => setSelectedIL(parseInt(btn.dataset.exp, 10)));
+            });
 
             // Update calculation when input changes
             initialPurchaseInput.addEventListener('input', updateTokenCalculation);
             initialPurchaseInput.addEventListener('change', updateTokenCalculation);
 
             function updateTokenCalculation() {
+                const exp = parseInt(ilInput.value || '0', 10);
+                const scale = Math.pow(10, exp);
+
+                const ivyInitialLiquidity = baseIvyInitialLiquidity * scale;
+                const gameInitialLiquidity = baseGameInitialLiquidity * scale;
+
                 const purchaseAmount = parseFloat(initialPurchaseInput.value) || 0;
 
                 // Calculate tokens received using the formula
@@ -404,7 +496,10 @@ require_once __DIR__ . "/../includes/header.php";
                 percentageSupply.textContent = percentage.toFixed(2) + '%';
             }
 
-            // Initial calculation
+            // Initialize
+            renderILButtons();
+            const initialExp = parseInt(ilInput.value || '0', 10);
+            setSelectedIL(initialExp);
             updateTokenCalculation();
         });
     </script>

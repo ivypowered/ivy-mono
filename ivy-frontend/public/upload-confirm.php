@@ -15,6 +15,7 @@ $game_seed = "";
 $game_name = $game_symbol = $game_url = "";
 $game_address = $icon_url = $cover_url = $metadata_url = "";
 $ivy_purchase = $min_game_received = "";
+$il_exponent = "0";
 $transaction_data = [];
 
 // Check if the required GET params are present
@@ -28,6 +29,7 @@ $required_params = [
     "metadata_url",
     "ivy_purchase",
     "min_game_received",
+    "il_exponent",
 ];
 
 foreach ($required_params as $param) {
@@ -48,38 +50,52 @@ if (empty($errors)) {
     $metadata_url = $_GET["metadata_url"];
     $ivy_purchase = $_GET["ivy_purchase"];
     $min_game_received = $_GET["min_game_received"];
+    $il_exponent = $_GET["il_exponent"];
 
-    try {
-        // Create the game
-        $game_data = [
-            "seed" => $game_seed,
-            "name" => $game_name,
-            "symbol" => $game_symbol,
-            "icon_url" => $icon_url,
-            "game_url" => $game_url,
-            "cover_url" => $cover_url,
-            "metadata_url" => $metadata_url,
-            "ivy_purchase" => $ivy_purchase,
-            "min_game_received" => $min_game_received,
-        ];
+    // Validate il_exponent again (defensive)
+    $il_exponent_int = intval($il_exponent);
+    if ($il_exponent_int < 0 || $il_exponent_int > 2) {
+        $errors[] = "Invalid initial market cap selection";
+    }
 
-        $game_response = call_backend("/tx/game/create", "POST", $game_data);
+    if (empty($errors)) {
+        try {
+            // Create the game
+            $game_data = [
+                "seed" => $game_seed,
+                "name" => $game_name,
+                "symbol" => $game_symbol,
+                "icon_url" => $icon_url,
+                "game_url" => $game_url,
+                "cover_url" => $cover_url,
+                "metadata_url" => $metadata_url,
+                "ivy_purchase" => $ivy_purchase,
+                "min_game_received" => $min_game_received,
+                "il_exponent" => strval($il_exponent_int),
+            ];
 
-        if ($game_response === null) {
-            throw new Exception("Failed to create game transaction");
+            $game_response = call_backend(
+                "/tx/game/create",
+                "POST",
+                $game_data,
+            );
+
+            if ($game_response === null) {
+                throw new Exception("Failed to create game transaction");
+            }
+
+            // Set the game address and transaction data
+            $game_address = $game_response["address"];
+            $transaction_data = [
+                "tx" => $game_response["tx"],
+                "returnUrl" => "/upload-done",
+                "returnParams" => [
+                    "gameAddress" => $game_response["address"],
+                ],
+            ];
+        } catch (Exception $e) {
+            $errors[] = "Transaction creation failed: " . $e->getMessage();
         }
-
-        // Set the game address and transaction data
-        $game_address = $game_response["address"];
-        $transaction_data = [
-            "tx" => $game_response["tx"],
-            "returnUrl" => "/upload-done",
-            "returnParams" => [
-                "gameAddress" => $game_response["address"],
-            ],
-        ];
-    } catch (Exception $e) {
-        $errors[] = "Transaction creation failed: " . $e->getMessage();
     }
 }
 

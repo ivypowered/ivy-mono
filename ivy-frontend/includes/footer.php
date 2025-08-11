@@ -97,6 +97,23 @@
                             />
                         </svg>
                     </a>
+
+                    <!-- Telegram -->
+                    <a
+                        href="https://t.me/ivypoweredofficial"
+                        aria-label="Telegram"
+                        class="text-emerald-400 hover:text-white -ml-1"
+                    >
+                        <svg class="h-6 w-6" fill="currentColor" version="1.1" viewBox="0 0 18.323 15.421" xml:space="preserve" xmlns="http://www.w3.org/2000/svg">
+                            <style type="text/css">
+                                .st0 {
+                                    fill: none;
+                                }
+                            </style>
+                            <path d="m17.152 0.12433-16.3 6.3c-1.1 0.4-1.1 1.1-0.2 1.3l4.1 1.3 1.6 4.8c0.2 0.5 0.1 0.7 0.6 0.7 0.4 0 0.6-0.2 0.8-0.4l2-2 4.2 3.1c0.8 0.4 1.3 0.2 1.5-0.7l2.8-13.1c0.3-1.1-0.4-1.7-1.1-1.3zm-2.1 3-7.8 7.1-0.3 3.3-1.6-4.8 9.2-5.8c0.4-0.3 0.8-0.1 0.5 0.2z"/>
+                            <rect class="st0" x="-2.0481" y="-4.2757" width="24" height="24"/>
+                        </svg>
+                    </a>
                 </div>
             </div>
         </div>

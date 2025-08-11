@@ -22,6 +22,8 @@ pub struct Game {
     pub game_balance: u64,
     #[serde(serialize_with = "serialize_u64_as_string")]
     pub starting_ivy_balance: u64,
+    #[serde(skip)]
+    pub starting_game_balance: u64,
     pub comment_buf_index: u64,
     #[serde(skip)]
     pub normalized_name: String,
