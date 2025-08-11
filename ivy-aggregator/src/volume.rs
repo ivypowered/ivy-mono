@@ -34,7 +34,7 @@ impl Volume {
     /// Append a new trade to the volume queue
     pub fn append(&mut self, volume: u64, timestamp: u64) {
         // normalize this timestamp to minute boundaries
-        let timestamp = (timestamp * 60) / 60;
+        let timestamp = (timestamp / 60) * 60;
         // initialize if this is our first
         if self.last_timestamp == 0 {
             self.amount = volume;
@@ -57,7 +57,7 @@ impl Volume {
             self.last_timestamp += 60;
         }
         // modify current minute with new volume
-        *self.minutes.back_mut().unwrap() = volume;
+        *self.minutes.back_mut().unwrap() += volume;
         self.amount = self.amount.saturating_add(volume);
     }
 }
