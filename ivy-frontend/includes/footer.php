@@ -83,7 +83,7 @@
 
                     <!-- Twitter -->
                     <a
-                        href="https://x.com/ivypowered_"
+                        href="https://x.com/ivypowered_com"
                         aria-label="Twitter"
                         class="text-emerald-400 hover:text-white"
                     >
