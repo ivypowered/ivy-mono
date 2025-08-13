@@ -18,6 +18,7 @@ export {
     IVY_DECIMALS,
     TEXT_ENCODER,
     getAssociatedTokenAddressSync,
+    getIvyInstructionName,
 } from "./interface";
 
 // World exports

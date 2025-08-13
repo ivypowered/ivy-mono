@@ -1,11 +1,14 @@
 import express from "express";
 import {
     AddressLookupTableAccount,
+    CompiledInstruction,
     Connection,
     Keypair,
+    MessageCompiledInstruction,
     PublicKey,
     SendTransactionError,
     Transaction,
+    TransactionInstruction,
     VersionedTransaction,
 } from "@solana/web3.js";
 import {
@@ -16,11 +19,14 @@ import {
     Auth,
     Id,
     World,
+    IVY_PROGRAM_ID,
+    getIvyInstructionName,
 } from "ivy-sdk";
 import { confirmTransaction } from "./functions/confirmTransaction";
 import {
     EVENTS_MAX_CONCURRENT_REQUESTS,
     EVENTS_USE_BATCH,
+    HELIUS_RPC_URL,
     KEYGEN_URL,
     LISTEN_PORT,
     PINATA_GATEWAY,
@@ -34,11 +40,7 @@ import {
     parsePublicKey,
     validateRequestBody,
 } from "./utils/requestHelpers";
-import {
-    createAndUploadMetadata,
-    getReasonablePriorityFee,
-    uploadImageToIPFS,
-} from "./util";
+import { createAndUploadMetadata, uploadImageToIPFS } from "./util";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import {
     AccountLayout,
@@ -47,6 +49,7 @@ import {
     TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { getEffects } from "./functions/getEffects";
+import { PriorityFee } from "./priority-fee";
 
 // --- Setup ---
 const app = express();
@@ -61,11 +64,6 @@ const cache = {
         f: () => connection.getSlot(),
         updateInterval: 2,
         expiryInterval: 5,
-    }),
-    fee: new Cache({
-        f: () => getReasonablePriorityFee(connection),
-        updateInterval: 60,
-        expiryInterval: 120,
     }),
     worldAlt: new Cache({
         f: async () => {
@@ -85,18 +83,13 @@ const cache = {
         expiryInterval: Number.MAX_SAFE_INTEGER,
     }),
 };
-
-// Fetching the fee takes a long time
-// (we fetch 1,000 txs, so it makes sense)
-// So, to make things easier for end users,
-// we refresh it every 60 seconds
-{
-    // Trigger 1st refresh, trying twice on error
-    // prettier-ignore
-    cache.fee.get().catch((_) => cache.fee.get().catch(_ => cache.fee.get().catch(_ => {})));
-
-    // Periodically refresh the reasonable priority fee
-    setInterval(() => cache.fee.get(), 60_000);
+// The priority fee service. We don't use this on localhost :)
+const priorityFeeService: PriorityFee | null = HELIUS_RPC_URL
+    ? new PriorityFee(HELIUS_RPC_URL)
+    : null;
+if (priorityFeeService) {
+    // start priority fee background task
+    priorityFeeService.run();
 }
 
 // --- Middleware ---
@@ -123,6 +116,7 @@ app.use((req, res, next) => {
 
 // --- Helper Functions ---
 interface PreparedTransaction {
+    insName: string;
     base64: string;
     feePayer: string;
     derived: {
@@ -133,6 +127,7 @@ interface PreparedTransaction {
 
 const NULL_BLOCKHASH: string = PublicKey.default.toBase58();
 function prepareTransaction(
+    insName: string,
     tx: Transaction | VersionedTransaction,
     feePayer: PublicKey | Keypair,
     derived?: {
@@ -163,6 +158,7 @@ function prepareTransaction(
     }
 
     return {
+        insName,
         base64: txData.toString("base64"),
         // The client will replace this with its own
         // public key :)
@@ -328,7 +324,7 @@ app.post(
 
         const game = Game.deriveAddress(seed);
         const { mint } = Game.deriveAddresses(game);
-        const prepared = prepareTransaction(tx, user_wallet, [
+        const prepared = prepareTransaction("GameCreate", tx, user_wallet, [
             // src
             {
                 seeds: [user_wallet.publicKey, TOKEN_PROGRAM_ID, IVY_MINT],
@@ -383,7 +379,7 @@ app.post(
             data.metadata_url,
         );
 
-        const prepared = prepareTransaction(tx, owner_address);
+        const prepared = prepareTransaction("GameCreate", tx, owner_address);
 
         return res.status(200).json({
             status: "ok",
@@ -411,7 +407,7 @@ app.post(
             user_public_key,
         );
 
-        const prepared = prepareTransaction(tx, user_public_key);
+        const prepared = prepareTransaction("GameDebit", tx, user_public_key);
 
         return res.status(200).json({
             status: "ok",
@@ -464,7 +460,11 @@ app.post(
             signature_bytes,
         );
 
-        const prepared = prepareTransaction(tx, user_public_key);
+        const prepared = prepareTransaction(
+            "GameWithdrawClaim",
+            tx,
+            user_public_key,
+        );
 
         return res.status(200).json({
             status: "ok",
@@ -494,7 +494,7 @@ app.post(
         );
 
         const { mint } = Game.deriveAddresses(game_public_key);
-        const prepared = prepareTransaction(tx, user, [
+        const prepared = prepareTransaction("GameDepositComplete", tx, user, [
             {
                 // user source ATA
                 seeds: [user, TOKEN_PROGRAM_ID, mint],
@@ -530,7 +530,7 @@ app.post(
         );
 
         const { mint } = Game.deriveAddresses(game_public_key);
-        const prepared = prepareTransaction(tx, user, [
+        const prepared = prepareTransaction("GameBurnComplete", tx, user, [
             {
                 // user source ATA
                 seeds: [user, TOKEN_PROGRAM_ID, mint],
@@ -659,14 +659,66 @@ app.post(
             { name: "tx_base64", type: "string" },
         ]);
 
+        const txBase64: string = data.tx_base64;
+        const txBytes = Buffer.from(txBase64, "base64");
+
+        let tx: Transaction | VersionedTransaction;
+        try {
+            tx = VersionedTransaction.deserialize(txBytes);
+        } catch (_) {
+            tx = Transaction.from(txBytes);
+        }
+        let insData: Uint8Array;
+        if (tx instanceof Transaction) {
+            let ivyInstruction: TransactionInstruction | null = null;
+            for (const ins of tx.instructions) {
+                if (ins.programId.equals(IVY_PROGRAM_ID)) {
+                    ivyInstruction = ins;
+                    break;
+                }
+            }
+            if (!ivyInstruction) {
+                throw new Error(
+                    "could not find Ivy program in given instructions",
+                );
+            }
+            insData = ivyInstruction.data as Uint8Array;
+        } else {
+            const ivyIndex = tx.message.staticAccountKeys.findIndex((x) =>
+                x.equals(IVY_PROGRAM_ID),
+            );
+            if (ivyIndex < 0) {
+                throw new Error("can't find Ivy program in given transaction");
+            }
+            let ivyInstruction: MessageCompiledInstruction | null = null;
+            for (const ins of tx.message.compiledInstructions) {
+                if (ins.programIdIndex === ivyIndex) {
+                    ivyInstruction = ins;
+                    break;
+                }
+            }
+            if (!ivyInstruction) {
+                throw new Error("can't find Ivy instruction");
+            }
+            insData = ivyInstruction.data;
+        }
+        const insName = getIvyInstructionName(insData);
+        if (!insName) {
+            throw new Error(
+                "can't deserialize Ivy instruction name: " +
+                    JSON.stringify(Array.from(insData)),
+            );
+        }
+        if (priorityFeeService) {
+            // give data to priority fee service
+            priorityFeeService.provide(insName, txBase64);
+        }
+
         let signature: string;
         try {
-            signature = await connection.sendEncodedTransaction(
-                data.tx_base64,
-                {
-                    preflightCommitment: connection.commitment,
-                },
-            );
+            signature = await connection.sendEncodedTransaction(txBase64, {
+                preflightCommitment: connection.commitment,
+            });
         } catch (e) {
             if (!(e instanceof SendTransactionError)) {
                 throw new Error("can't send tx: " + String(e));
@@ -870,11 +922,12 @@ app.post(
 
 // Get blockchain context to help craft transactions :)
 app.get(
-    "/ctx",
+    "/ctx/:insName",
     handleAsync(async (req, res) => {
+        const { insName } = req.params;
         const [glb, reasonablePriorityFee] = await Promise.all([
             cache.blockhash.get(),
-            cache.fee.get(),
+            priorityFeeService?.getFor(insName) || 1_000,
         ]);
         return res.status(200).json({
             status: "ok",

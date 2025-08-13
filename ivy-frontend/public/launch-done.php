@@ -1,4 +1,9 @@
 <?php
+/**
+ * ivy-frontend/public/launch-done.php
+ * Handles gamecoin launch completion and result display.
+ */
+
 if ($_SERVER["REQUEST_METHOD"] !== "GET") {
     header("Location: upload");
     exit();
@@ -23,9 +28,8 @@ if ($status === "success") {
 } else {
     $upload_result = "failed";
 }
-$title = "ivy | upload $upload_result";
-$description =
-    "View the results of your game upload on Ivy: the gamecoin launchpad";
+$title = "ivy | launch $upload_result";
+$description = "View the results of your gamecoin launch on Ivy";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
@@ -39,8 +43,8 @@ require_once __DIR__ . "/../includes/header.php";
                         "h-12 w-12 text-emerald-400",
                     ); ?>
                 </div>
-                <h1 class="text-3xl font-bold mb-2">Game Upload Successful</h1>
-                <p class="text-xl mb-8">Your game has been registered on Ivy</p>
+                <h1 class="text-3xl font-bold mb-2">Launch Successful</h1>
+                <p class="text-xl mb-8">Your gamecoin has been launched on Ivy</p>
             </div>
 
             <div class="border-4 border-emerald-400 p-6 mb-8">
@@ -76,12 +80,12 @@ require_once __DIR__ . "/../includes/header.php";
 
                 <div class="mt-6 bg-emerald-950/50 p-4 border border-emerald-400/50">
                     <h3 class="font-bold mb-2">What happens next?</h3>
-                    <p>Your game is now registered on the Solana blockchain and will be available on Ivy.</p>
+                    <p>Your gamecoin is now launched on the Solana blockchain and will be available on Ivy.</p>
                 </div>
             </div>
 
             <div class="flex justify-center space-x-4">
-                <a href="/game?address=<?php echo $game_address; ?>" class="border-2 border-emerald-400 px-6 py-3 font-bold hover:bg-emerald-400/20">Go to Dashboard</a>
+                <a href="/gamecoin?address=<?php echo $game_address; ?>" class="border-2 border-emerald-400 px-6 py-3 font-bold hover:bg-emerald-400/20">Go to Dashboard</a>
             </div>
 
         <?php else: ?>
@@ -89,8 +93,8 @@ require_once __DIR__ . "/../includes/header.php";
                 <div class="inline-flex items-center justify-center w-20 h-20 bg-red-400/20 rounded-full mb-4">
                     <?php echo icon("circle-x", "h-12 w-12 text-red-400"); ?>
                 </div>
-                <h1 class="text-3xl font-bold mb-2">Game Upload Failed</h1>
-                <p class="text-xl mb-8">We couldn't complete your game upload</p>
+                <h1 class="text-3xl font-bold mb-2">Launch Failed</h1>
+                <p class="text-xl mb-8">We couldn't complete your gamecoin launch</p>
             </div>
 
             <div class="border-4 border-red-400 p-6 mb-8">
@@ -108,9 +112,9 @@ require_once __DIR__ . "/../includes/header.php";
                 <div class="bg-neutral-900/50 p-4">
                     <h3 class="font-bold mb-2">What to do next?</h3>
                     <ul class="list-disc ml-5 space-y-1">
-                        <li>Check your wallet's SOL balance</li>
+                        <li>Ensure your wallet has at least 0.04 SOL for network fees</li>
                         <li>Make sure your wallet is properly connected</li>
-                        <li>Try uploading your game again</li>
+                        <li>Try launching your gamecoin again</li>
                     </ul>
                 </div>
             </div>

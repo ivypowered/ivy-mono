@@ -420,6 +420,7 @@ export function SwapProvider({
                     outputRaw = res.outputRaw;
                 };
                 const signature = await processTransaction(
+                    quote.insName,
                     quote.getTransaction(),
                     user,
                     signTransaction,

@@ -403,6 +403,7 @@ export function Comments({
             const userPublicKey = new PublicKey(userAddress);
 
             await processTransaction(
+                "CommentPost",
                 Comment.post(
                     userPublicKey,
                     gamePublicKey,

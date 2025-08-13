@@ -80,22 +80,30 @@ export function infinitely<T>(
         attempt(initialDelayMs);
     });
 }
-
 export const PROCESS_TRANSACTION_RETRIEVING = 0;
 export const PROCESS_TRANSACTION_SIGNING = 1;
 export const PROCESS_TRANSACTION_SENDING = 2;
 export const PROCESS_TRANSACTION_CONFIRMING = 3;
 
+function pushU64LE(target: number[], value: number) {
+    for (let i = 0; i < 8; i++) {
+        target.push(value & 0xff);
+        value = Math.floor(value / 256); // safe shr by 8
+    }
+}
+
 /**
  * Process an unsigned transaction by applying the priority fee,
  * signing it, submitting it to the blockchain, and confirming it.
  *
+ * @param insName The Ivy instruction name that's being invoked
  * @param tx The `Transaction`, `VersionedTransaction`, `Promise<Transaction>`, or `Promise<VersionedTransaction>` to complete.
  * @param user The fee payer for this transaction (only applied if `tx` is a `Transaction` or `Promise<Transaction>`).
  * @param signTransaction The original `signTransaction` method provided by the wallet object.
  * @param onStatus A callback, will be called with the `PROCESS_TRANSACTION_*` constants when the status changes.
  */
 export async function processTransaction(
+    insName: string,
     tx:
         | Transaction
         | VersionedTransaction
@@ -112,7 +120,7 @@ export async function processTransaction(
 ): Promise<string> {
     // 1) Fetch both the context and the transaction
     onStatus(PROCESS_TRANSACTION_RETRIEVING);
-    const ctxPromise = Api.getContext();
+    const ctxPromise = Api.getContext(insName);
     let ctx: Context;
     if (tx instanceof Promise) {
         [ctx, tx] = await Promise.all([ctxPromise, tx]);
@@ -133,6 +141,10 @@ export async function processTransaction(
                 ins.data[0] === 3 // SetComputeUnitPrice
             ) {
                 existingBudgetIx = true;
+                // Update the existing instruction with the new priority fee
+                const data = [3]; // SetComputeUnitPrice
+                pushU64LE(data, ctx.reasonablePriorityFee);
+                ins.data = Buffer.from(data);
                 break;
             }
         }
@@ -156,6 +168,10 @@ export async function processTransaction(
                     ins.data[0] === 3 // SetComputeUnitPrice
                 ) {
                     existingBudgetIx = true;
+                    // Update the existing instruction with the new priority fee
+                    const data = [3]; // SetComputeUnitPrice
+                    pushU64LE(data, ctx.reasonablePriorityFee);
+                    ins.data = Uint8Array.from(data);
                     break;
                 }
             }
@@ -187,11 +203,7 @@ export async function processTransaction(
 
             // Construct compute budget program data
             const data = [3]; // SetComputeUnitPrice
-            let price = ctx.reasonablePriorityFee;
-            for (let i = 0; i < 8; i++) {
-                data.push(price & 0xff);
-                price = Math.floor(price / 256); // safe shr by 8
-            }
+            pushU64LE(data, ctx.reasonablePriorityFee);
 
             // Add SetComputeUnitPrice instruction
             tx.message.compiledInstructions.unshift({

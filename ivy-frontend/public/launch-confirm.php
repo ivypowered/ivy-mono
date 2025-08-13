@@ -1,8 +1,7 @@
 <?php
 /**
- * ivy-frontend/public/upload-confirm.php
- *
- * Handles game upload confirmation and transaction creation.
+ * ivy-frontend/public/launch-confirm.php
+ * Handles gamecoin launch confirmation and transaction creation.
  */
 
 require_once __DIR__ . "/../includes/api.php";
@@ -10,7 +9,7 @@ require_once __DIR__ . "/../includes/api.php";
 // Initialize error array
 $errors = [];
 
-// Variables that will store the game data
+// Variables that will store the gamecoin data
 $game_seed = "";
 $game_name = $game_symbol = $game_url = "";
 $game_address = $icon_url = $cover_url = $metadata_url = "";
@@ -60,7 +59,7 @@ if (empty($errors)) {
 
     if (empty($errors)) {
         try {
-            // Create the game
+            // Create the gamecoin
             $game_data = [
                 "seed" => $game_seed,
                 "name" => $game_name,
@@ -81,10 +80,10 @@ if (empty($errors)) {
             );
 
             if ($game_response === null) {
-                throw new Exception("Failed to create game transaction");
+                throw new Exception("Failed to create gamecoin transaction");
             }
 
-            // Set the game address and transaction data
+            // Set the gamecoin address and transaction data
             $game_address = $game_response["address"];
             $transaction_data = [
                 "tx" => $game_response["tx"],
@@ -99,15 +98,15 @@ if (empty($errors)) {
     }
 }
 
-$title = "ivy | upload confirmation";
-$description = "Confirm the upload of your game on Ivy: the gamecoin launchpad";
+$title = "ivy | launch confirmation";
+$description = "Confirm the upload of your gamecoin on Ivy";
 require_once __DIR__ . "/../includes/header.php";
 ?>
 
 <main class="py-8">
     <div class="mx-auto max-w-3xl px-6">
         <!-- Confirmation Page -->
-        <h1 class="text-3xl font-bold mb-8 text-center">Confirm Game Upload</h1>
+        <h1 class="text-3xl font-bold mb-8 text-center">Confirm Launch</h1>
 
         <?php if (!empty($errors)): ?>
             <div class="border-2 border-red-400 bg-red-950/50 p-4 mb-8">
@@ -122,25 +121,25 @@ require_once __DIR__ . "/../includes/header.php";
             </div>
         <?php else: ?>
             <div class="border-2 border-emerald-400 bg-zinc-900">
-                <!-- Game Cover Art -->
+                <!-- Gamecoin Cover Art -->
                 <div class="border-b-2 border-emerald-400">
                     <img src="<?= htmlspecialchars($cover_url) ?>"
-                         alt="Game cover"
+                         alt="Gamecoin cover"
                          class="w-full max-h-[400px] object-cover">
                 </div>
 
-                <!-- Game Details -->
+                <!-- Gamecoin Details -->
                 <div class="p-4 flex flex-col gap-4">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
-                            <!-- Game Icon -->
+                            <!-- Gamecoin Icon -->
                             <div class="w-12 h-12 border-2 border-emerald-400 flex items-center justify-center bg-emerald-950">
                                 <img src="<?= htmlspecialchars(
                                     $icon_url,
-                                ) ?>" alt="Game icon" class="w-full h-full object-cover">
+                                ) ?>" alt="Gamecoin icon" class="w-full h-full object-cover">
                             </div>
 
-                            <!-- Game Name and Symbol -->
+                            <!-- Gamecoin Name and Symbol -->
                             <div>
                                 <h1 class="text-2xl font-bold text-white"><?= htmlspecialchars(
                                     $game_name,
@@ -187,9 +186,9 @@ require_once __DIR__ . "/../includes/header.php";
                     </div>
                     <?php endif; ?>
 
-                    <!-- Game Address -->
+                    <!-- Gamecoin Address -->
                     <div>
-                        <div class="text-xs uppercase text-zinc-500 mb-1">Game Address</div>
+                        <div class="text-xs uppercase text-zinc-500 mb-1">Gamecoin Address</div>
                         <div class="font-mono text-sm text-zinc-300 bg-zinc-800 p-2 border border-zinc-700 overflow-x-auto">
                             <?= htmlspecialchars($game_address) ?>
                         </div>

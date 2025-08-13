@@ -246,6 +246,7 @@ export async function fetchBuyQuote(
             output: outputRaw / Math.pow(10, GAME_DECIMALS),
             outputUSD: quoteData.output_amount_usd,
             minOutput: minOutputRaw / Math.pow(10, GAME_DECIMALS),
+            insName: "",
             getTransaction: () => {
                 throw new Error("Execution Unimplemented");
             },
@@ -275,6 +276,7 @@ export async function fetchBuyQuote(
             output: gameOutputRaw / Math.pow(10, GAME_DECIMALS),
             outputUSD: gameQuote.output_amount_usd,
             minOutput: minOutputRaw / Math.pow(10, GAME_DECIMALS),
+            insName: "",
             getTransaction: () => {
                 throw new Error("Execution Unimplemented");
             },
@@ -313,6 +315,7 @@ export async function fetchBuyQuote(
         output: gameOutputRaw / Math.pow(10, GAME_DECIMALS),
         outputUSD: gameQuote.output_amount_usd,
         minOutput: minOutputRaw / Math.pow(10, GAME_DECIMALS),
+        insName: "",
         getTransaction: () => {
             throw new Error("Execution Unimplemented");
         },
@@ -351,6 +354,7 @@ export async function fetchSellQuote(
             output: outputRaw / Math.pow(10, outputDecimals),
             outputUSD: quoteData.output_amount_usd,
             minOutput: minOutputRaw / Math.pow(10, outputDecimals),
+            insName: "",
             getTransaction: () => {
                 throw new Error("Execution Unimplemented");
             },
@@ -377,6 +381,7 @@ export async function fetchSellQuote(
             output: usdcOutputRaw / Math.pow(10, outputDecimals),
             outputUSD: usdcQuote.output_amount_usd,
             minOutput: minOutputRaw / Math.pow(10, outputDecimals),
+            insName: "",
             getTransaction: () => {
                 throw new Error("Execution Unimplemented");
             },
@@ -418,6 +423,7 @@ export async function fetchSellQuote(
         output: finalOutputRaw / Math.pow(10, outputDecimals),
         outputUSD: outputUSD,
         minOutput: minOutputRaw / Math.pow(10, outputDecimals),
+        insName: "",
         getTransaction: () => {
             throw new Error("Execution Unimplemented");
         },
@@ -457,6 +463,7 @@ export async function fetchBuyIvyQuote(
             output: outputRaw / Math.pow(10, 9), // IVY decimals is 9
             outputUSD: ivyQuote.output_amount_usd,
             minOutput: minOutputRaw / Math.pow(10, 9),
+            insName: "",
             getTransaction: () => {
                 throw new Error("Execution Unimplemented");
             },
@@ -493,6 +500,7 @@ export async function fetchBuyIvyQuote(
             output: outputRaw / Math.pow(10, 9), // IVY decimals is 9
             outputUSD: ivyQuote.output_amount_usd,
             minOutput: minOutputRaw / Math.pow(10, 9),
+            insName: "",
             getTransaction: () => {
                 throw new Error("Execution Unimplemented");
             },
@@ -531,6 +539,7 @@ export async function fetchSellIvyQuote(
             output: outputRaw / Math.pow(10, outputDecimals),
             outputUSD: usdcQuote.output_amount_usd,
             minOutput: minOutputRaw / Math.pow(10, outputDecimals),
+            insName: "",
             getTransaction: () => {
                 throw new Error("Execution Unimplemented");
             },
@@ -568,6 +577,7 @@ export async function fetchSellIvyQuote(
             output: finalOutputRaw / Math.pow(10, outputDecimals),
             outputUSD: outputUSD,
             minOutput: minOutputRaw / Math.pow(10, outputDecimals),
+            insName: "",
             getTransaction: () => {
                 throw new Error("Execution Unimplemented");
             },

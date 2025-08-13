@@ -4,12 +4,7 @@ import {
     PublicKey,
     Transaction,
 } from "@solana/web3.js";
-import {
-    LISTEN_PORT,
-    MAX_UPLOAD_LENGTH,
-    PRIORITY_FEE_URL,
-    RPC_URL,
-} from "./constants";
+import { LISTEN_PORT, MAX_UPLOAD_LENGTH } from "./constants";
 import { PinataSDK } from "pinata";
 import { PINATA_JWT, PINATA_GATEWAY, MAX_UPLOAD_B64_LENGTH } from "./constants";
 import * as fs from "fs";
@@ -149,69 +144,4 @@ export async function createAndUploadMetadata(
         // Upload to ./tmp directory (we're in debug mode)
         return await saveToTmp(metadata, "json");
     }
-}
-
-/** Get a reasonable priority fee in micro-lamports. */
-const JUPITER_AGGREGATOR_V6 = new PublicKey(
-    "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
-);
-const MAX_PRIORITY_FEE = 999999;
-export async function getReasonablePriorityFee(
-    connection: Connection,
-): Promise<number> {
-    if (PRIORITY_FEE_URL) {
-        // Call priority fee microservice instead
-        // We do this because in production, this function
-        // takes so long that it stalls the entire server
-        // and prevents other backend requests from being
-        // processed (javascript, am I right!!!!)
-        const response = await (await fetch(PRIORITY_FEE_URL)).json();
-        if (
-            typeof response !== "object" ||
-            typeof response.reasonablePriorityFee !== "number"
-        ) {
-            throw new Error(
-                `invalid response from priority fee svc: ${response}`,
-            );
-        }
-        return response.reasonablePriorityFee;
-    }
-    // Retrieve last 1,000 confirmed Jupiter transactions
-    const signatures = (
-        await connection.getSignaturesForAddress(
-            JUPITER_AGGREGATOR_V6,
-            {
-                limit: 1_000,
-            },
-            "confirmed",
-        )
-    ).map((x) => x.signature);
-    const transactions = (
-        await connection.getTransactions(signatures, {
-            maxSupportedTransactionVersion: 0,
-        })
-    ).filter((x) => !!x);
-
-    // Calculate the priority fee in micro-lamports for each one
-    const priorityFees = transactions.map((tx) => {
-        // fee_lamports = (5000 * n_signatures) + (budget * (priority_fee_micro_lamports / 1_000_000))
-        // priority_fee_micro_lamports = ((fee_lamports - (5000 * n_signatures)) / budget) * 1_000_000
-        // (we fudge this slightly by assuming consumption = budget, not true in many cases)
-        return Math.floor(
-            (((tx.meta?.fee || 0) - 5000 * tx.transaction.signatures.length) /
-                (tx.meta?.computeUnitsConsumed || 0)) *
-                1_000_000,
-        );
-    });
-
-    // Take the 1st tertile
-    if (priorityFees.length === 0) {
-        return 0;
-    }
-    priorityFees.sort((a, b) => a - b);
-    const reasonablePriorityFee =
-        priorityFees[Math.floor(priorityFees.length / 3)];
-
-    // Cap final result as a safety measure
-    return Math.min(MAX_PRIORITY_FEE, reasonablePriorityFee);
 }

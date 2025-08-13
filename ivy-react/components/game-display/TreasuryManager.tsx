@@ -100,12 +100,14 @@ export function TreasuryManager({
             }
 
             let txPromise: Promise<Transaction>;
+            let insName: string;
             if (activeAction === "withdraw") {
                 if (treasuryBalance !== null && amount > treasuryBalance) {
                     throw new Error("Amount exceeds treasury balance");
                 }
 
                 // withdraw
+                insName = "GameDebit";
                 txPromise = Game.debit(
                     new PublicKey(game.address),
                     String(Math.floor(amount * 1_000_000_000)),
@@ -117,6 +119,7 @@ export function TreasuryManager({
                 }
 
                 // deposit
+                insName = "GameCredit";
                 txPromise = Game.credit(
                     new PublicKey(game.address),
                     String(Math.floor(amount * 1_000_000_000)),
@@ -125,6 +128,7 @@ export function TreasuryManager({
             }
 
             await processTransaction(
+                insName,
                 txPromise,
                 new PublicKey(userAddress),
                 signTransaction,

@@ -102,7 +102,7 @@ header("Content-Type: text/html; charset=UTF-8");
                     <span id="menu-icon"><?= icon("menu", "h-6 w-6") ?></span>
                     <span id="close-icon" class="hidden"><?= icon(
                         "x",
-                        "h-6 w-6"
+                        "h-6 w-6",
                     ) ?></span>
                 </button>
             </div>
@@ -131,7 +131,7 @@ header("Content-Type: text/html; charset=UTF-8");
                 <div class="relative">
                     <?= icon(
                         "search",
-                        "absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-950 pointer-events-none"
+                        "absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-950 pointer-events-none",
                     ) ?>
                     <form action="/search" method="GET" class="m-0 p-0">
                         <input type="search" name="q" placeholder="search games..." class="h-10 w-64 rounded-none border-2 border-emerald-400 bg-emerald-50 pl-8 text-sm font-bold text-emerald-950 placeholder:text-emerald-900/70 focus:outline-none focus:ring-0 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none">
@@ -142,9 +142,9 @@ header("Content-Type: text/html; charset=UTF-8");
                         <?= icon("link", "h-5 w-5") ?>
                     </button>
                 </div>
-                <a href="/upload" class="rounded-none bg-emerald-400 text-emerald-950 hover:bg-emerald-300 font-bold px-4 py-2 flex items-center gap-2 text-sm h-10">
-                    <?= icon("upload", "h-4 w-4") ?>
-                    <span>upload game</span>
+                <a href="/launch" class="rounded-none bg-emerald-400 text-emerald-950 hover:bg-emerald-300 font-bold px-4 py-2 flex items-center gap-2 text-sm h-10">
+                    <?= icon("rocket", "h-4 w-4") ?>
+                    <span>launch gamecoin</span>
                 </a>
             </div>
 
@@ -173,7 +173,7 @@ header("Content-Type: text/html; charset=UTF-8");
                     <div class="relative w-full">
                         <?= icon(
                             "search",
-                            "absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-950 pointer-events-none"
+                            "absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-950 pointer-events-none",
                         ) ?>
                         <form action="/search" method="GET" class="m-0 p-0">
                             <input type="search" name="q" placeholder="search games..." class="h-12 w-full rounded-none border-2 border-emerald-400 bg-emerald-50 pl-10 text-sm font-bold text-emerald-950 placeholder:text-emerald-900/70 focus:outline-none focus:ring-0 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none">

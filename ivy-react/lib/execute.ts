@@ -25,6 +25,11 @@ import {
 } from "@/import/ivy-sdk";
 import { Jup, JupiterQuoteResponse } from "./jup";
 
+export type ExecuteResponse = {
+    insName: string;
+    getTx: () => Promise<Transaction | VersionedTransaction>;
+};
+
 /**
  * Converts an amount to raw value based on decimals
  */
@@ -149,13 +154,13 @@ async function getPatchedJupiterTransaction(
 }
 
 // How many additional compute units we think Ivy consumes:
-const IVY_CU_ESTIMATE_ONLY = 100_000; // just Ivy LP
+const IVY_CU_ESTIMATE_ONLY = 80_000; // just Ivy LP
 const IVY_CU_ESTIMATE_WITH_GAME = 160_000; // both Ivy LP + Game LP
 
 /**
  * Creates a transaction to buy a specific GAME token using various input tokens
  */
-export async function createBuyTransaction(
+export function createBuyTransaction(
     gameSwapAlt: PublicKey,
     user: PublicKey,
     game: PublicKey,
@@ -164,18 +169,24 @@ export async function createBuyTransaction(
     inputDecimals: number,
     minOutput: number,
     jupQuoteResponse: JupiterQuoteResponse | null,
-): Promise<Transaction | VersionedTransaction> {
+): ExecuteResponse {
     const inputRaw = toRaw(input, inputDecimals);
     const minOutputRaw = toRaw(minOutput, GAME_DECIMALS);
 
     // Case 1: IVY -> GAME (direct swap)
     if (inputToken.equals(IVY_MINT)) {
-        return await Game.swap(game, inputRaw, minOutputRaw, true, user);
+        return {
+            insName: "GameSwap",
+            getTx: () => Game.swap(game, inputRaw, minOutputRaw, true, user),
+        };
     }
 
     // Case 2: USDC -> IVY -> GAME
     if (inputToken.equals(USDC_MINT)) {
-        return await Mix.usdcToGame(game, inputRaw, minOutputRaw, user);
+        return {
+            insName: "MixUsdcToGame",
+            getTx: () => Mix.usdcToGame(game, inputRaw, minOutputRaw, user),
+        };
     }
 
     // Case 3: * -> USDC -> IVY -> GAME (via Jupiter for first hop)
@@ -185,28 +196,33 @@ export async function createBuyTransaction(
         );
     }
 
-    return getPatchedJupiterTransaction(
-        gameSwapAlt,
-        user, // Jupiter leg is from user's input token -> USDC
-        jupQuoteResponse,
-        (jupInstruction) =>
-            Mix.anyToGame(
-                game,
-                minOutputRaw,
-                user,
-                jupInstruction.keys,
-                jupInstruction.data,
-            ).then((tx) => tx.instructions),
-        IVY_CU_ESTIMATE_WITH_GAME,
-        () => {},
-        false, // don't need world ALT, already have game swap ALT
-    );
+    const getTx = () =>
+        getPatchedJupiterTransaction(
+            gameSwapAlt,
+            user, // Jupiter leg is from user's input token -> USDC
+            jupQuoteResponse,
+            (jupInstruction) =>
+                Mix.anyToGame(
+                    game,
+                    minOutputRaw,
+                    user,
+                    jupInstruction.keys,
+                    jupInstruction.data,
+                ).then((tx) => tx.instructions),
+            IVY_CU_ESTIMATE_WITH_GAME,
+            () => {},
+            false, // don't need world ALT, already have game swap ALT
+        );
+    return {
+        insName: "MixAnyToGame",
+        getTx,
+    };
 }
 
 /**
  * Creates a transaction to sell a specific GAME token
  */
-export async function createSellTransaction(
+export function createSellTransaction(
     gameSwapAlt: PublicKey,
     user: PublicKey,
     game: PublicKey,
@@ -216,18 +232,24 @@ export async function createSellTransaction(
     outputDecimals: number,
     jupQuoteResponse: JupiterQuoteResponse | null,
     transformMessage: (msg: TransactionMessage) => void,
-): Promise<Transaction | VersionedTransaction> {
+): ExecuteResponse {
     const inputRaw = toRaw(input, GAME_DECIMALS);
     const minOutputRaw = toRaw(minOutput, outputDecimals);
 
     // Case 1: GAME -> IVY (direct swap)
     if (outputToken.equals(IVY_MINT)) {
-        return await Game.swap(game, inputRaw, minOutputRaw, false, user);
+        return {
+            insName: "GameSwap",
+            getTx: () => Game.swap(game, inputRaw, minOutputRaw, false, user),
+        };
     }
 
     // Case 2: GAME -> IVY -> USDC
     if (outputToken.equals(USDC_MINT)) {
-        return await Mix.gameToUsdc(game, inputRaw, minOutputRaw, user);
+        return {
+            insName: "MixGameToUsdc",
+            getTx: () => Mix.gameToUsdc(game, inputRaw, minOutputRaw, user),
+        };
     }
 
     // Case 3: GAME -> IVY -> USDC -> * (via Jupiter for last hop)
@@ -237,41 +259,49 @@ export async function createSellTransaction(
         );
     }
 
-    return getPatchedJupiterTransaction(
-        gameSwapAlt,
-        BIG_USDC_HOLDER, // Build Jupiter leg (USDC -> *) against the big holder, then transform to user
-        jupQuoteResponse,
-        (jupInstruction) =>
-            Mix.gameToAny(
-                game,
-                inputRaw,
-                user,
-                jupInstruction.keys,
-                jupInstruction.data,
-            ).then((tx) => tx.instructions),
-        IVY_CU_ESTIMATE_WITH_GAME,
-        transformMessage,
-        false, // don't need world ALT, already have game swap ALT
-    );
+    const getTx = () =>
+        getPatchedJupiterTransaction(
+            gameSwapAlt,
+            BIG_USDC_HOLDER, // Build Jupiter leg (USDC -> *) against the big holder, then transform to user
+            jupQuoteResponse,
+            (jupInstruction) =>
+                Mix.gameToAny(
+                    game,
+                    inputRaw,
+                    user,
+                    jupInstruction.keys,
+                    jupInstruction.data,
+                ).then((tx) => tx.instructions),
+            IVY_CU_ESTIMATE_WITH_GAME,
+            transformMessage,
+            false, // don't need world ALT, already have game swap ALT
+        );
+    return {
+        insName: "MixGameToAny",
+        getTx,
+    };
 }
 
 /**
  * Creates a transaction to buy IVY token using various input tokens
  */
-export async function createBuyIvyTransaction(
+export function createBuyIvyTransaction(
     user: PublicKey,
     inputToken: PublicKey,
     input: number,
     inputDecimals: number,
     minOutput: number,
     jupQuoteResponse: JupiterQuoteResponse | null,
-): Promise<Transaction | VersionedTransaction> {
+): ExecuteResponse {
     const inputRaw = toRaw(input, inputDecimals);
     const minOutputRaw = toRaw(minOutput, IVY_DECIMALS);
 
     // Case 1: USDC -> IVY (direct swap)
     if (inputToken.equals(USDC_MINT)) {
-        return await World.swap(inputRaw, minOutputRaw, true, user);
+        return {
+            insName: "WorldSwap",
+            getTx: () => World.swap(inputRaw, minOutputRaw, true, user),
+        };
     }
 
     // Case 2: * -> USDC -> IVY (via Jupiter for first hop)
@@ -279,27 +309,32 @@ export async function createBuyIvyTransaction(
         throw new Error("Jupiter quoteResponse required for non-USDC inputs");
     }
 
-    return getPatchedJupiterTransaction(
-        null,
-        user, // Jupiter leg is from user's input token -> USDC
-        jupQuoteResponse,
-        (jupInstruction) =>
-            Mix.anyToIvy(
-                minOutputRaw,
-                user,
-                jupInstruction.keys,
-                jupInstruction.data,
-            ).then((tx) => tx.instructions),
-        IVY_CU_ESTIMATE_ONLY,
-        () => {},
-        true, // need world ALT
-    );
+    const getTx = () =>
+        getPatchedJupiterTransaction(
+            null,
+            user, // Jupiter leg is from user's input token -> USDC
+            jupQuoteResponse,
+            (jupInstruction) =>
+                Mix.anyToIvy(
+                    minOutputRaw,
+                    user,
+                    jupInstruction.keys,
+                    jupInstruction.data,
+                ).then((tx) => tx.instructions),
+            IVY_CU_ESTIMATE_ONLY,
+            () => {},
+            true, // need world ALT
+        );
+    return {
+        insName: "MixAnyToIvy",
+        getTx,
+    };
 }
 
 /**
  * Creates a transaction to sell IVY token for various output tokens
  */
-export async function createSellIvyTransaction(
+export function createSellIvyTransaction(
     user: PublicKey,
     outputToken: PublicKey,
     input: number,
@@ -307,13 +342,16 @@ export async function createSellIvyTransaction(
     outputDecimals: number,
     jupQuoteResponse: JupiterQuoteResponse | null,
     transformMessage: (msg: TransactionMessage) => void,
-): Promise<Transaction | VersionedTransaction> {
+): ExecuteResponse {
     const inputRaw = toRaw(input, IVY_DECIMALS);
     const minOutputRaw = toRaw(minOutput, outputDecimals);
 
     // Case 1: IVY -> USDC (direct swap)
     if (outputToken.equals(USDC_MINT)) {
-        return await World.swap(inputRaw, minOutputRaw, false, user);
+        return {
+            insName: "WorldSwap",
+            getTx: () => World.swap(inputRaw, minOutputRaw, false, user),
+        };
     }
 
     // Case 2: IVY -> USDC -> * (via Jupiter for last hop)
@@ -321,19 +359,24 @@ export async function createSellIvyTransaction(
         throw new Error("Jupiter quoteResponse required for non-USDC outputs");
     }
 
-    return getPatchedJupiterTransaction(
-        null,
-        BIG_USDC_HOLDER, // Build Jupiter leg (USDC -> *) against the big holder, then transform to user
-        jupQuoteResponse,
-        (jupInstruction) =>
-            Mix.ivyToAny(
-                inputRaw,
-                user,
-                jupInstruction.keys,
-                jupInstruction.data,
-            ).then((tx) => tx.instructions),
-        IVY_CU_ESTIMATE_ONLY,
-        transformMessage,
-        true, // need world ALT
-    );
+    const getTx = () =>
+        getPatchedJupiterTransaction(
+            null,
+            BIG_USDC_HOLDER, // Build Jupiter leg (USDC -> *) against the big holder, then transform to user
+            jupQuoteResponse,
+            (jupInstruction) =>
+                Mix.ivyToAny(
+                    inputRaw,
+                    user,
+                    jupInstruction.keys,
+                    jupInstruction.data,
+                ).then((tx) => tx.instructions),
+            IVY_CU_ESTIMATE_ONLY,
+            transformMessage,
+            true, // need world ALT
+        );
+    return {
+        insName: "MixIvyToAny",
+        getTx,
+    };
 }

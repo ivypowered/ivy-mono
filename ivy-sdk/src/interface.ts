@@ -70,6 +70,33 @@ export const ivy_program = new Program<Ivy>(
     ivy_idl as unknown as Ivy,
     rpc_provider,
 );
+let IVY_DISC_MAP: Record<string, string> | null = null;
+const HEX_ALPHABET = "0123456789abcdef";
+export function getIvyInstructionName(data: Uint8Array): string | null {
+    if (!IVY_DISC_MAP) {
+        IVY_DISC_MAP = {};
+        // build discriminator -> instruction name cache
+        for (const ins of ivy_idl.instructions) {
+            let hex = "";
+            for (const v of ins.discriminator) {
+                hex += HEX_ALPHABET[(v >> 4) & 0xf];
+                hex += HEX_ALPHABET[v & 0xf];
+            }
+            IVY_DISC_MAP[hex] = ins.name;
+        }
+    }
+    if (data.length < 8) {
+        return null;
+    }
+    let discHex = "";
+    for (let i = 0; i < 8; i++) {
+        const v = data[i];
+        discHex += HEX_ALPHABET[(v >> 4) & 0xf];
+        discHex += HEX_ALPHABET[v & 0xf];
+    }
+    return IVY_DISC_MAP[discHex] || null;
+}
+
 export const meta_program = new Program<TokenMetadata>(
     metadata_idl as unknown as TokenMetadata,
     rpc_provider,

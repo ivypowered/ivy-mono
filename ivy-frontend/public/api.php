@@ -133,7 +133,7 @@ $routes = [
     ["pattern" => "#^POST /token-balance$#i", "action" => "backend"],
     ["pattern" => "#^POST /treasury-balance$#i", "action" => "backend"],
     ["pattern" => "#^POST /tx-token-deltas$#i", "action" => "backend"],
-    ["pattern" => "#^GET /ctx$#i", "action" => "backend"],
+    ["pattern" => "#^GET /ctx#i", "action" => "backend"],
     ["pattern" => "#^GET /world-alt$#i", "action" => "backend"],
 ];
 

@@ -3,3 +3,5 @@
 /src/import
 /.clangd
 /include/ivy-lib/string.h
+/src/game_new.h
+/src/sync.h

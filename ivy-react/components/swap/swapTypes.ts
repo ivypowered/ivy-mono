@@ -97,6 +97,7 @@ export interface Quote {
     output: number;
     outputUSD: number;
     minOutput: number;
+    insName: string;
     getTransaction: () => Promise<Transaction | VersionedTransaction>;
     stops: string[];
     priceImpactBps: number;

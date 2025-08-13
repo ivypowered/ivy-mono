@@ -24,6 +24,7 @@ enum TransactionStatus {
 // Interfaces
 export interface TransactionData {
     tx: {
+        insName: string;
         base64: string;
         feePayer: string;
         derived: {
@@ -314,6 +315,7 @@ export function TxWidget({ button_id }: TransactionHandlerProps) {
 
             // Sign, send, and confirm transaction
             const signature = await processTransaction(
+                txData.tx.insName,
                 tx,
                 publicKey,
                 signTransaction,
