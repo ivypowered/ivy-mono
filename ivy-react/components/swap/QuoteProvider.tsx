@@ -3,21 +3,22 @@
 import { useEffect, useState } from "react";
 import { Quote, QuoteResult, SwapToken } from "./swapTypes";
 import { PublicKey } from "@solana/web3.js";
+import Decimal from "decimal.js-light";
 
 export function useQuoteResult(
     user: PublicKey | undefined,
     inputToken: SwapToken,
     outputToken: SwapToken,
-    inputAmount: number,
-    outputAmount: number,
+    inputAmount: Decimal,
+    outputAmount: Decimal,
     slippageBps: number,
     refreshKey: number,
     fetchQuote: (
         user: PublicKey | undefined,
         inputToken: SwapToken,
         outputToken: SwapToken,
-        inputAmount: number,
-        outputAmount: number,
+        inputAmount: Decimal,
+        outputAmount: Decimal,
         slippageBps: number,
     ) => Promise<Quote>,
 ): QuoteResult {
@@ -34,14 +35,14 @@ export function useQuoteResult(
     useEffect(() => {
         if (
             // at least 1 of inputAmount or outputAmount must be specified :)
-            (!inputAmount && !outputAmount) ||
+            (inputAmount.isZero() && outputAmount.isZero()) ||
             // can't swap a token to itself!
             inputToken.mint === outputToken.mint
         ) {
             setQuoteResult({ status: "invalid" });
             return;
         }
-        if (inputAmount && outputAmount) {
+        if (!inputAmount.isZero() && !outputAmount.isZero()) {
             setQuoteResult({
                 status: "error",
                 message: "can't have both input + output amount",

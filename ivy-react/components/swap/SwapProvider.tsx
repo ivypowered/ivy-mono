@@ -1,3 +1,4 @@
+// components/swap/SwapProvider.tsx
 import {
     createContext,
     useContext,
@@ -24,12 +25,18 @@ import {
     Btn,
     Quote,
 } from "./swapTypes";
-import { DEFAULT_SLIPPAGE_BPS, MAX_SF, WSOL_MINT_B58 } from "@/lib/constants";
+import {
+    DECIMAL_ZERO,
+    DEFAULT_SLIPPAGE_BPS,
+    MAX_SF,
+    WSOL_MINT_B58,
+} from "@/lib/constants";
 import { PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { useQuoteResult } from "./QuoteProvider";
 import { useBalance } from "./BalanceProvider";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { Api } from "@/lib/api";
+import Decimal from "decimal.js-light";
 
 const SwapContext = createContext<SwapContextValue | undefined>(undefined);
 
@@ -37,13 +44,13 @@ interface SwapProviderProps {
     children: ReactNode;
     commonTokens: SwapToken[];
     connectWallet: () => void;
-    fetchBalance: (user: PublicKey, token: SwapToken) => Promise<number>;
+    fetchBalance: (user: PublicKey, token: SwapToken) => Promise<Decimal>;
     fetchQuote: (
         user: PublicKey | undefined,
         inputToken: SwapToken,
         outputToken: SwapToken,
-        inputAmount: number,
-        outputAmount: number,
+        inputAmount: Decimal,
+        outputAmount: Decimal,
         slippageBps: number,
     ) => Promise<Quote>;
     initialInputToken: SwapToken;
@@ -55,7 +62,7 @@ interface SwapProviderProps {
     tokens: SwapToken[] | undefined;
     user: PublicKey | undefined;
     updateBalanceRef: {
-        current: ((mint: string, amount: number) => void) | null;
+        current: ((mint: string, amount: Decimal) => void) | null;
     };
 }
 
@@ -80,14 +87,15 @@ export function SwapProvider({
         outputToken: initialOutputToken,
         inputFixed: false,
         outputFixed: true,
-        inputAmount: 0,
-        outputAmount: 0,
+        inputAmount: DECIMAL_ZERO,
+        outputAmount: DECIMAL_ZERO,
+        switchKey: 0,
         activeSide: ActiveSide.Input,
         slippageBps: DEFAULT_SLIPPAGE_BPS,
 
         isSuccessOpen: false,
         isFailedOpen: false,
-        btn: user ? Btn.ConnectWallet : Btn.EnterAnAmount,
+        btn: user ? Btn.EnterAnAmount : Btn.ConnectWallet,
         selector: Selector.None,
 
         txHash: "",
@@ -106,7 +114,7 @@ export function SwapProvider({
     const [refreshKey, setRefreshKey] = useState(0);
     useEffect(() => {
         const id = setInterval(() => setRefreshKey((k) => k + 1), REFRESH_MS);
-        return () => clearTimeout(id);
+        return () => clearInterval(id);
     }, []);
 
     const [balanceReloadKey, setBalanceReloadKey] = useState<number>(0);
@@ -124,74 +132,106 @@ export function SwapProvider({
         balanceReloadKey,
         fetchBalance,
     );
+
     const quoteResult = useQuoteResult(
         // jupiter API does not support amount > balance
         (state.activeSide === ActiveSide.Input &&
-            (state.inputAmount || 0) > (inBalance || 0)) ||
+            state.inputAmount &&
+            inBalance &&
+            state.inputAmount.gt(inBalance)) ||
             (state.activeSide === ActiveSide.Output &&
-                (state.outputAmount || 0) > (outBalance || 0))
+                state.outputAmount &&
+                outBalance &&
+                state.outputAmount.gt(outBalance))
             ? undefined
             : user,
         state.inputToken,
         state.outputToken,
-        state.activeSide === ActiveSide.Input ? state.inputAmount || 0 : 0,
-        state.activeSide === ActiveSide.Output ? state.outputAmount || 0 : 0,
+        state.activeSide === ActiveSide.Input
+            ? state.inputAmount || DECIMAL_ZERO
+            : DECIMAL_ZERO,
+        state.activeSide === ActiveSide.Output
+            ? state.outputAmount || DECIMAL_ZERO
+            : DECIMAL_ZERO,
         state.slippageBps,
         refreshKey,
         fetchQuote,
     );
+
     const isTiny = useMediaQuery("(max-width: 359px)");
+
     useEffect(() => {
         switch (quoteResult.status) {
             case "error":
+                console.error("can't get quote:", quoteResult.message);
             case "loading":
-                if (state.activeSide === ActiveSide.Input) {
-                    setState((prev) => ({
-                        ...prev,
-                        outputAmount: prev.inputAmount ? undefined : 0,
-                    }));
-                } else {
-                    setState((prev) => ({
-                        ...prev,
-                        inputAmount: prev.outputAmount ? undefined : 0,
-                    }));
-                }
+                setState((prev) => {
+                    if (prev.activeSide === ActiveSide.Input) {
+                        return {
+                            ...prev,
+                            outputAmount:
+                                prev.inputAmount && !prev.inputAmount.isZero()
+                                    ? undefined
+                                    : DECIMAL_ZERO,
+                        };
+                    } else {
+                        return {
+                            ...prev,
+                            inputAmount:
+                                prev.outputAmount && !prev.outputAmount.isZero()
+                                    ? undefined
+                                    : DECIMAL_ZERO,
+                        };
+                    }
+                });
                 break;
             case "success":
                 const quote = quoteResult.quote;
-                if (state.activeSide === ActiveSide.Input) {
-                    setState((prev) => ({
-                        ...prev,
-                        // only show 6 decimals on small mobile devices
-                        // to prevent overflow
-                        outputAmount: sfcap(quote.output, isTiny ? 6 : MAX_SF),
-                    }));
-                } else {
-                    setState((prev) => ({
-                        ...prev,
-                        inputAmount: sfcap(quote.input, isTiny ? 6 : MAX_SF),
-                    }));
-                }
+                setState((prev) => {
+                    if (prev.activeSide === ActiveSide.Input) {
+                        return {
+                            ...prev,
+                            outputAmount: new Decimal(
+                                sfcap(
+                                    quote.output.toNumber(),
+                                    isTiny ? 6 : MAX_SF,
+                                ),
+                            ),
+                        };
+                    } else {
+                        return {
+                            ...prev,
+                            inputAmount: new Decimal(
+                                sfcap(
+                                    quote.input.toNumber(),
+                                    isTiny ? 6 : MAX_SF,
+                                ),
+                            ),
+                        };
+                    }
+                });
                 break;
             case "invalid":
-                if (state.activeSide === ActiveSide.Input) {
-                    setState((prev) => ({
-                        ...prev,
-                        outputAmount: 0,
-                    }));
-                } else {
-                    setState((prev) => ({
-                        ...prev,
-                        inputAmount: 0,
-                    }));
-                }
+                setState((prev) => {
+                    if (prev.activeSide === ActiveSide.Input) {
+                        return {
+                            ...prev,
+                            outputAmount: DECIMAL_ZERO,
+                        };
+                    } else {
+                        return {
+                            ...prev,
+                            inputAmount: DECIMAL_ZERO,
+                        };
+                    }
+                });
                 break;
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [quoteResult]);
 
     useEffect(() => {
-        updateBalanceRef.current = (mint: string, amount: number) => {
+        updateBalanceRef.current = (mint: string, amount: Decimal) => {
             if (state.inputToken.mint === mint) {
                 setInBalance(amount);
             } else if (state.outputToken.mint === mint) {
@@ -199,11 +239,12 @@ export function SwapProvider({
             }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [updateBalanceRef]);
+    }, [state.inputToken.mint, state.outputToken.mint, updateBalanceRef]);
 
     const [swapState, setSwapState] = useState<
         "none" | "retrieving" | "signing" | "sending" | "confirming"
     >("none");
+
     useEffect(() => {
         const newBtn = (() => {
             if (swapState === "retrieving") {
@@ -218,19 +259,19 @@ export function SwapProvider({
             if (swapState === "confirming") {
                 return Btn.SwapConfirming;
             }
+            if (quoteResult.status === "error") {
+                return Btn.QuoteError;
+            }
             if (!user) {
                 return Btn.ConnectWallet;
             }
-            if (!state.inputAmount && !state.outputAmount) {
+            if (!state.inputAmount || state.inputAmount.isZero()) {
                 return Btn.EnterAnAmount;
-            }
-            if (quoteResult.status === "error") {
-                return Btn.QuoteError;
             }
             if (quoteResult.status === "loading") {
                 return Btn.Loading;
             }
-            if ((state.inputAmount || 0) > (inBalance || 0)) {
+            if (inBalance && state.inputAmount.gt(inBalance)) {
                 return Btn.InsufficientBalance;
             }
             return Btn.ReadyToSwap;
@@ -252,7 +293,7 @@ export function SwapProvider({
         swapState,
     ]);
 
-    const switchTokens = () => {
+    const switchTokens = useCallback(() => {
         setState((prev) => ({
             ...prev,
             inputToken: prev.outputToken,
@@ -261,42 +302,42 @@ export function SwapProvider({
             outputFixed: prev.inputFixed,
             inputAmount:
                 prev.activeSide === ActiveSide.Input
-                    ? prev.outputAmount
+                    ? prev.outputAmount || DECIMAL_ZERO
                     : undefined,
             outputAmount:
                 prev.activeSide === ActiveSide.Output
-                    ? prev.inputAmount
+                    ? prev.inputAmount || DECIMAL_ZERO
                     : undefined,
+            switchKey: prev.switchKey + 1,
         }));
-    };
+    }, []);
 
-    const setInputAmount = useCallback(
-        (amount: number) => {
-            if (amount === state.inputAmount) {
-                return;
+    const setInputAmount = useCallback((amount: Decimal) => {
+        setState((prev) => {
+            // Do the check inside setState to avoid dependency
+            if (prev.inputAmount && amount.equals(prev.inputAmount)) {
+                return prev;
             }
-            setState((prev) => ({
+            return {
                 ...prev,
                 inputAmount: amount,
                 activeSide: ActiveSide.Input,
-            }));
-        },
-        [state.inputAmount],
-    );
+            };
+        });
+    }, []);
 
-    const setOutputAmount = useCallback(
-        (amount: number) => {
-            if (amount === state.outputAmount) {
-                return;
+    const setOutputAmount = useCallback((amount: Decimal) => {
+        setState((prev) => {
+            if (prev.outputAmount && amount.equals(prev.outputAmount)) {
+                return prev;
             }
-            setState((prev) => ({
+            return {
                 ...prev,
                 outputAmount: amount,
                 activeSide: ActiveSide.Output,
-            }));
-        },
-        [state.outputAmount],
-    );
+            };
+        });
+    }, []);
 
     const selectToken = useCallback(
         (token: SwapToken) => {
@@ -336,16 +377,21 @@ export function SwapProvider({
         [],
     );
 
-    const maxInputAmount: number | undefined = useMemo(() => {
+    const maxInputAmount: Decimal | undefined = useMemo(() => {
         if (
             inBalance === undefined ||
             state.inputToken.mint !== WSOL_MINT_B58
         ) {
             return inBalance;
         }
-        // Solana, we want to keep atl 0.01 SOL
+        // Solana, we want to keep at least 0.01 SOL
         // to cover network fees + ATA creation
-        return Math.max(0, inBalance - 0.01);
+        const mia = inBalance.minus(0.01);
+        const zero = DECIMAL_ZERO;
+        if (mia.lte(zero)) {
+            return zero;
+        }
+        return mia;
     }, [inBalance, state.inputToken]);
 
     let quote: Quote | undefined;
@@ -434,8 +480,8 @@ export function SwapProvider({
                 const end = new Date().getTime() / 1000;
                 setState((prev) => ({
                     ...prev,
-                    inputAmount: 0,
-                    outputAmount: 0,
+                    inputAmount: DECIMAL_ZERO,
+                    outputAmount: DECIMAL_ZERO,
                     txInput,
                     txOutput,
                     isSuccessOpen: true,

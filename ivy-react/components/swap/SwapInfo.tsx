@@ -21,7 +21,7 @@ export function SwapInfo() {
         }
     }, [quote]);
 
-    const rate = quote ? quote.output / quote.input : 0;
+    const rate = quote ? quote.output.toNumber() / quote.input.toNumber() : 0;
 
     return (
         <>

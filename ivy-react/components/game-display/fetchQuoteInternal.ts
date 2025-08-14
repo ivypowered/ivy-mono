@@ -12,9 +12,9 @@ import {
     fetchBuyQuote,
     fetchSellQuote,
 } from "@/lib/quote";
-import { unwrap } from "@/lib/utils";
 import { PublicKey } from "@solana/web3.js";
 import { SwapToken, Quote } from "../swap/swapTypes";
+import { Decimal } from "decimal.js-light";
 
 export async function fetchQuoteInternal(
     user: PublicKey | undefined,
@@ -23,16 +23,21 @@ export async function fetchQuoteInternal(
     gameMint: string,
     inputToken: SwapToken,
     outputToken: SwapToken,
-    inputAmount: number,
-    outputAmount: number,
+    inputAmount: Decimal,
+    outputAmount: Decimal,
     slippageBps: number,
 ): Promise<Quote> {
-    if (!inputAmount || outputAmount) {
+    if (inputAmount.isZero() || !outputAmount.isZero()) {
         throw new Error("Only ExactIn, non-zero swaps are supported");
     }
 
     let quote: Quote;
-    let er: ExecuteResponse;
+    let er: ExecuteResponse = {
+        insName: "",
+        getTx: () => {
+            throw new Error("must have user to create tx");
+        },
+    };
 
     if (inputToken.mint !== gameMint && outputToken.mint === IVY_MINT_B58) {
         // We're buying IVY
@@ -44,15 +49,16 @@ export async function fetchQuoteInternal(
             /* inputDecimals */ inputToken.decimals,
             /* slippageBps */ slippageBps,
         );
-
-        er = createBuyIvyTransaction(
-            /* user */ unwrap(user, "must have user to create tx"),
-            /* inputToken */ inputMint,
-            /* input */ q.input,
-            /* inputDecimals */ inputToken.decimals,
-            /* minOutput */ q.minOutput,
-            /* jupQuoteResponse */ q.jupQuoteResponse,
-        );
+        if (user) {
+            er = createBuyIvyTransaction(
+                /* user */ user,
+                /* inputToken */ inputMint,
+                /* input */ q.input,
+                /* inputDecimals */ inputToken.decimals,
+                /* minOutput */ q.minOutput,
+                /* jupQuoteResponse */ q.jupQuoteResponse,
+            );
+        }
         quote = q;
     } else if (
         inputToken.mint === IVY_MINT_B58 &&
@@ -68,15 +74,17 @@ export async function fetchQuoteInternal(
             /* slippageBps */ slippageBps,
         );
 
-        er = createSellIvyTransaction(
-            /* user */ unwrap(user, "must have user to create tx"),
-            /* outputToken */ outputMint,
-            /* input */ q.input,
-            /* minOutput */ q.minOutput,
-            /* outputDecimals */ outputToken.decimals,
-            /* jupQuoteResponse */ q.jupQuoteResponse,
-            /* transformMessage */ q.transformMessage,
-        );
+        if (user) {
+            er = createSellIvyTransaction(
+                /* user */ user,
+                /* outputToken */ outputMint,
+                /* input */ q.input,
+                /* minOutput */ q.minOutput,
+                /* outputDecimals */ outputToken.decimals,
+                /* jupQuoteResponse */ q.jupQuoteResponse,
+                /* transformMessage */ q.transformMessage,
+            );
+        }
         quote = q;
     } else if (outputToken.mint === gameMint) {
         // We're buying the game token
@@ -90,16 +98,18 @@ export async function fetchQuoteInternal(
             /* slippageBps */ slippageBps,
         );
 
-        er = createBuyTransaction(
-            /* gameSwapAlt */ gameSwapAlt,
-            /* user */ unwrap(user, "must have user to create tx"),
-            /* game */ game,
-            /* inputToken */ inputMint,
-            /* input */ q.input,
-            /* inputDecimals */ inputToken.decimals,
-            /* minOutput */ q.minOutput,
-            /* jupQuoteResponse */ q.jupQuoteResponse,
-        );
+        if (user) {
+            er = createBuyTransaction(
+                /* gameSwapAlt */ gameSwapAlt,
+                /* user */ user,
+                /* game */ game,
+                /* inputToken */ inputMint,
+                /* input */ q.input,
+                /* inputDecimals */ inputToken.decimals,
+                /* minOutput */ q.minOutput,
+                /* jupQuoteResponse */ q.jupQuoteResponse,
+            );
+        }
         quote = q;
     } else {
         // We're selling game token
@@ -113,17 +123,19 @@ export async function fetchQuoteInternal(
             /* slippageBps */ slippageBps,
         );
 
-        er = createSellTransaction(
-            /* gameSwapAlt */ gameSwapAlt,
-            /* user */ unwrap(user, "must have user to create tx"),
-            /* game */ game,
-            /* outputToken */ outputMint,
-            /* input */ q.input,
-            /* minOutput */ q.minOutput,
-            /* outputDecimals */ outputToken.decimals,
-            /* jupQuoteResponse */ q.jupQuoteResponse,
-            /* transformMessage */ q.transformMessage,
-        );
+        if (user) {
+            er = createSellTransaction(
+                /* gameSwapAlt */ gameSwapAlt,
+                /* user */ user,
+                /* game */ game,
+                /* outputToken */ outputMint,
+                /* input */ q.input,
+                /* minOutput */ q.minOutput,
+                /* outputDecimals */ outputToken.decimals,
+                /* jupQuoteResponse */ q.jupQuoteResponse,
+                /* transformMessage */ q.transformMessage,
+            );
+        }
         quote = q;
     }
 

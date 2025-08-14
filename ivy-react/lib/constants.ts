@@ -1,5 +1,6 @@
 import { IVY_MINT } from "@/import/ivy-sdk";
 import { PublicKey } from "@solana/web3.js";
+import Decimal from "decimal.js-light";
 
 // Transparent 1x1 pixel for placeholders
 export const TRANSPARENT_1X1 =
@@ -46,3 +47,4 @@ export const TOKEN_PROGRAM_ID = new PublicKey(
 
 // Other constants
 export const MAX_SF = 8;
+export const DECIMAL_ZERO = new Decimal(0);

@@ -1,4 +1,4 @@
-// ivy-react/lib/execute.ts
+// lib/execute.ts
 import {
     AddressLookupTableAccount,
     ComputeBudgetProgram,
@@ -24,6 +24,7 @@ import {
     World,
 } from "@/import/ivy-sdk";
 import { Jup, JupiterQuoteResponse } from "./jup";
+import { Decimal } from "decimal.js-light";
 
 export type ExecuteResponse = {
     insName: string;
@@ -31,10 +32,10 @@ export type ExecuteResponse = {
 };
 
 /**
- * Converts an amount to raw value based on decimals
+ * Converts a Decimal amount to raw value based on decimals
  */
-function toRaw(amount: number, decimals: number): string {
-    return Math.floor(amount * Math.pow(10, decimals)).toString();
+function toRaw(amount: Decimal, decimals: number): string {
+    return amount.mul(new Decimal(10).pow(decimals)).toFixed(0);
 }
 
 /**
@@ -73,7 +74,7 @@ async function getPatchedJupiterTransaction(
         jupiterUser,
         quoteResponse,
         {
-            wrapAndUnwrapSol: false, // match previous useWsol=false behavior
+            wrapAndUnwrapSol: false,
             asLegacyTransaction: false,
             dynamicComputeUnitLimit: true,
         },
@@ -165,9 +166,9 @@ export function createBuyTransaction(
     user: PublicKey,
     game: PublicKey,
     inputToken: PublicKey,
-    input: number,
+    input: Decimal,
     inputDecimals: number,
-    minOutput: number,
+    minOutput: Decimal,
     jupQuoteResponse: JupiterQuoteResponse | null,
 ): ExecuteResponse {
     const inputRaw = toRaw(input, inputDecimals);
@@ -227,8 +228,8 @@ export function createSellTransaction(
     user: PublicKey,
     game: PublicKey,
     outputToken: PublicKey,
-    input: number,
-    minOutput: number,
+    input: Decimal,
+    minOutput: Decimal,
     outputDecimals: number,
     jupQuoteResponse: JupiterQuoteResponse | null,
     transformMessage: (msg: TransactionMessage) => void,
@@ -288,9 +289,9 @@ export function createSellTransaction(
 export function createBuyIvyTransaction(
     user: PublicKey,
     inputToken: PublicKey,
-    input: number,
+    input: Decimal,
     inputDecimals: number,
-    minOutput: number,
+    minOutput: Decimal,
     jupQuoteResponse: JupiterQuoteResponse | null,
 ): ExecuteResponse {
     const inputRaw = toRaw(input, inputDecimals);
@@ -337,8 +338,8 @@ export function createBuyIvyTransaction(
 export function createSellIvyTransaction(
     user: PublicKey,
     outputToken: PublicKey,
-    input: number,
-    minOutput: number,
+    input: Decimal,
+    minOutput: Decimal,
     outputDecimals: number,
     jupQuoteResponse: JupiterQuoteResponse | null,
     transformMessage: (msg: TransactionMessage) => void,

@@ -2,7 +2,6 @@
 import { Clock, CheckCircle2, ArrowRight } from "lucide-react";
 import { useSwap } from "./SwapProvider";
 import { sfcap } from "@/lib/utils";
-import { MAX_SF } from "@/lib/constants";
 
 export function SwapSuccessView() {
     const {
@@ -45,7 +44,7 @@ export function SwapSuccessView() {
                                 className="object-contain rounded-full mr-2"
                             />
                             <span>
-                                {sfcap(txInput, MAX_SF)} {inputToken.symbol}
+                                {sfcap(txInput, 6)} {inputToken.symbol}
                             </span>
                         </div>
 
@@ -64,7 +63,7 @@ export function SwapSuccessView() {
                                 className="object-contain rounded-full mr-2"
                             />
                             <span>
-                                {sfcap(txOutput, MAX_SF)} {outputToken.symbol}
+                                {sfcap(txOutput, 6)} {outputToken.symbol}
                             </span>
                         </div>
                     </div>

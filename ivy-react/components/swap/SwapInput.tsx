@@ -1,8 +1,7 @@
+// components/swap/SwapInput.tsx
 import { CurrencyInput } from "./CurrencyInput";
 import { useSwap } from "./SwapProvider";
 import { Selector } from "./swapTypes";
-import { sfcap } from "@/lib/utils";
-import { MAX_SF } from "@/lib/constants";
 import { ArrowDown } from "lucide-react";
 
 export function SwapInput() {
@@ -22,6 +21,7 @@ export function SwapInput() {
         setOutputAmount,
         openTokenSelector,
         connected,
+        switchKey,
     } = useSwap();
 
     return (
@@ -29,15 +29,16 @@ export function SwapInput() {
             <CurrencyInput
                 title="You pay"
                 amount={inputAmount}
-                dollarValue={quote?.inputUSD || 0}
+                dollarValue={quote?.inputUSD.toNumber() || 0}
                 onChange={setInputAmount}
                 token={inputToken}
                 onTokenSelect={() => openTokenSelector(Selector.Input)}
                 balance={inBalance}
-                onMax={() => setInputAmount(sfcap(maxInputAmount || 0, MAX_SF))}
+                maxAmount={maxInputAmount}
                 hideBalance={!connected}
                 isTokenSelectDisabled={inputFixed}
                 isDisabled={false}
+                switchKey={switchKey}
             />
 
             <div className="relative">
@@ -54,7 +55,7 @@ export function SwapInput() {
             <CurrencyInput
                 title="You receive"
                 amount={outputAmount}
-                dollarValue={quote?.outputUSD || 0}
+                dollarValue={quote?.outputUSD.toNumber() || 0}
                 onChange={setOutputAmount}
                 token={outputToken}
                 onTokenSelect={() => openTokenSelector(Selector.Output)}
@@ -63,7 +64,8 @@ export function SwapInput() {
                 hideBalance={!connected}
                 isTokenSelectDisabled={outputFixed}
                 isDisabled={true}
-                onMax={() => setOutputAmount(sfcap(outBalance || 0, MAX_SF))}
+                maxAmount={outBalance}
+                switchKey={switchKey}
             />
         </>
     );

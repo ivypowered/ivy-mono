@@ -5,3 +5,4 @@
 /include/ivy-lib/string.h
 /src/game_new.h
 /src/sync.h
+/include/ivy-lib/pump.h

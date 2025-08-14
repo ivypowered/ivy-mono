@@ -1,11 +1,14 @@
 import { ChangeEvent, useCallback, useState, useEffect } from "react";
+import { Decimal } from "decimal.js-light";
+import { DECIMAL_ZERO } from "@/lib/constants";
 
 interface DecimalInputProps {
     className?: string;
-    value: number;
-    onValueChange: (value: number) => void;
+    value: Decimal;
+    onValueChange: (value: Decimal) => void;
     disabled?: boolean;
     unselectable?: boolean;
+    displayOverride?: string;
 }
 
 const decimalRegexp = /^\d*(?:[.])?\d*$/;
@@ -16,19 +19,36 @@ export function DecimalInput({
     onValueChange,
     disabled,
     unselectable,
+    displayOverride,
 }: DecimalInputProps) {
-    // Store the displayed string value separately from the numeric value
     const [displayValue, setDisplayValue] = useState(
-        () => value?.toString() || "",
+        () =>
+            displayOverride ??
+            (value.isZero() && !disabled && !unselectable
+                ? ""
+                : value.toString()),
     );
 
-    // Handle external value changes
     useEffect(() => {
-        if (value !== parseFloat(displayValue || "0")) {
-            setDisplayValue(value.toString());
+        if (displayOverride !== undefined) {
+            setDisplayValue(displayOverride);
+        }
+    }, [displayOverride]);
+
+    useEffect(() => {
+        if (displayOverride !== undefined) {
+            return;
+        }
+
+        if (!value.equals(new Decimal(displayValue || "0"))) {
+            setDisplayValue(
+                value.isZero() && !disabled && !unselectable
+                    ? ""
+                    : value.toString(),
+            );
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [value]);
+    }, [value, displayOverride]);
 
     const handleChange = useCallback(
         (event: ChangeEvent<HTMLInputElement>) => {
@@ -36,13 +56,13 @@ export function DecimalInput({
 
             if (newValue === "") {
                 setDisplayValue("");
-                onValueChange(0);
+                onValueChange(DECIMAL_ZERO);
                 return;
             }
 
             if (newValue === ".") {
                 setDisplayValue("0.");
-                onValueChange(0);
+                onValueChange(DECIMAL_ZERO);
                 return;
             }
 
@@ -52,14 +72,14 @@ export function DecimalInput({
 
             setDisplayValue(newValue);
 
-            const numberValue = parseFloat(newValue);
-            // user-generated input
-            if (!isNaN(numberValue) && numberValue !== value) {
-                onValueChange(numberValue);
+            try {
+                const decimalValue = new Decimal(newValue);
+                onValueChange(decimalValue);
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (_) {
+                // Invalid decimal, don't update
             }
-            return;
         },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         [onValueChange],
     );
 

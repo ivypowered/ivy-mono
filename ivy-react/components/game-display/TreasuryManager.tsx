@@ -1,3 +1,4 @@
+// components/game-display/TreasuryManager.tsx
 import { Game } from "@/import/ivy-sdk";
 import { Api } from "@/lib/api";
 import { cn, processTransaction, sfcap } from "@/lib/utils";
@@ -14,6 +15,8 @@ import { Skeleton } from "../ui/skeleton";
 import { GameObject } from "@/lib/game";
 import { DecimalInput } from "../swap/DecimalInput";
 import { Button } from "../ui/button";
+import { Decimal } from "decimal.js-light";
+import { DECIMAL_ZERO } from "@/lib/constants";
 
 export interface TreasuryManagerProps {
     game: GameObject;
@@ -24,7 +27,7 @@ export interface TreasuryManagerProps {
     reloadBalancesRef: {
         current: (() => void) | null;
     };
-    updateBalance: (mint: string, amount: number) => void;
+    updateBalance: (mint: string, amount: Decimal) => void;
 }
 
 type ActionType = "deposit" | "withdraw";
@@ -36,10 +39,12 @@ export function TreasuryManager({
     reloadBalancesRef,
     updateBalance,
 }: TreasuryManagerProps) {
-    const [treasuryBalance, setTreasuryBalance] = useState<number | null>(null);
-    const [userBalance, setUserBalance] = useState<number | null>(null);
+    const [treasuryBalance, setTreasuryBalance] = useState<Decimal | null>(
+        null,
+    );
+    const [userBalance, setUserBalance] = useState<Decimal | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [amount, setAmount] = useState<number>(0);
+    const [amount, setAmount] = useState<Decimal>(DECIMAL_ZERO);
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
@@ -57,12 +62,16 @@ export function TreasuryManager({
                 Api.getTokenBalance(new PublicKey(userAddress), gameMint),
             ]);
 
-            setTreasuryBalance(
-                Number.parseInt(treasuryBalanceStr) / 1_000_000_000,
+            const treasuryBalanceDecimal = new Decimal(treasuryBalanceStr).div(
+                new Decimal(10).pow(9), // Game tokens have 9 decimals
             );
-            const userBalance = Number.parseInt(userBalanceStr) / 1_000_000_000;
-            setUserBalance(userBalance);
-            updateBalance(gameMint.toBase58(), userBalance);
+            const userBalanceDecimal = new Decimal(userBalanceStr).div(
+                new Decimal(10).pow(9),
+            );
+
+            setTreasuryBalance(treasuryBalanceDecimal);
+            setUserBalance(userBalanceDecimal);
+            updateBalance(gameMint.toBase58(), userBalanceDecimal);
         } catch (err) {
             console.error("Failed to fetch balances:", err);
             setError("Could not load balances");
@@ -95,34 +104,41 @@ export function TreasuryManager({
         setSuccess(null);
 
         try {
-            if (isNaN(amount) || amount <= 0) {
+            if (amount.isZero() || amount.isNegative()) {
                 throw new Error("Please enter a valid amount");
             }
 
             let txPromise: Promise<Transaction>;
             let insName: string;
+
             if (activeAction === "withdraw") {
-                if (treasuryBalance !== null && amount > treasuryBalance) {
+                if (treasuryBalance !== null && amount.gt(treasuryBalance)) {
                     throw new Error("Amount exceeds treasury balance");
                 }
+
+                // Convert to raw amount (multiply by 10^9)
+                const rawAmount = amount.mul(new Decimal(10).pow(9)).toFixed(0);
 
                 // withdraw
                 insName = "GameDebit";
                 txPromise = Game.debit(
                     new PublicKey(game.address),
-                    String(Math.floor(amount * 1_000_000_000)),
+                    rawAmount,
                     new PublicKey(userAddress),
                 );
             } else {
-                if (userBalance !== null && amount > userBalance) {
+                if (userBalance !== null && amount.gt(userBalance)) {
                     throw new Error("Amount exceeds your balance");
                 }
+
+                // Convert to raw amount (multiply by 10^9)
+                const rawAmount = amount.mul(new Decimal(10).pow(9)).toFixed(0);
 
                 // deposit
                 insName = "GameCredit";
                 txPromise = Game.credit(
                     new PublicKey(game.address),
-                    String(Math.floor(amount * 1_000_000_000)),
+                    rawAmount,
                     new PublicKey(userAddress),
                 );
             }
@@ -136,12 +152,13 @@ export function TreasuryManager({
             );
 
             const verb = activeAction === "withdraw" ? "Withdrew" : "Deposited";
+            const formattedAmount = sfcap(amount.toNumber(), 6);
 
-            setSuccess(`${verb} $[amount} ${game.symbol}`);
+            setSuccess(`${verb} ${formattedAmount} ${game.symbol}`);
 
             // Refresh balances after transaction
             await fetchBalances();
-            setAmount(0);
+            setAmount(DECIMAL_ZERO);
         } catch (err) {
             console.error("Transaction failed:", err);
             setError(err instanceof Error ? err.message : "Transaction failed");
@@ -167,7 +184,7 @@ export function TreasuryManager({
                     )}
                     onClick={() => {
                         setActiveAction("withdraw");
-                        setAmount(0);
+                        setAmount(DECIMAL_ZERO);
                         setError(null);
                         setSuccess(null);
                     }}
@@ -184,7 +201,7 @@ export function TreasuryManager({
                     )}
                     onClick={() => {
                         setActiveAction("deposit");
-                        setAmount(0);
+                        setAmount(DECIMAL_ZERO);
                         setError(null);
                         setSuccess(null);
                     }}
@@ -203,8 +220,8 @@ export function TreasuryManager({
                     ) : (
                         <span className="text-white">
                             {activeAction === "withdraw"
-                                ? `Treasury: ${treasuryBalance !== null ? sfcap(treasuryBalance, 6) : "N/A"}`
-                                : `Your balance: ${userBalance !== null ? sfcap(userBalance, 6) : "N/A"}`}{" "}
+                                ? `Treasury: ${treasuryBalance !== null ? sfcap(treasuryBalance.toNumber(), 6) : "N/A"}`
+                                : `Your balance: ${userBalance !== null ? sfcap(userBalance.toNumber(), 6) : "N/A"}`}{" "}
                             {game.symbol}
                         </span>
                     )}
@@ -213,16 +230,12 @@ export function TreasuryManager({
 
             {/* Amount Input */}
             <div className="flex mb-4 relative">
-                {amount === undefined ? (
-                    <Skeleton className="h-10 w-full rounded-none border-2 border-zinc-700" />
-                ) : (
-                    <DecimalInput
-                        className="w-full bg-zinc-800 border-2 border-emerald-400 text-white p-2 focus-visible:ring-0 focus-visible:outline-none"
-                        value={amount}
-                        onValueChange={setAmount}
-                        disabled={isProcessing}
-                    />
-                )}
+                <DecimalInput
+                    className="w-full bg-zinc-800 border-2 border-emerald-400 text-white p-2 focus-visible:ring-0 focus-visible:outline-none pr-16"
+                    value={amount}
+                    onValueChange={setAmount}
+                    disabled={isProcessing}
+                />
                 <Button
                     variant="outline"
                     size="sm"
@@ -245,7 +258,7 @@ export function TreasuryManager({
                 onClick={handleAction}
                 disabled={
                     isProcessing ||
-                    amount <= 0 ||
+                    amount.isZero() ||
                     (activeAction === "withdraw"
                         ? !treasuryBalance
                         : !userBalance)

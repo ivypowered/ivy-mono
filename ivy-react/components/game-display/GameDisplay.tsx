@@ -34,6 +34,7 @@ import { useChartData } from "./useChartData";
 import { fetchQuoteInternal } from "./fetchQuoteInternal";
 import { Comments } from "./Comments";
 import { useWallet } from "../wallet/WalletProvider";
+import Decimal from "decimal.js-light";
 
 // Mock tokens
 const COMMON_TOKENS = [
@@ -72,9 +73,9 @@ const SOL = COMMON_TOKENS[0];
 async function fetchBalance(
     user: PublicKey,
     token: SwapToken,
-): Promise<number> {
+): Promise<Decimal> {
     const b = await Api.getTokenBalance(user, new PublicKey(token.mint));
-    return parseInt(b) / Math.pow(10, token.decimals);
+    return new Decimal(b).div(new Decimal(10).pow(token.decimals));
 }
 
 // Main game display content
@@ -141,18 +142,18 @@ export function GameDisplay({
 
     const fetchQuote = useMemo(
         () =>
-            (
+            async (
                 user: PublicKey | undefined,
                 inputToken: SwapToken,
                 outputToken: SwapToken,
-                inputAmount: number,
-                outputAmount: number,
+                inputAmount: Decimal,
+                outputAmount: Decimal,
                 slippageBps: number,
             ) => {
                 const gameAddress = new PublicKey(game.address);
                 const gameSwapAlt = new PublicKey(game.swap_alt);
                 const gameMint = gameToken.mint;
-                return fetchQuoteInternal(
+                const q = await fetchQuoteInternal(
                     user,
                     gameAddress,
                     gameSwapAlt,
@@ -163,6 +164,7 @@ export function GameDisplay({
                     outputAmount,
                     slippageBps,
                 );
+                return q;
             },
         [game, gameToken],
     );
@@ -365,7 +367,10 @@ export function GameDisplay({
                             publicKey,
                             mint,
                         );
-                        updateFn(mint.toBase58(), Number(balance) / 1e9);
+                        updateFn(
+                            mint.toBase58(),
+                            new Decimal(balance).div(new Decimal(10).pow(9)),
+                        );
                         // eslint-disable-next-line
                     } catch (_e) {}
                     break;
@@ -428,7 +433,7 @@ export function GameDisplay({
 
     const reloadBalancesRef = useRef<(() => void) | null>(null);
     const updateBalanceRef = useRef<
-        ((mint: string, amount: number) => void) | null
+        ((mint: string, amount: Decimal) => void) | null
     >(null);
 
     return (

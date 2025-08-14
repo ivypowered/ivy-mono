@@ -4,15 +4,18 @@ import { useEffect, useState } from "react";
 import { SwapToken } from "./swapTypes";
 import { PublicKey } from "@solana/web3.js";
 import { infinitely } from "@/lib/utils";
+import { Decimal } from "decimal.js-light";
+import { DECIMAL_ZERO } from "@/lib/constants";
 
 export function useBalance(
     user: PublicKey | undefined,
     token: SwapToken,
     refreshKey: number,
     reloadKey: number,
-    fetchBalance: (user: PublicKey, token: SwapToken) => Promise<number>,
-): [number | undefined, (b: number) => void] {
-    const [balance, setBalance] = useState<number | undefined>(undefined);
+    fetchBalance: (user: PublicKey, token: SwapToken) => Promise<Decimal>,
+): [Decimal | undefined, (b: Decimal) => void] {
+    const [balance, setBalance] = useState<Decimal | undefined>(undefined);
+
     // Use loading state only when user/token changes or reload
     // is requested; on regular refreshes, perform refresh
     // transparently :)
@@ -23,7 +26,7 @@ export function useBalance(
     // Effect that run whenever anything refreshes
     useEffect(() => {
         if (!user) {
-            setBalance(0);
+            setBalance(DECIMAL_ZERO);
             return;
         }
         let active = true;
@@ -38,5 +41,6 @@ export function useBalance(
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, token, reloadKey, refreshKey]);
+
     return [balance, setBalance];
 }

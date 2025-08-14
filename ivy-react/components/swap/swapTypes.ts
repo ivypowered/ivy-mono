@@ -1,4 +1,12 @@
+// components/swap/swapTypes.ts
 import { Transaction, VersionedTransaction } from "@solana/web3.js";
+import { Decimal } from "decimal.js-light";
+Decimal.config({
+    precision: 20,
+    rounding: Decimal.ROUND_DOWN,
+    toExpNeg: -9,
+    toExpPos: 20,
+});
 
 export interface SwapToken {
     name: string;
@@ -38,8 +46,9 @@ export interface SwapState {
     outputToken: SwapToken;
     inputFixed: boolean;
     outputFixed: boolean;
-    inputAmount: number | undefined;
-    outputAmount: number | undefined;
+    inputAmount: Decimal | undefined;
+    outputAmount: Decimal | undefined;
+    switchKey: number;
     activeSide: ActiveSide;
     slippageBps: number;
 
@@ -61,14 +70,14 @@ export interface SwapContextValue extends SwapState {
     // Dynamic State
     quote: Quote | undefined;
     quoteError: string;
-    inBalance: number | undefined;
-    outBalance: number | undefined;
-    maxInputAmount: number | undefined;
+    inBalance: Decimal | undefined;
+    outBalance: Decimal | undefined;
+    maxInputAmount: Decimal | undefined;
 
     // Token & Amount Actions
     switchTokens: () => void;
-    setInputAmount: (amount: number) => void;
-    setOutputAmount: (amount: number) => void;
+    setInputAmount: (amount: Decimal) => void;
+    setOutputAmount: (amount: Decimal) => void;
     setSlippageBps: (bps: number) => void;
     selectToken: (token: SwapToken) => void;
 
@@ -91,12 +100,12 @@ export interface SwapContextValue extends SwapState {
 }
 
 export interface Quote {
-    input: number;
-    inputUSD: number;
-    maxInput: number;
-    output: number;
-    outputUSD: number;
-    minOutput: number;
+    input: Decimal;
+    inputUSD: Decimal;
+    maxInput: Decimal;
+    output: Decimal;
+    outputUSD: Decimal;
+    minOutput: Decimal;
     insName: string;
     getTransaction: () => Promise<Transaction | VersionedTransaction>;
     stops: string[];

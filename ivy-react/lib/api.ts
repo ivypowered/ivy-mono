@@ -27,7 +27,7 @@ export interface ChartResponse {
 export type ChartKind = "1m" | "5m" | "15m" | "1h" | "1d" | "1w";
 
 interface ApiQuoteData {
-    output_amount: number;
+    output_amount: string;
     input_amount_usd: number;
     output_amount_usd: number;
     price_impact_bps: number;
@@ -114,22 +114,22 @@ export class Api {
 
     /** Fetches IVY swap quote */
     static getIvyQuote(
-        inputAmountRaw: number,
+        inputRaw: string,
         isBuy: boolean,
     ): Promise<ApiQuoteData> {
         return Api.fetchApi<ApiQuoteData>(
-            `/ivy/quote?input_amount=${inputAmountRaw}&is_buy=${isBuy}`,
+            `/ivy/quote?input_amount=${inputRaw}&is_buy=${isBuy}`,
         );
     }
 
     /** Fetches game swap quote */
     static getGameQuote(
         gameMint: PublicKey,
-        inputAmountRaw: number,
+        inputRaw: string,
         isBuy: boolean,
     ): Promise<ApiQuoteData> {
         return Api.fetchApi<ApiQuoteData>(
-            `/games/${gameMint.toBase58()}/quote?input_amount=${inputAmountRaw}&is_buy=${isBuy}`,
+            `/games/${gameMint.toBase58()}/quote?input_amount=${inputRaw}&is_buy=${isBuy}`,
         );
     }
 
