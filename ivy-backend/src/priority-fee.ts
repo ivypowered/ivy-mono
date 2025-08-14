@@ -29,7 +29,8 @@ async function getRecommendedPriorityFee(
                 {
                     transaction: txBase64,
                     options: {
-                        recommended: true,
+                        priorityLevel: "High",
+                        includeVote: true,
                         transactionEncoding: "base64",
                     },
                 },
