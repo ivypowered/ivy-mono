@@ -1,5 +1,5 @@
 const PRIORITY_FEE_BETA = 0.7;
-const DEFAULT_PRIORITY_FEE = 30_000;
+const DEFAULT_PRIORITY_FEE = 40_000;
 const MAX_PRIORITY_FEE = 999_999;
 
 type PriorityFeeEntry = {
