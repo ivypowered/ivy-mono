@@ -75,7 +75,7 @@ require_once __DIR__ . "/../includes/header.php";
 <main class="py-8">
     <div class="mx-auto max-w-7xl px-6">
         <!-- Navigation Pills -->
-        <div class="flex gap-4 mb-8 overflow-x-auto">
+        <div class="flex gap-4 mt-8 mb-8 overflow-x-auto">
             <a href="?tab=hot" class="rounded-none <?php echo $active_tab ===
             "hot"
                 ? "bg-emerald-400 text-emerald-950"
