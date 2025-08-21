@@ -319,6 +319,8 @@ pub struct GameUpgradeEvent {
     pub game: Public,
     #[serde(rename = "shortDesc")]
     pub short_desc: String,
+    #[serde(rename = "iconUrl")]
+    pub icon_url: String,
 }
 impl_event_type!(GameUpgradeEvent, "gameUpgradeEvent", GameUpgrade);
 

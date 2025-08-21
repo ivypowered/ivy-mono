@@ -64,7 +64,7 @@ static const u64 GAME_EDIT_EVENT_DISCRIMINATOR = UINT64_C(0xf0ded0ff3776f1e1);
 typedef struct {
     u64 discriminator;
     address game;
-    // #idl strings short_desc
+    // #idl strings short_desc icon_url
     u8 strdata[];
 } GameUpgradeEvent;
 
@@ -325,8 +325,9 @@ static void game_upgrade(
     game_new->game_balance = game_balance;
 
     // Emit upgrade event with short_desc
-    u64 upgrade_event_len = offsetof(GameUpgradeEvent, strdata) + 4 +
-        short_desc.len; // short_desc length (u32) + short_desc (bytes)
+    u64 upgrade_event_len = offsetof(GameUpgradeEvent, strdata) //
+        + 4 + short_desc.len // short_desc length (u32) + short_desc (bytes)
+        + 4 + icon_url.len; // icon_url length (u32) + icon_url (bytes)
 
     GameUpgradeEvent* upgrade_event = heap_alloc(upgrade_event_len);
     upgrade_event->discriminator = GAME_UPGRADE_EVENT_DISCRIMINATOR;

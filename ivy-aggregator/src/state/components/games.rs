@@ -161,30 +161,19 @@ impl GamesComponent {
         world: &WorldComponent,
         assets: &mut AssetsComponent,
     ) -> bool {
-        let processed = match &event.data {
+        match &event.data {
             EventData::GameCreate(data) => {
-                self.process_game_create(event.timestamp, data, world, assets);
-                true
+                self.process_game_create(event.timestamp, data, world, assets)
             }
-            EventData::GameEdit(data) => {
-                self.process_game_edit(data);
-                true
-            }
+            EventData::GameEdit(data) => self.process_game_edit(data),
             EventData::GameSwap(data) => {
-                self.process_game_swap(event.timestamp, &event.signature, data, world, assets);
-                true
+                self.process_game_swap(event.timestamp, &event.signature, data, world, assets)
             }
-            EventData::GameUpgrade(data) => {
-                self.process_game_upgrade(data);
-                true
-            }
-            EventData::Comment(data) => {
-                self.process_comment_event(data);
-                true
-            }
-            _ => false,
+            EventData::GameUpgrade(data) => self.process_game_upgrade(data),
+            EventData::Comment(data) => self.process_comment_event(data),
+            _ => return false,
         };
-        processed
+        true
     }
 
     fn process_game_create(
@@ -394,6 +383,7 @@ impl GamesComponent {
         if let Some(game_meta) = self.address_to_game_meta.get(&upgrade_data.game) {
             let game = &mut self.game_list[game_meta.index];
             game.short_desc = upgrade_data.short_desc.clone();
+            game.icon_url = upgrade_data.icon_url.clone();
         } else {
             eprintln!(
                 "warning: Received GameUpgradeEvent for nonexistent game {}",

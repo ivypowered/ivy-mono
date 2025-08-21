@@ -63,11 +63,7 @@ export class Game {
         connection: Connection,
         game: PublicKey,
     ): Promise<ChainMetadata> {
-        const mint = PublicKey.findProgramAddressSync(
-            [GAME_PREFIXES.mint, game.toBuffer()],
-            IVY_PROGRAM_ID,
-        )[0];
-        const metadata = deriveMetadataAddress(mint);
+        const metadata = deriveMetadataAddress(this.deriveMint(game));
         return loadChainMetadata(connection, metadata);
     }
 

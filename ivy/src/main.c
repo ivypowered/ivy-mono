@@ -282,6 +282,17 @@ extern u64 entrypoint(const u8* input) {
                 data_len
             );
 
+        case GAME_UPGRADE_DISCRIMINATOR:
+            CALL_INSTRUCTION_WITH_LEN(
+                ctx,
+                "GameUpgrade",
+                game_upgrade,
+                GameUpgradeAccounts,
+                GameUpgradeData,
+                data,
+                data_len
+            );
+
         case WORLD_SET_PARAMS_DISCRIMINATOR:
             CALL_INSTRUCTION(
                 ctx,
