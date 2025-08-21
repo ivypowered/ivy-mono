@@ -69,10 +69,6 @@ export function useAssetsStream() {
                     }, 5000);
                 }
             });
-
-            eventSourceRef.current.addEventListener("open", () => {
-                console.log("Assets SSE connection established");
-            });
         } catch (err) {
             console.error("Failed to establish Assets SSE connection:", err);
 

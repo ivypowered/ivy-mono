@@ -171,10 +171,6 @@ export function useSyncStream(syncAddress: string, chartKind: ChartInterval) {
                         setReconnectTimeout,
                     );
                 });
-
-                eventSource.addEventListener("open", () => {
-                    console.log("Sync SSE connection established");
-                });
             } catch (err) {
                 console.error("Failed to establish Sync SSE connection:", err);
                 setError(

@@ -15,7 +15,8 @@ pub async fn ivy_info(AxumState(state): AxumState<Arc<State>>) -> Json<ApiRespon
         ivy_initial_liquidity: from_ivy_amount(world_data.ivy_initial_liquidity),
         game_initial_liquidity: from_ivy_amount(world_data.game_initial_liquidity),
         ivy_price: data.world.price(),
-        ivy_mkt_cap: from_ivy_amount(world_data.ivy_curve_max) * data.world.price(),
+        ivy_mkt_cap: from_ivy_amount(world_data.ivy_sold + world_data.ivy_vested)
+            * data.world.price(),
         ivy_change_24h: data.world.ivy_change_24h(),
     })
 }

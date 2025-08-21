@@ -1,4 +1,3 @@
-// ivy-react/components/game-display/GFrame.tsx
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";

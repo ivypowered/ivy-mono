@@ -155,7 +155,7 @@ async function getPatchedJupiterTransaction(
 }
 
 // How many additional compute units we think Ivy consumes:
-const IVY_CU_ESTIMATE_ONLY = 80_000; // just Ivy LP
+const IVY_CU_ESTIMATE_ONLY = 100_000; // just Ivy LP
 const IVY_CU_ESTIMATE_WITH_GAME = 160_000; // both Ivy LP + Game LP
 
 /**

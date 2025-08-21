@@ -161,10 +161,6 @@ export function useWorldStream(chartKind: ChartInterval) {
                         setReconnectTimeout,
                     );
                 });
-
-                eventSource.addEventListener("open", () => {
-                    console.log("World SSE connection established");
-                });
             } catch (err) {
                 console.error("Failed to establish World SSE connection:", err);
                 setError(

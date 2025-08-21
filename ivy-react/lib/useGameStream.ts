@@ -204,10 +204,6 @@ export function useGameStream(gameAddress: string, chartKind: ChartInterval) {
                         setReconnectTimeout,
                     );
                 });
-
-                eventSource.addEventListener("open", () => {
-                    console.log("SSE connection established");
-                });
             } catch (err) {
                 console.error("Failed to establish SSE connection:", err);
                 setError(

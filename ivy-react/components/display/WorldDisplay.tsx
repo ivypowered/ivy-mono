@@ -4,12 +4,7 @@ import { useState, useMemo, useRef } from "react";
 import { SwapProvider } from "@/components/swap/SwapProvider";
 import { ChartInterval } from "@/components/chart/chartTypes";
 import { SwapWidget } from "@/components/swap/SwapWidget";
-import {
-    COMMON_TOKENS,
-    SOL_TOKEN,
-    IVY_MINT_B58,
-    IVY_TOKEN,
-} from "@/lib/constants";
+import { COMMON_TOKENS, SOL_TOKEN, IVY_TOKEN } from "@/lib/constants";
 import { ChartHeader } from "../chart/ChartHeader";
 import { PublicKey } from "@solana/web3.js";
 import { ChartBase } from "../chart/ChartBase";
@@ -41,7 +36,7 @@ export function WorldDisplay({ ivyInfo }: { ivyInfo: IvyInfo }) {
         () => ({
             game: PublicKey.default,
             gameSwapAlt: PublicKey.default,
-            gameMint: IVY_MINT_B58,
+            gameMint: PublicKey.default.toBase58(),
             gameReserves: null,
             worldReserves: streamData
                 ? {

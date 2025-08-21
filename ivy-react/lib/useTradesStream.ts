@@ -100,7 +100,6 @@ export function useTradesStream() {
                 });
 
                 eventSource.addEventListener("open", () => {
-                    console.log("Trades SSE connection established");
                     // Since there's no initial context event for trades,
                     // we set loading to false once connected
                     setLoading(false);

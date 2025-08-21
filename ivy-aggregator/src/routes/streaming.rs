@@ -390,7 +390,7 @@ pub async fn stream_ivy(
         // Get world data
         let world_data = data.world.data();
         let ivy_price = data.world.price();
-        let mkt_cap_usd = from_ivy_amount(world_data.ivy_curve_max) * ivy_price;
+        let mkt_cap_usd = from_ivy_amount(world_data.ivy_sold + world_data.ivy_vested) * ivy_price;
         let change_pct_24h = data.world.ivy_change_24h();
 
         // Subscribe to updates

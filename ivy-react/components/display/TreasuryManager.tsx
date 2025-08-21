@@ -1,4 +1,3 @@
-// components/game-display/TreasuryManager.tsx
 import { Game } from "@/import/ivy-sdk";
 import { Api } from "@/lib/api";
 import { cn, processTransaction, sfcap } from "@/lib/utils";

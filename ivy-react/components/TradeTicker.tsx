@@ -63,7 +63,7 @@ export function TradeTicker({ containerEl }: { containerEl: HTMLElement }) {
         const action = data.isBuy ? "bought" : "sold";
         return (
             <a
-                href={`/game/${data.asset}`}
+                href={`/game?address=${data.asset}`}
                 className="flex items-center gap-2 hover:underline"
             >
                 <span className="font-bold">{data.user.substring(0, 6)}</span>

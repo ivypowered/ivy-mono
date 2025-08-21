@@ -13,8 +13,8 @@ import {
 import { SyncQuoteInfo, useSyncQuote } from "@/lib/useSyncQuote";
 
 // Instant updates feel jarring
-const MIN_DELAY_MS = 400;
-const MAX_DELAY_MS = 600;
+const MIN_DELAY_MS = 200;
+const MAX_DELAY_MS = 400;
 
 export type QuoteContext =
     | {

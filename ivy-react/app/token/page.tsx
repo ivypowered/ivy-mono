@@ -4,7 +4,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { Search, User } from "lucide-react";
 import { WalletProvider } from "@/components/wallet/WalletProvider";
-import { WorldDisplay } from "@/components/game-display/WorldDisplay";
+import { WorldDisplay } from "@/components/display/WorldDisplay";
 
 export default function Token() {
     return (

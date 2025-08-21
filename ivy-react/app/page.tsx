@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Search, User } from "lucide-react";
 import { WalletProvider } from "@/components/wallet/WalletProvider";
 import { GameObject } from "@/lib/game";
-import { GameDisplay } from "@/components/game-display/GameDisplay";
+import { GameDisplay } from "@/components/display/GameDisplay";
 
 export default function Home() {
     const exampleGame: unknown = {
