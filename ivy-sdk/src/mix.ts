@@ -38,12 +38,7 @@ export class Mix {
 
         // Create the mix transaction
         const tx = await ivy_program.methods
-            .mixUsdcToGame(
-                str2u64bytes(usdcAmount),
-                str2u64bytes(gameThreshold),
-                true,
-                true,
-            )
+            .mixUsdcToGame(new BN(usdcAmount), new BN(gameThreshold))
             .accounts({
                 game: game,
                 user: user,
@@ -84,12 +79,7 @@ export class Mix {
 
         // Create the mix transaction
         const tx = await ivy_program.methods
-            .mixGameToUsdc(
-                str2u64bytes(gameAmount),
-                str2u64bytes(usdcThreshold),
-                true,
-                true,
-            )
+            .mixGameToUsdc(new BN(gameAmount), new BN(usdcThreshold))
             .accounts({
                 game: game,
                 user: user,
@@ -132,7 +122,7 @@ export class Mix {
 
         // Create the mix transaction
         const ins = await ivy_program.methods
-            .mixAnyToGame(str2u64bytes(gameThreshold), true, true)
+            .mixAnyToGame(new BN(gameThreshold))
             .accounts({
                 game: game,
                 user: user,
@@ -166,6 +156,7 @@ export class Mix {
     static async gameToAny(
         game: PublicKey,
         gameAmount: string,
+        minAnyAmount: string,
         user: PublicKey,
         jupiterKeys: AccountMeta[],
         jupiterData: Buffer,
@@ -181,7 +172,7 @@ export class Mix {
 
         // Create the mix transaction
         const ins = await ivy_program.methods
-            .mixGameToAny(str2u64bytes(gameAmount), true, true)
+            .mixGameToAny(new BN(gameAmount), new BN(minAnyAmount))
             .accounts({
                 game: game,
                 user: user,
@@ -223,7 +214,7 @@ export class Mix {
 
         // Create the mix transaction
         const ins = await ivy_program.methods
-            .mixAnyToIvy(str2u64bytes(ivyThreshold), true)
+            .mixAnyToIvy(new BN(ivyThreshold))
             .accounts({
                 world: WORLD_ADDRESS,
                 user: user,
@@ -251,6 +242,7 @@ export class Mix {
      */
     static async ivyToAny(
         ivyAmount: string,
+        minAnyAmount: string,
         user: PublicKey,
         jupiterKeys: AccountMeta[],
         jupiterData: Buffer,
@@ -261,7 +253,8 @@ export class Mix {
 
         // Create the mix transaction
         const ins = await ivy_program.methods
-            .mixIvyToAny(str2u64bytes(ivyAmount), true)
+            // Convert strings to BN
+            .mixIvyToAny(new BN(ivyAmount), new BN(minAnyAmount))
             .accounts({
                 world: WORLD_ADDRESS,
                 user: user,

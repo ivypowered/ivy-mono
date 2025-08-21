@@ -663,4 +663,23 @@ static void token_close_account(
     context_invoke(ctx, &instruction, "Token Close Account CPI failed");
 }
 
+static void token_sync_native(const Context* ctx, address account) {
+    u8 data[1] = {TOKEN_INSTRUCTION_SYNC_NATIVE};
+
+    SolAccountMeta metas[1] = {
+        {.pubkey = &account, .is_writable = true, .is_signer = false},
+    };
+
+    address token_program_id = TOKEN_PROGRAM_ID;
+    const SolInstruction instruction = {
+        .program_id = &token_program_id,
+        .accounts = metas,
+        .account_len = SOL_ARRAY_SIZE(metas),
+        .data = data,
+        .data_len = sizeof(data),
+    };
+
+    context_invoke(ctx, &instruction, "Token Sync Native CPI failed");
+}
+
 #endif // IVY_TOKEN_H

@@ -28,12 +28,14 @@
     },
     "dependencies": {
         "@coral-xyz/anchor": "^0.31.0",
+        "@pythnetwork/hermes-client": "^2.0.0",
         "@solana/spl-token": "^0.4.13",
         "@solana/web3.js": "^1.98.0",
         "commander": "^13.1.0",
         "dotenv": "^16.4.7",
         "express": "^4.21.2",
         "pinata": "^2.1.0",
-        "tweetnacl": "^1.0.3"
+        "tweetnacl": "^1.0.3",
+        "zod": "^3.25.76"
     }
 }

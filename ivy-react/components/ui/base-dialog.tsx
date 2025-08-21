@@ -8,7 +8,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "./alert-dialog";
-import { useMediaQuery } from "@/lib/use-media-query";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import { cn } from "@/lib/utils";
 
 interface BaseDialogProps {

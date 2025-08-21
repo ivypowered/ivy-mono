@@ -93,19 +93,19 @@ class TokenStream:
         """Returns True if there are more tokens to process."""
         return self.position < len(self.tokens)
 
-# parses a struct. expects to begin at the first token after `struct`
+# parses a typedef struct. expects to begin at the first token after `struct`
 # should start at depth = 1 and return control at depth = 1
-def parse_struct(ts: TokenStream) -> tuple[str, list[CVariable]]:
+def parse_struct(ts: TokenStream) -> tuple[str, list[CVariable], bool]:
     struct_name = ""
     struct_vars: list[CVariable] = []
+    is_packed = False
 
     # Skip until opening brace
     while ts.has_more():
         kind, value = ts.next()
-        if kind in Token.Name and not struct_name:
-            # If we find the name, great!
-            struct_name = value
-        if kind == Token.Punctuation and value == "{":
+        if kind in Token.Name and value == "packed":
+            is_packed = True
+        elif kind == Token.Punctuation and value == "{":
             break
 
     # Parse struct body
@@ -146,7 +146,7 @@ def parse_struct(ts: TokenStream) -> tuple[str, list[CVariable]]:
         if kind == Token.Punctuation and value == ";":
             break
 
-    return struct_name, struct_vars
+    return struct_name, struct_vars, is_packed
 
 def parse_function(tokens: List[_TokenType]) -> Optional[CFunction]:
     name = ""
@@ -204,9 +204,9 @@ def parse_file(code: str) -> CFile:
         elif kind in Token.Comment:
             pragma = pragma or parse_pragma(value)
         elif kind in Token.Keyword and value == "struct" and depth == 1:
-            struct_name, struct_vars = parse_struct(tokens)
+            struct_name, struct_vars, is_packed = parse_struct(tokens)
             if struct_name:
-                structs.append(CStruct(struct_name, struct_vars, pragma))
+                structs.append(CStruct(struct_name, struct_vars, pragma, is_packed))
             pragma = None
         elif kind in Token.Keyword and value == "void" and depth == 1:
             # void marks beginning of function, be ready!

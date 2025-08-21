@@ -3,21 +3,10 @@
 import Head from "next/head";
 import Link from "next/link";
 import { Search, User } from "lucide-react";
-import { GameDisplay } from "@/components/game-display/GameDisplay";
-import { useMemo } from "react";
-import { createIvyGame } from "@/lib/game";
 import { WalletProvider } from "@/components/wallet/WalletProvider";
+import { WorldDisplay } from "@/components/game-display/WorldDisplay";
 
 export default function Token() {
-    const ivy_game = useMemo(() => {
-        return createIvyGame({
-            create_timestamp: 1747436909,
-            ivy_price: 5,
-            ivy_mkt_cap: 12500,
-            ivy_change_24h: 4,
-        });
-    }, []);
-
     return (
         <div className="min-h-screen bg-zinc-900 text-white font-mono">
             <Head>
@@ -103,7 +92,14 @@ export default function Token() {
 
             {/* Main Content - Game */}
             <WalletProvider>
-                <GameDisplay game={ivy_game} showComments={false} />
+                <WorldDisplay
+                    ivyInfo={{
+                        ivy_price: 0,
+                        ivy_change_24h: 0,
+                        ivy_mkt_cap: 0,
+                        create_timestamp: 1747436909,
+                    }}
+                />
             </WalletProvider>
 
             {/* Footer */}

@@ -72,33 +72,8 @@ genrule(
 # Go to execution directory
 cd $${EXEC_DIR}
 
-# Define cleanup function
-cleanup() {
-    echo "Cleaning up temporary database..."
-    rm -f tmp.sqlite
-    exit 0
-}
-
-# Set trap for multiple signals
-trap cleanup INT TERM HUP QUIT EXIT
-
-# Initialize database
-php -r '
-\\$$db = new PDO("sqlite:./tmp.sqlite");
-\\$$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-\\$$db->exec("CREATE TABLE IF NOT EXISTS transactions (
-    id CHAR(36) PRIMARY KEY,
-    state VARCHAR(10) NOT NULL,
-    fn VARCHAR(32) NOT NULL,
-    tx_base64 VARCHAR(1644) NOT NULL,
-    last_valid_block_height BIGINT NOT NULL,
-    signature VARCHAR(88) NOT NULL,
-    created_at BIGINT NOT NULL,
-    updated_at BIGINT NOT NULL
-)");'
-
 # Start the development server
-php -S 0.0.0.0:3000 dev_router.php
+PHP_CLI_SERVER_WORKERS=10 php -S 0.0.0.0:3000 dev_router.php
 EOF
 
         # Make the created script executable

@@ -40,8 +40,6 @@ export interface GameState {
     seed: Uint8Array;
     owner: PublicKey;
     withdraw_authority: PublicKey;
-    game_url: string;
-    cover_url: string;
     mint: PublicKey;
     ivy_wallet: PublicKey;
     curve_wallet: PublicKey;
@@ -95,8 +93,6 @@ export class Game {
             seed: Uint8Array.from(g.seed),
             owner: g.owner,
             withdraw_authority: g.withdrawAuthority,
-            game_url: zt2str(g.gameUrl),
-            cover_url: zt2str(g.coverUrl),
             mint: g.mint,
             ivy_wallet: g.ivyWallet,
             curve_wallet: g.curveWallet,
@@ -204,14 +200,12 @@ export class Game {
         symbol: string,
         icon_url: string,
         game_url: string,
-        cover_url: string,
+        short_desc: string,
         metadata_url: string,
         user: PublicKey,
         recent_slot: number,
         ivy_purchase: string,
-        min_game_received: string,
         world_alt: AddressLookupTableAccount,
-        il_exponent: number,
     ): Promise<VersionedTransaction> {
         if (icon_url.length > MAX_TEXT_LEN) {
             throw new Error(`Icon URL too long (max ${MAX_TEXT_LEN} chars)`);
@@ -219,7 +213,7 @@ export class Game {
         if (game_url.length > MAX_TEXT_LEN) {
             throw new Error(`Game URL too long (max ${MAX_TEXT_LEN} chars)`);
         }
-        if (cover_url.length > MAX_TEXT_LEN) {
+        if (short_desc.length > MAX_TEXT_LEN) {
             throw new Error(`Cover URL too long (max ${MAX_TEXT_LEN} chars)`);
         }
 
@@ -242,16 +236,15 @@ export class Game {
             .gameCreate(
                 seed_array,
                 new BN(ivy_purchase),
-                new BN(min_game_received),
                 new BN(recent_slot),
                 swap_alt_nonce,
-                il_exponent,
                 true, // create `destination` if not exist
                 name,
                 symbol,
                 game_url,
-                cover_url,
+                short_desc,
                 metadata_url,
+                icon_url,
             )
             .accounts({
                 game: game,
@@ -610,13 +603,14 @@ export class Game {
         new_owner: PublicKey,
         new_withdraw_authority: PublicKey,
         game_url: string,
-        cover_url: string,
+        short_desc: string,
         metadata_url: string,
+        icon_url: string,
     ): Promise<Transaction> {
         if (game_url.length > MAX_TEXT_LEN) {
             throw new Error(`Game URL too long (max ${MAX_TEXT_LEN} chars)`);
         }
-        if (cover_url.length > MAX_TEXT_LEN) {
+        if (short_desc.length > MAX_TEXT_LEN) {
             throw new Error(`Cover URL too long (max ${MAX_TEXT_LEN} chars)`);
         }
         if (metadata_url.length > MAX_TEXT_LEN) {
@@ -632,9 +626,10 @@ export class Game {
             .gameEdit(
                 new_owner,
                 new_withdraw_authority,
-                str2zt(game_url, 128),
-                str2zt(cover_url, 128),
-                str2zt(metadata_url, 128),
+                game_url,
+                short_desc,
+                metadata_url,
+                icon_url,
             )
             .accounts({
                 game: game_address,
@@ -647,15 +642,34 @@ export class Game {
         return tx;
     }
 
-    /** Promote a game to official status */
-    static async promote(game: PublicKey, user: PublicKey) {
-        return await ivy_program.methods
-            .gamePromote()
+    /**
+     * Upgrades an old game structure to the new format
+     * This removes the game_url field from the on-chain structure
+     */
+    static async upgrade(
+        game_address: PublicKey,
+        world_owner: PublicKey,
+        short_desc: string,
+        icon_url: string,
+    ): Promise<Transaction> {
+        if (short_desc.length > MAX_TEXT_LEN) {
+            throw new Error(
+                `Short description too long (max ${MAX_TEXT_LEN} chars)`,
+            );
+        }
+        if (icon_url.length > MAX_TEXT_LEN) {
+            throw new Error(`Icon URL too long (max ${MAX_TEXT_LEN} chars)`);
+        }
+
+        const tx = await ivy_program.methods
+            .gameUpgrade(short_desc, icon_url)
             .accounts({
-                game,
+                game: game_address,
+                worldOwner: world_owner,
                 world: WORLD_ADDRESS,
-                worldOwner: user,
             })
             .transaction();
+
+        return tx;
     }
 }

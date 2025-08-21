@@ -85,7 +85,7 @@ require_once __DIR__ . "/../includes/header.php";
             </div>
 
             <div class="flex justify-center space-x-4">
-                <a href="/gamecoin?address=<?php echo $game_address; ?>" class="border-2 border-emerald-400 px-6 py-3 font-bold hover:bg-emerald-400/20">Go to Dashboard</a>
+                <a href="/game?address=<?php echo $game_address; ?>" class="border-2 border-emerald-400 px-6 py-3 font-bold hover:bg-emerald-400/20">Go to Dashboard</a>
             </div>
 
         <?php else: ?>

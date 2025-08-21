@@ -253,6 +253,13 @@ static void writer_write_slice(writer* w, const slice val) {
     w->offset += val.len;
 }
 
+/// Write an Anchor string and advance the offset
+/// anchor string = (len: u32, data: u8[])
+static void writer_write_anchor_string(writer* w, slice s) {
+    writer_write_u32(w, s.len);
+    writer_write_slice(w, s);
+}
+
 /// Skip a number of bytes
 static void writer_skip(writer* w, u64 count) {
     require(

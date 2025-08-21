@@ -17,6 +17,9 @@ export {
     GAME_DECIMALS,
     IVY_DECIMALS,
     TEXT_ENCODER,
+    PUMP_GLOBAL,
+    PSWAP_GLOBAL_CONFIG,
+    PUMP_PROGRAM_ID,
     getAssociatedTokenAddressSync,
     getIvyInstructionName,
 } from "./interface";
@@ -44,3 +47,9 @@ export { Comment, CommentIndex } from "./comment";
 
 // Vault exports
 export { Vault, VaultState } from "./vault";
+
+// Sync exports
+export { Sync } from "./sync";
+export { SyncGlobal } from "./sync-global";
+export { SyncCurve } from "./sync-curve";
+export { SyncPool } from "./sync-pool";

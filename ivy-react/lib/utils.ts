@@ -7,6 +7,7 @@ import {
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { Api, Context } from "./api";
+import { Time, UTCTimestamp } from "lightweight-charts";
 
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -274,4 +275,57 @@ export async function processTransaction(
 
     // 5) We're finished!
     return signature;
+}
+
+export interface CandleData {
+    time: Time;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    value: number;
+}
+
+export function parseCandle(c: {
+    open_time: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+}): CandleData {
+    return {
+        time: c.open_time as UTCTimestamp,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+        value: c.volume,
+    };
+}
+
+export function updateCandles(
+    prevCandles: CandleData[],
+    newCandle: CandleData,
+): CandleData[] {
+    if (prevCandles.length === 0) {
+        return [newCandle];
+    }
+
+    const last = prevCandles[prevCandles.length - 1];
+    const lastTime = last.time as number;
+    const newTime = newCandle.time as number;
+
+    if (newTime === lastTime) {
+        // Replace the last candle (update)
+        return [...prevCandles.slice(0, prevCandles.length - 1), newCandle];
+    }
+
+    if (newTime > lastTime) {
+        // Append the new candle
+        return [...prevCandles, newCandle];
+    }
+
+    // Older candle out-of-order; ignore
+    return prevCandles;
 }

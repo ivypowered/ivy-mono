@@ -269,6 +269,7 @@ export function createSellTransaction(
                 Mix.gameToAny(
                     game,
                     inputRaw,
+                    minOutputRaw,
                     user,
                     jupInstruction.keys,
                     jupInstruction.data,
@@ -368,6 +369,7 @@ export function createSellIvyTransaction(
             (jupInstruction) =>
                 Mix.ivyToAny(
                     inputRaw,
+                    minOutputRaw,
                     user,
                     jupInstruction.keys,
                     jupInstruction.data,

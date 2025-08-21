@@ -2,94 +2,37 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { SwapProvider } from "@/components/swap/SwapProvider";
-import { SwapToken } from "@/components/swap/swapTypes";
 import { ChartInterval, ChartTab } from "@/components/chart/chartTypes";
 import { SwapWidget } from "@/components/swap/SwapWidget";
 import { GameObject } from "@/lib/game";
 import ReactMarkdown from "react-markdown";
-import {
-    IVY_MINT_B58,
-    WSOL_MINT,
-    TRANSPARENT_1X1,
-    USDC_MINT_B58,
-    USDT_MINT,
-} from "@/lib/constants";
+import { TRANSPARENT_1X1, COMMON_TOKENS, SOL_TOKEN } from "@/lib/constants";
 import { ChartHeader } from "../chart/ChartHeader";
-import { Frame } from "../frame";
+import { GFrame } from "./GFrame";
 import { PublicKey } from "@solana/web3.js";
-import { Api } from "@/lib/api";
 import {
     fetchWebMetadata,
     Game,
-    Auth,
     GAME_DECIMALS,
-    TEXT_ENCODER,
     WebMetadata,
 } from "@/import/ivy-sdk";
 import { infinitely } from "@/lib/utils";
 import { ChartBase } from "../chart/ChartBase";
 import { useTokens } from "@/lib/hooks";
 import { TreasuryManager } from "./TreasuryManager";
-import { useChartData } from "./useChartData";
-import { fetchQuoteInternal } from "./fetchQuoteInternal";
 import { Comments } from "./Comments";
 import { useWallet } from "../wallet/WalletProvider";
+import { useGameStream } from "@/lib/useGameStream";
+import { QuoteContext } from "@/components/swap/QuoteProvider";
 import Decimal from "decimal.js-light";
-
-// Mock tokens
-const COMMON_TOKENS = [
-    {
-        mint: WSOL_MINT.toBase58(),
-        symbol: "SOL",
-        name: "Solana",
-        decimals: 9,
-        icon: "/assets/images/sol.png",
-    },
-    {
-        mint: USDC_MINT_B58,
-        symbol: "USDC",
-        name: "USD Coin",
-        decimals: 6,
-        icon: "/assets/images/usdc.png",
-    },
-    {
-        mint: USDT_MINT.toBase58(),
-        symbol: "USDT",
-        name: "Tether",
-        decimals: 6,
-        icon: "/assets/images/usdt.svg",
-    },
-    {
-        mint: IVY_MINT_B58,
-        symbol: "IVY",
-        name: "Ivy",
-        decimals: 9,
-        icon: "/assets/images/ivy-icon.svg",
-    },
-];
-
-const SOL = COMMON_TOKENS[0];
-
-async function fetchBalance(
-    user: PublicKey,
-    token: SwapToken,
-): Promise<Decimal> {
-    const b = await Api.getTokenBalance(user, new PublicKey(token.mint));
-    return new Decimal(b).div(new Decimal(10).pow(token.decimals));
-}
+import { fetchBalance, fromRaw } from "./util";
 
 // Main game display content
-export function GameDisplay({
-    game,
-    showComments,
-}: {
-    game: GameObject;
-    showComments: boolean;
-}) {
+export function GameDisplay({ game }: { game: GameObject }) {
     const { publicKey, signTransaction, signMessage, openModal } = useWallet();
     const tokens = useTokens();
     const [metadata, setMetadata] = useState<WebMetadata | undefined>(
-        game.metadata_override,
+        undefined,
     );
     const [chartInterval, setChartInterval] = useState<ChartInterval>(() => {
         const age =
@@ -110,11 +53,13 @@ export function GameDisplay({
         game.game_url ? "Game" : "Chart",
     );
 
+    // Use the new stream hook
+    const { data: streamData, loading: isStreamLoading } = useGameStream(
+        game.address,
+        chartInterval,
+    );
+
     useEffect(() => {
-        if (game.metadata_override) {
-            setMetadata(game.metadata_override);
-            return;
-        }
         let active = true;
         infinitely(
             /* f */ () => fetchWebMetadata(game.metadata_url),
@@ -124,7 +69,7 @@ export function GameDisplay({
         return () => {
             active = false;
         };
-    }, [game.metadata_url, game.metadata_override]);
+    }, [game.metadata_url]);
 
     const gameToken = useMemo(() => {
         return {
@@ -132,73 +77,50 @@ export function GameDisplay({
             symbol: game.symbol,
             icon: metadata?.image || TRANSPARENT_1X1,
             decimals: GAME_DECIMALS,
-            mint:
-                game.mint_override ||
-                Game.deriveAddresses(
-                    new PublicKey(game.address),
-                ).mint.toBase58(),
+            mint: Game.deriveMint(new PublicKey(game.address)).toBase58(),
         };
     }, [game, metadata]);
 
-    const fetchQuote = useMemo(
-        () =>
-            async (
-                user: PublicKey | undefined,
-                inputToken: SwapToken,
-                outputToken: SwapToken,
-                inputAmount: Decimal,
-                outputAmount: Decimal,
-                slippageBps: number,
-            ) => {
-                const gameAddress = new PublicKey(game.address);
-                const gameSwapAlt = new PublicKey(game.swap_alt);
-                const gameMint = gameToken.mint;
-                const q = await fetchQuoteInternal(
-                    user,
-                    gameAddress,
-                    gameSwapAlt,
-                    gameMint,
-                    inputToken,
-                    outputToken,
-                    inputAmount,
-                    outputAmount,
-                    slippageBps,
-                );
-                return q;
-            },
-        [game, gameToken],
+    // Create quote context with stream data
+    const quoteContext: QuoteContext = useMemo(
+        () => ({
+            game: new PublicKey(game.address),
+            gameSwapAlt: new PublicKey(game.swap_alt),
+            gameMint: gameToken.mint,
+            gameReserves: streamData
+                ? {
+                      ivyBalance: fromRaw(streamData.ivyBalance),
+                      gameBalance: fromRaw(streamData.gameBalance),
+                  }
+                : null,
+            worldReserves: streamData
+                ? {
+                      ivySold: fromRaw(streamData.ivySold),
+                      ivyCurveMax: fromRaw(streamData.ivyCurveMax),
+                      curveInputScale: new Decimal(streamData.curveInputScale),
+                  }
+                : null,
+            feeConfig: streamData
+                ? {
+                      ivyFeeBps: streamData.ivyFeeBps,
+                      gameFeeBps: streamData.gameFeeBps,
+                  }
+                : null,
+            isSync: false,
+        }),
+        [game, gameToken.mint, streamData],
     );
 
-    // Used for chart data
-    const {
-        data: chartData,
-        marketCap: chartMarketCap,
-        changePercent: chartChangePercent,
-        loading: isChartLoading,
-    } = useChartData(game.address, chartInterval);
+    // Calculate price data from stream
+    const priceUsd = useMemo(() => {
+        if (streamData?.candles && streamData.candles.length > 0) {
+            return streamData.candles[streamData.candles.length - 1].close;
+        }
+        return game.last_price_usd;
+    }, [streamData?.candles, game.last_price_usd]);
 
-    // Calculate price data for chart
-    const [priceUsd, setPriceUsd] = useState(game.last_price_usd);
-    useEffect(() => {
-        // Derive price from the last candle's close price if available
-        if (chartData && chartData.length > 0) {
-            setPriceUsd(chartData[chartData.length - 1].close);
-        }
-    }, [chartData, gameToken.symbol]);
-    const [changePercentUsd, setChangePercentUsd] = useState(
-        game.change_pct_24h,
-    );
-    useEffect(() => {
-        if (typeof chartChangePercent === "number") {
-            setChangePercentUsd(chartChangePercent);
-        }
-    }, [chartChangePercent]);
-    const [marketCap, setMarketCap] = useState(game.mkt_cap_usd);
-    useEffect(() => {
-        if (typeof chartMarketCap === "number") {
-            setMarketCap(chartMarketCap);
-        }
-    }, [chartMarketCap]);
+    const changePercentUsd = streamData?.changePct24h || game.change_pct_24h;
+    const marketCap = streamData?.mktCapUsd || game.mkt_cap_usd;
 
     // Created at from game timestamp
     const createdAt = useMemo(() => {
@@ -215,222 +137,7 @@ export function GameDisplay({
         return "/edit?address=" + game.address;
     }, [game, publicKey]);
 
-    const [frameSrc, setFrameSrc] = useState("about:blank");
-    const [frameOrigin, setFrameOrigin] = useState("about:blank");
-    useEffect(() => {
-        let u: URL;
-        try {
-            u = new URL(game.game_url);
-            u.searchParams.append("parentOrigin", window.origin);
-            setFrameSrc(u.toString());
-            setFrameOrigin(u.origin);
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (_e) {
-            setFrameSrc("about:blank");
-            setFrameOrigin("about:blank");
-        }
-    }, [game.game_url]);
-
-    const [frameWindow, setFrameWindow] = useState<Window | null>(null);
-    const [subscribed, setSubscribed] = useState<boolean>(false);
-    const [frameState, setFrameState] = useState<{
-        user: string | null;
-        message: string | null;
-        signature: string | null;
-    }>({ user: null, message: null, signature: null });
-    useEffect(() => {
-        if (!frameState.message || !frameState.signature) {
-            return;
-        }
-        const expiry = Auth.getMessageExpiry(frameState.message);
-        const intv = setInterval(() => {
-            const now = Math.floor(new Date().getTime() / 1_000);
-            if (Math.abs(now - expiry) > 300) {
-                // More than 5 minutes left, we still have time
-                return;
-            }
-            // Refresh our auth token
-            setFrameState((s) => ({
-                user: s.user,
-                message: null,
-                signature: null,
-            }));
-        }, 60_000);
-        return () => clearInterval(intv);
-    }, [frameState, setFrameState]);
-    const [subscribeKey, setSubscribeKey] = useState<number>(0);
-    useEffect(() => {
-        if (!subscribed || !frameWindow) {
-            return;
-        }
-        frameWindow.postMessage(frameState, frameOrigin);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [frameState, subscribed, subscribeKey, frameWindow]);
-    useEffect(() => {
-        setFrameState((s) => {
-            if (!publicKey) {
-                return {
-                    user: null,
-                    message: null,
-                    signature: null,
-                };
-            }
-            if (s.user !== null && s.user === publicKey.toBase58()) {
-                return s;
-            }
-            let message: string | null = null;
-            let signature: string | null = null;
-            try {
-                const v = window.localStorage.getItem(
-                    `ivy-auth-${game.address}-${publicKey.toBase58()}`,
-                );
-                if (!v) {
-                    throw new Error("not found");
-                }
-                const vv = JSON.parse(v);
-                const user = Auth.verifyMessage(
-                    new PublicKey(game.address),
-                    vv.message,
-                    Buffer.from(vv.signature, "hex"),
-                );
-                if (!user.equals(publicKey)) {
-                    throw new Error("saved auth details for wrong user");
-                }
-                message = vv.message || null;
-                signature = vv.signature || null;
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            } catch (_) {}
-            return {
-                user: publicKey.toBase58(),
-                message,
-                signature,
-            };
-        });
-    }, [publicKey, game.address]);
-    const balanceReloadRateLimit = useRef<{
-        count: number;
-        intervalEnd: number;
-    }>({ count: 0, intervalEnd: 0 });
-    useEffect(() => {
-        const onMessage = async (ev: MessageEvent) => {
-            if (ev.origin !== frameOrigin) {
-                return;
-            }
-            if (typeof ev.data !== "object") {
-                return;
-            }
-            if (typeof ev.data.action !== "string") {
-                return;
-            }
-            switch (ev.data.action) {
-                case "subscribe":
-                    setSubscribed(true);
-                    setSubscribeKey((k) => k + 1);
-                    break;
-                case "connect_wallet":
-                    openModal();
-                    break;
-                case "reload_balance":
-                    // reload_balance rate limiting
-                    const now = Math.floor(new Date().getTime() / 1000); // unix
-                    const rl = balanceReloadRateLimit.current;
-                    if (now > rl.intervalEnd) {
-                        rl.count = 0;
-                        rl.intervalEnd = now + 60;
-                    }
-                    rl.count++;
-                    if (rl.count > 15) {
-                        // no more than 15 balance reloads every 60 seconds
-                        break;
-                    }
-                    // requires user
-                    if (!publicKey) {
-                        break;
-                    }
-                    const reloadFn = reloadBalancesRef.current;
-                    if (reloadFn) {
-                        // use the treasury mgmt's reload fn
-                        // if we have it
-                        reloadFn();
-                        break;
-                    }
-                    // otherwise update swap state manually
-                    const updateFn = updateBalanceRef.current;
-                    if (!updateFn) {
-                        break;
-                    }
-                    const mint = Game.deriveAddresses(
-                        new PublicKey(game.address),
-                    ).mint;
-                    try {
-                        const balance = await Api.getTokenBalance(
-                            publicKey,
-                            mint,
-                        );
-                        updateFn(
-                            mint.toBase58(),
-                            new Decimal(balance).div(new Decimal(10).pow(9)),
-                        );
-                        // eslint-disable-next-line
-                    } catch (_e) {}
-                    break;
-                case "sign_message":
-                    if (!publicKey) {
-                        break;
-                    }
-                    const message = Auth.createMessage(
-                        new PublicKey(game.address),
-                        publicKey,
-                    );
-                    if (!signMessage) {
-                        console.error("Can't find signMessage");
-                        break;
-                    }
-                    const signature = Buffer.from(
-                        await signMessage(TEXT_ENCODER.encode(message)),
-                    ).toString("hex");
-                    try {
-                        window.localStorage.setItem(
-                            `ivy-auth-${game.address}-${publicKey.toBase58()}`,
-                            JSON.stringify({ message, signature }),
-                        );
-                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                    } catch (_e) {}
-                    setFrameState((s) => {
-                        if (!s.user || s.user !== publicKey.toBase58()) {
-                            // user has changed since we requested signature
-                            // leave state unchanged
-                            return s;
-                        }
-                        return {
-                            user: publicKey.toBase58(),
-                            message,
-                            signature,
-                        };
-                    });
-                    break;
-                case "logout":
-                    setFrameState((s) => {
-                        if (!s.user || !s.message || !s.signature) {
-                            // user is already logged out
-                            return s;
-                        }
-                        window.localStorage.removeItem(
-                            `ivy-auth-${game.address}-${s.user}`,
-                        );
-                        return {
-                            user: s.user,
-                            message: null,
-                            signature: null,
-                        };
-                    });
-                    break;
-            }
-        };
-        window.addEventListener("message", onMessage);
-        return () => window.removeEventListener("message", onMessage);
-    }, [frameOrigin, game, publicKey, openModal, signMessage]);
-
+    // Refs for balance management
     const reloadBalancesRef = useRef<(() => void) | null>(null);
     const updateBalanceRef = useRef<
         ((mint: string, amount: Decimal) => void) | null
@@ -443,7 +150,7 @@ export function GameDisplay({
                     connectWallet={openModal}
                     commonTokens={COMMON_TOKENS}
                     fetchBalance={fetchBalance}
-                    fetchQuote={fetchQuote}
+                    quoteContext={quoteContext}
                     reloadBalances={reloadBalancesRef.current || (() => {})}
                     signTransaction={
                         signTransaction ||
@@ -454,7 +161,7 @@ export function GameDisplay({
                         })
                     }
                     tokens={tokens}
-                    initialInputToken={SOL}
+                    initialInputToken={SOL_TOKEN}
                     initialOutputToken={gameToken}
                     user={publicKey || undefined}
                     updateBalanceRef={updateBalanceRef}
@@ -481,22 +188,26 @@ export function GameDisplay({
                                     />
 
                                     <div className="flex-1 min-h-[400px] relative">
-                                        {/* Keep the Frame mounted all the time but toggle visibility */}
-                                        <Frame
-                                            src={frameSrc}
-                                            title={game.name}
-                                            className={`w-full h-full ${activeTab === "Game" ? "" : "hidden"}`}
+                                        {/* GFrame component handles all iframe functionality */}
+                                        <GFrame
+                                            game={game}
+                                            publicKey={publicKey}
+                                            signMessage={signMessage}
+                                            openModal={openModal}
+                                            reloadBalancesRef={
+                                                reloadBalancesRef
+                                            }
+                                            updateBalanceRef={updateBalanceRef}
+                                            activeTab={activeTab}
                                             minHeight={400}
-                                            showFullscreenButton={true}
-                                            setFrameWindow={setFrameWindow}
                                         />
 
                                         {/* Show the chart when Chart tab is active */}
                                         {activeTab === "Chart" && (
                                             <ChartBase
-                                                data={chartData || []}
+                                                data={streamData?.candles || []}
                                                 height={400}
-                                                isLoading={isChartLoading}
+                                                isLoading={isStreamLoading}
                                                 interval={chartInterval}
                                             />
                                         )}
@@ -556,25 +267,22 @@ export function GameDisplay({
                 )}
 
                 {/* Comments Section */}
-                {showComments && (
-                    <div className="mt-8 space-y-4">
-                        {/* Comments Display */}
-                        <Comments
-                            gameAddress={game.address}
-                            userAddress={publicKey?.toBase58()}
-                            onConnectWallet={() => openModal()}
-                            signTransaction={
-                                signTransaction ||
-                                (() => {
-                                    throw new Error(
-                                        "can't find signTransaction",
-                                    );
-                                })
-                            }
-                            initialCommentBufIndex={game.comment_buf_index}
-                        />
-                    </div>
-                )}
+                <div className="mt-8 space-y-4">
+                    {/* Comments Display */}
+                    <Comments
+                        gameAddress={game.address}
+                        userAddress={publicKey?.toBase58()}
+                        onConnectWallet={() => openModal()}
+                        signTransaction={
+                            signTransaction ||
+                            (() => {
+                                throw new Error("can't find signTransaction");
+                            })
+                        }
+                        comments={streamData?.comments}
+                        totalComments={streamData?.comments.length || 0}
+                    />
+                </div>
             </div>
         </div>
     );

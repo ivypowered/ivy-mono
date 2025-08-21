@@ -311,3 +311,85 @@ export function getAssociatedTokenAddressSync(
         SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
     )[0];
 }
+
+// Program IDs
+export const PUMP_PROGRAM_ID = new PublicKey(
+    "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+);
+export const PSWAP_PROGRAM_ID = new PublicKey(
+    "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+);
+
+// Global accounts
+export const PUMP_GLOBAL = new PublicKey(
+    "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
+);
+export const PUMP_EVENT_AUTHORITY = new PublicKey(
+    "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1",
+);
+export const PSWAP_GLOBAL_CONFIG = new PublicKey(
+    "ADyA8hdefvWN2dbGGWFotbzWxrAvLW83WG6QCVXvJKqw",
+);
+
+// Token mints
+export const WSOL_MINT = new PublicKey(
+    "So11111111111111111111111111111111111111112",
+);
+
+// PDA prefixes
+export const SYNC_PREFIX = "sync";
+export const SYNC_MINT_PREFIX = "sync_mint";
+export const SYNC_SYNC_WALLET_PREFIX = "sync_sync_wallet";
+export const SYNC_PUMP_WALLET_PREFIX = "sync_pump_wallet";
+
+// Helper to derive sync PDAs
+export async function deriveSyncAddresses(
+    pumpMint: PublicKey,
+    seedOverride?: Buffer | Uint8Array,
+): Promise<{
+    seed: Buffer;
+    sync: PublicKey;
+    syncMint: PublicKey;
+    syncWallet: PublicKey;
+    pumpWallet: PublicKey;
+}> {
+    const seed =
+        seedOverride && seedOverride.length === 32
+            ? Buffer.from(seedOverride)
+            : pumpMint.toBuffer();
+
+    const [sync] = await PublicKey.findProgramAddress(
+        [Buffer.from(SYNC_PREFIX), seed],
+        IVY_PROGRAM_ID,
+    );
+
+    const [syncMint] = await PublicKey.findProgramAddress(
+        [Buffer.from(SYNC_MINT_PREFIX), sync.toBuffer()],
+        IVY_PROGRAM_ID,
+    );
+
+    const [syncWallet] = await PublicKey.findProgramAddress(
+        [Buffer.from(SYNC_SYNC_WALLET_PREFIX), sync.toBuffer()],
+        IVY_PROGRAM_ID,
+    );
+
+    const [pumpWallet] = await PublicKey.findProgramAddress(
+        [Buffer.from(SYNC_PUMP_WALLET_PREFIX), sync.toBuffer()],
+        IVY_PROGRAM_ID,
+    );
+
+    return { seed, sync, syncMint, syncWallet, pumpWallet };
+}
+
+// Helper to derive Metaplex metadata PDA
+export async function deriveMetadataPda(mint: PublicKey): Promise<PublicKey> {
+    const [metadata] = await PublicKey.findProgramAddress(
+        [
+            Buffer.from("metadata"),
+            METADATA_PROGRAM_ID.toBuffer(),
+            mint.toBuffer(),
+        ],
+        METADATA_PROGRAM_ID,
+    );
+    return metadata;
+}

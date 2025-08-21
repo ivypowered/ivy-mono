@@ -29,42 +29,14 @@ require_once __DIR__ . "/../includes/header.php";
         background-size: cover;
         background-repeat: no-repeat;
     ">
-        <div class="mx-auto max-w-6xl px-6 pt-20 pb-16 xxs:pb-36 md:pb-40 text-center"">
+        <div class="mx-auto max-w-6xl px-6 pt-24 pb-16 xxs:pb-36 md:pb-40 text-center"">
             <h1 class="mb-6 text-5xl xs:text-6xl mx-auto leading-tight font-extrabold">
                 Welcome to Ivy,<br>
                 <span class="bg-emerald-400 text-emerald-950 px-3">the gamecoin launchpad.</span>
             </h1>
-            <p class="mx-auto mb-10 max-w-2xl text-xl text-white">
+            <p class="mx-auto mb-12 max-w-2xl text-xl text-white">
                 Ivy is the launchpad where each token is a playable game. Launch, play, and ride gamecoins to the stars.
             </p>
-            <div class="mb-12 flex flex-col sm:flex-row justify-center gap-6">
-                <div class="border-2 border-emerald-400 p-6 min-w-[200px] backdrop-blur-sm bg-zinc-900/50">
-                    <div class="text-sm text-emerald-400 uppercase tracking-wide">games live</div>
-                    <div class="text-3xl font-bold" title="<?= number_format(
-                        $global_info["games_listed"],
-                    ) ?>">
-                        <?= number_format($global_info["games_listed"]) ?>
-                    </div>
-                </div>
-                <div class="border-2 border-emerald-400 p-6 min-w-[200px] backdrop-blur-sm bg-zinc-900/50">
-                    <div class="text-sm text-emerald-400 uppercase tracking-wide">total value locked</div>
-                    <div class="text-3xl font-bold" title="$<?= number_format(
-                        $global_info["tvl"],
-                        2,
-                    ) ?>">
-                        $<?= number_format($global_info["tvl"], 2) ?>
-                    </div>
-                </div>
-                <div class="border-2 border-emerald-400 p-6 min-w-[200px] backdrop-blur-sm bg-zinc-900/50">
-                    <div class="text-sm text-emerald-400 uppercase tracking-wide">24h volume</div>
-                    <div class="text-3xl font-bold" title="$<?= number_format(
-                        $global_info["volume_24h"],
-                        2,
-                    ) ?>">
-                        $<?= number_format($global_info["volume_24h"], 2) ?>
-                    </div>
-                </div>
-            </div>
         </div>
     </section>
     <!-- Player Experience -->

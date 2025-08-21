@@ -1,5 +1,5 @@
 import { ivy_program, IVY_PROGRAM_ID, zt2str } from "./interface";
-import { BN, Program } from "@coral-xyz/anchor";
+import { BN } from "@coral-xyz/anchor";
 import { base64, bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import {
     ConfirmedSignatureInfo,

@@ -163,19 +163,33 @@ for file in all_files:
             if disc_sv.name != "discriminator" or disc_sv.type != "u64":
                 fail(f"in {struct.name}: event's 1st field must be `u64 discriminator`")
             struct_fields = []
+            seen_string = False
             for sv in struct.vars[1:]:
                 if sv.is_const:
                     continue
                 if sv.pragma:
                     pragma_args = sv.pragma.split()
-                    if len(pragma_args) != 1 or pragma_args[0] != "string":
-                        fail(f"in {struct.name}: pragma in event must be of type string")
+                    if len(pragma_args) < 1 or (pragma_args[0] != "string" and pragma_args[0] != "strings"):
+                        fail(f"in {struct.name}: pragma in event must be of type string or strings")
                         continue
-                    struct_fields.append({
-                        "name": sv.name,
-                        "type": "string"
-                    })
+                    seen_string = True
+                    if pragma_args[0] == "string":
+                        struct_fields.append({
+                            "name": sv.name,
+                            "type": "string"
+                        })
+                    else:
+                        entries = pragma_args[1:]
+                        if len(entries) == 0:
+                            fail(f"in {struct.name}: must provide args to strings pragma")
+                        for entry in entries:
+                            struct_fields.append({
+                                "name": entry,
+                                "type": "string",
+                            })
                     continue
+                if seen_string:
+                    fail(f"in {struct.name}: normal fields cannot follow string field")
                 struct_fields.append({
                     "name": sv.name,
                     "type": parse_c_type(sv.type).anchor_type
@@ -293,7 +307,7 @@ for file in all_files:
                 max_alignment = max(max_alignment, field_alignment)
 
                 # Calculate and add padding needed before this field
-                if current_offset % field_alignment != 0:
+                if not struct.is_packed and (current_offset % field_alignment != 0):
                     padding_size = field_alignment - (current_offset % field_alignment)
                     args_list.append({
                         "name": f"pad{pad_index}",
@@ -312,7 +326,7 @@ for file in all_files:
                 current_offset += c_type.size
 
             # Add padding at the end to make the total struct size a multiple of its max alignment
-            if not seen_string and max_alignment > 0 and current_offset % max_alignment != 0:
+            if not struct.is_packed and not seen_string and max_alignment > 0 and current_offset % max_alignment != 0:
                 end_padding = max_alignment - (current_offset % max_alignment)
                 args_list.append({
                     "name": f"pad{pad_index}",

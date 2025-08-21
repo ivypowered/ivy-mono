@@ -1,55 +1,48 @@
 import express from "express";
 import {
     AddressLookupTableAccount,
-    CompiledInstruction,
     Connection,
-    Keypair,
-    MessageCompiledInstruction,
     PublicKey,
-    SendTransactionError,
-    Transaction,
-    TransactionInstruction,
-    VersionedTransaction,
 } from "@solana/web3.js";
+import { World } from "ivy-sdk";
 import {
-    getEvents,
-    Game,
-    GAME_DECIMALS,
-    IVY_MINT,
-    Auth,
-    Id,
-    World,
-    IVY_PROGRAM_ID,
-    getIvyInstructionName,
-} from "ivy-sdk";
-import { confirmTransaction } from "./functions/confirmTransaction";
-import {
-    EVENTS_MAX_CONCURRENT_REQUESTS,
-    EVENTS_USE_BATCH,
     HELIUS_RPC_URL,
-    KEYGEN_URL,
     LISTEN_PORT,
     PINATA_GATEWAY,
     PINATA_JWT,
     RPC_URL,
-    WSOL_MINT,
 } from "./constants";
 import { Cache } from "./utils/cache";
-import {
-    handleAsync,
-    parsePublicKey,
-    validateRequestBody,
-} from "./utils/requestHelpers";
-import { createAndUploadMetadata, uploadImageToIPFS } from "./util";
-import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
-import {
-    AccountLayout,
-    ASSOCIATED_TOKEN_PROGRAM_ID,
-    getAssociatedTokenAddressSync,
-    TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
-import { getEffects } from "./functions/getEffects";
+import { handleAsync } from "./utils/requestHelpers";
 import { PriorityFee } from "./priority-fee";
+
+// Route groups
+import { health } from "./routes/root";
+import { uploadImage, uploadMetadata } from "./routes/assets";
+import { generateGameSeed, generateId } from "./routes/ids";
+import {
+    burnCompleteTx,
+    createGameTx,
+    debitGameTx,
+    depositCompleteTx,
+    editGameTx,
+    withdrawClaimTx,
+} from "./routes/gameTx";
+import { authenticate, getGameBalance, signWithdrawal } from "./routes/games";
+import {
+    confirmTransactionRoute,
+    getTransactionEffects,
+    sendTransaction,
+} from "./routes/transactions";
+import {
+    getAccountsData,
+    getContext,
+    getTokenBalance,
+    getTreasuryBalance,
+    getWorldAlt,
+} from "./routes/chain";
+import { getSolPrice } from "./routes/price";
+import { Deps } from "./types/deps";
 
 // --- Setup ---
 const app = express();
@@ -83,6 +76,7 @@ const cache = {
         expiryInterval: Number.MAX_SAFE_INTEGER,
     }),
 };
+
 // The priority fee service. We don't use this on localhost :)
 const priorityFeeService: PriorityFee | null = HELIUS_RPC_URL
     ? new PriorityFee(HELIUS_RPC_URL)
@@ -91,6 +85,13 @@ if (priorityFeeService) {
     // start priority fee background task
     priorityFeeService.run();
 }
+
+// Build dependencies for routes
+const deps: Deps = {
+    connection,
+    cache,
+    priorityFeeService,
+};
 
 // --- Middleware ---
 app.use(express.json({ limit: "5mb" }));
@@ -114,879 +115,52 @@ app.use((req, res, next) => {
     next();
 });
 
-// --- Helper Functions ---
-interface PreparedTransaction {
-    insName: string;
-    base64: string;
-    feePayer: string;
-    derived: {
-        seeds: string[];
-        programId: string;
-    }[];
-}
-
-const NULL_BLOCKHASH: string = PublicKey.default.toBase58();
-function prepareTransaction(
-    insName: string,
-    tx: Transaction | VersionedTransaction,
-    feePayer: PublicKey | Keypair,
-    derived?: {
-        seeds: PublicKey[];
-        program_id: PublicKey;
-    }[],
-): PreparedTransaction {
-    let txData: Buffer;
-    if (tx instanceof Transaction) {
-        tx.recentBlockhash = NULL_BLOCKHASH;
-        if (feePayer instanceof Keypair) {
-            tx.feePayer = feePayer.publicKey;
-        } else {
-            tx.feePayer = feePayer;
-        }
-        txData = tx.serialize({ requireAllSignatures: false });
-    } else {
-        // VersionedTransaction requires a recentBlockhash to serialize
-        tx.message.recentBlockhash = NULL_BLOCKHASH;
-        if (!(feePayer instanceof Keypair)) {
-            throw new Error(
-                "When preparing VersionedTransaction, we need a fake keypair",
-            );
-        }
-        // Avoids "Error: Expected signatures length to be equal to the number of required signatures"
-        tx.sign([feePayer]);
-        txData = Buffer.from(tx.serialize());
-    }
-
-    return {
-        insName,
-        base64: txData.toString("base64"),
-        // The client will replace this with its own
-        // public key :)
-        feePayer:
-            feePayer instanceof Keypair
-                ? feePayer.publicKey.toBase58()
-                : feePayer.toBase58(),
-        derived:
-            derived?.map((x) => ({
-                seeds: x.seeds.map((s) => s.toBase58()),
-                programId: x.program_id.toBase58(),
-            })) || [],
-    };
-}
-
-// --- Routes ---
-
-// Health check endpoint
-app.get("/", (_, res) => res.status(200).json({ status: "ok" }));
-
 // Static Assets (for debug uploads)
 if (!PINATA_JWT || !PINATA_GATEWAY) {
     app.use("/tmp", express.static("tmp"));
 }
 
 /**********************************
-|   Routes for PHP `ivy-frontend` *
+|   Routes                        |
 ***********************************/
-
-// Generate an ID
-app.get(
-    "/id",
-    handleAsync(async (req, res) => {
-        const { amountRaw } = req.query;
-
-        if (typeof amountRaw !== "string") {
-            throw new Error("Query param 'amountRaw' must be a string");
-        }
-
-        const idBytes = Id.generate(amountRaw);
-        const idHex = Buffer.from(idBytes).toString("hex");
-
-        return res.status(200).json({
-            status: "ok",
-            data: idHex,
-        });
-    }),
-);
-
-// Upload an image to IPFS
-app.post(
-    "/assets/images",
-    handleAsync(async (req, res) => {
-        const data = validateRequestBody(req.body, [
-            { name: "base64_image", type: "string" },
-            { name: "image_type", type: "string" },
-        ]);
-
-        const image_url = await uploadImageToIPFS(
-            data.base64_image,
-            data.image_type,
-        );
-        return res.status(200).json({ status: "ok", data: image_url });
-    }),
-);
-
-// Upload token metadata to IPFS
-app.post(
-    "/assets/metadata",
-    handleAsync(async (req, res) => {
-        const data = validateRequestBody(req.body, [
-            { name: "name", type: "string" },
-            { name: "symbol", type: "string" },
-            { name: "icon_url", type: "string" },
-            { name: "description", type: "string" },
-        ]);
-
-        const metadata_url = await createAndUploadMetadata(
-            data.name,
-            data.symbol,
-            data.icon_url,
-            data.description,
-        );
-        return res.status(200).json({ status: "ok", data: metadata_url });
-    }),
-);
-
-// Generate a game seed
-app.post(
-    "/game-seed",
-    handleAsync(async (_, res) => {
-        if (!KEYGEN_URL) {
-            return res.status(200).json({
-                status: "ok",
-                data: Buffer.from(Game.generateSeed()).toString("hex"),
-            });
-        }
-        const seed_url = KEYGEN_URL + "/seed";
-        let response;
-        try {
-            response = await (
-                await fetch(seed_url, {
-                    method: "POST",
-                })
-            ).json();
-        } catch (e) {
-            if (!(e instanceof Error)) {
-                throw e;
-            }
-            throw new Error(
-                `can't fetch ${seed_url}: ${e.message} @ ${e.stack}`,
-            );
-        }
-        if (
-            typeof response !== "object" ||
-            typeof response["seed"] !== "string"
-        ) {
-            throw new Error("invalid response from keygen");
-        }
-        return res.status(200).json({
-            status: "ok",
-            data: response["seed"],
-        });
-    }),
-);
-
-// Create a game
-app.post(
-    "/tx/game/create",
-    handleAsync(async (req, res) => {
-        const data = validateRequestBody(req.body, [
-            { name: "seed", type: "string" },
-            { name: "name", type: "string" },
-            { name: "symbol", type: "string" },
-            { name: "icon_url", type: "string" },
-            { name: "game_url", type: "string" },
-            { name: "cover_url", type: "string" },
-            { name: "metadata_url", type: "string" },
-            { name: "ivy_purchase", type: "string" },
-            { name: "min_game_received", type: "string" },
-            { name: "il_exponent", type: "number" },
-        ]);
-
-        const user_wallet = Keypair.generate();
-        const seed = Buffer.from(data.seed, "hex") as Uint8Array;
-        const recent_slot = (await cache.slot.get()) - 1;
-        const world_alt = (await cache.worldAlt.get()).alt;
-        const tx = await Game.create(
-            seed,
-            data.name,
-            data.symbol,
-            data.icon_url,
-            data.game_url,
-            data.cover_url,
-            data.metadata_url,
-            user_wallet.publicKey,
-            recent_slot,
-            data.ivy_purchase,
-            data.min_game_received,
-            world_alt,
-            data.il_exponent,
-        );
-
-        const game = Game.deriveAddress(seed);
-        const { mint } = Game.deriveAddresses(game);
-        const prepared = prepareTransaction("GameCreate", tx, user_wallet, [
-            // src
-            {
-                seeds: [user_wallet.publicKey, TOKEN_PROGRAM_ID, IVY_MINT],
-                program_id: ASSOCIATED_TOKEN_PROGRAM_ID,
-            },
-            // dst
-            {
-                seeds: [user_wallet.publicKey, TOKEN_PROGRAM_ID, mint],
-                program_id: ASSOCIATED_TOKEN_PROGRAM_ID,
-            },
-        ]);
-
-        return res.status(200).json({
-            status: "ok",
-            data: {
-                address: game.toString(),
-                tx: prepared,
-            },
-        });
-    }),
-);
-
-// Edit a game
-app.post(
-    "/tx/game/edit",
-    handleAsync(async (req, res) => {
-        const data = validateRequestBody(req.body, [
-            { name: "game", type: "string" },
-            { name: "owner", type: "string" },
-            { name: "new_owner", type: "string" },
-            { name: "new_withdraw_authority", type: "string" },
-            { name: "game_url", type: "string" },
-            { name: "cover_url", type: "string" },
-            { name: "metadata_url", type: "string" },
-        ]);
-
-        const game_address = parsePublicKey(data.game, "game");
-        const owner_address = parsePublicKey(data.owner, "owner");
-        const new_owner_address = parsePublicKey(data.new_owner, "new_owner");
-        const new_withdraw_authority_address = parsePublicKey(
-            data.new_withdraw_authority,
-            "new_withdraw_authority",
-        );
-
-        const tx = await Game.edit(
-            game_address,
-            owner_address,
-            new_owner_address,
-            new_withdraw_authority_address,
-            data.game_url,
-            data.cover_url,
-            data.metadata_url,
-        );
-
-        const prepared = prepareTransaction("GameCreate", tx, owner_address);
-
-        return res.status(200).json({
-            status: "ok",
-            data: prepared,
-        });
-    }),
-);
-
-// Debit from game
-app.post(
-    "/tx/game/debit",
-    handleAsync(async (req, res) => {
-        const data = validateRequestBody(req.body, [
-            { name: "game", type: "string" },
-            { name: "amount", type: "string" },
-            { name: "user", type: "string" },
-        ]);
-
-        const game_public_key = parsePublicKey(data.game, "game");
-        const user_public_key = parsePublicKey(data.user, "user");
-
-        const tx = await Game.debit(
-            game_public_key,
-            data.amount,
-            user_public_key,
-        );
-
-        const prepared = prepareTransaction("GameDebit", tx, user_public_key);
-
-        return res.status(200).json({
-            status: "ok",
-            data: prepared,
-        });
-    }),
-);
-
-// Helper function to convert hex ID to byte array
-function parseHex(hexId: string, idName: string): Uint8Array {
-    try {
-        // Remove '0x' prefix if present
-        if (hexId.startsWith("0x")) {
-            hexId = hexId.substring(2);
-        }
-
-        // Convert to Uint8Array
-        return Uint8Array.from(Buffer.from(hexId, "hex"));
-    } catch (error) {
-        throw new Error(`Invalid ${idName} format: ${error}`);
-    }
-}
-
-// Claim a game withdraw
-app.post(
-    "/tx/game/withdraw-claim",
-    handleAsync(async (req, res) => {
-        const data = validateRequestBody(req.body, [
-            { name: "game", type: "string" },
-            { name: "withdraw_id", type: "string" },
-            { name: "user", type: "string" },
-            { name: "signature", type: "string" },
-            { name: "withdraw_authority", type: "string" },
-        ]);
-
-        const game_public_key = parsePublicKey(data.game, "game");
-        const user_public_key = parsePublicKey(data.user, "user");
-        const withdraw_authority = parsePublicKey(
-            data.withdraw_authority,
-            "withdraw_authority",
-        );
-        const withdraw_id_bytes = parseHex(data.withdraw_id, "withdraw_id");
-        const signature_bytes = parseHex(data.signature, "signature");
-
-        const tx = await Game.withdrawClaim(
-            game_public_key,
-            withdraw_authority,
-            withdraw_id_bytes,
-            user_public_key,
-            signature_bytes,
-        );
-
-        const prepared = prepareTransaction(
-            "GameWithdrawClaim",
-            tx,
-            user_public_key,
-        );
-
-        return res.status(200).json({
-            status: "ok",
-            data: prepared,
-        });
-    }),
-);
-
-// Complete a game deposit
-app.post(
-    "/tx/game/deposit-complete",
-    handleAsync(async (req, res) => {
-        const data = validateRequestBody(req.body, [
-            { name: "game", type: "string" },
-            { name: "deposit_id", type: "string" },
-        ]);
-
-        const game_public_key = parsePublicKey(data.game, "game");
-        const deposit_id_bytes = parseHex(data.deposit_id, "deposit_id");
-
-        const user = Keypair.generate().publicKey;
-
-        const tx = await Game.depositComplete(
-            game_public_key,
-            deposit_id_bytes,
-            user,
-        );
-
-        const { mint } = Game.deriveAddresses(game_public_key);
-        const prepared = prepareTransaction("GameDepositComplete", tx, user, [
-            {
-                // user source ATA
-                seeds: [user, TOKEN_PROGRAM_ID, mint],
-                program_id: ASSOCIATED_TOKEN_PROGRAM_ID,
-            },
-        ]);
-
-        return res.status(200).json({
-            status: "ok",
-            data: prepared,
-        });
-    }),
-);
-
-// Complete a game burn
-app.post(
-    "/tx/game/burn-complete",
-    handleAsync(async (req, res) => {
-        const data = validateRequestBody(req.body, [
-            { name: "game", type: "string" },
-            { name: "burn_id", type: "string" },
-        ]);
-
-        const game_public_key = parsePublicKey(data.game, "game");
-        const burn_id_bytes = parseHex(data.burn_id, "burn_id");
-
-        const user = Keypair.generate().publicKey;
-
-        const tx = await Game.burnComplete(
-            game_public_key,
-            burn_id_bytes,
-            user,
-        );
-
-        const { mint } = Game.deriveAddresses(game_public_key);
-        const prepared = prepareTransaction("GameBurnComplete", tx, user, [
-            {
-                // user source ATA
-                seeds: [user, TOKEN_PROGRAM_ID, mint],
-                program_id: ASSOCIATED_TOKEN_PROGRAM_ID,
-            },
-        ]);
-
-        return res.status(200).json({
-            status: "ok",
-            data: prepared,
-        });
-    }),
-);
-
-// Get the game balance for a user
-app.get(
-    "/games/:game/balances/:user",
-    handleAsync(async (req, res) => {
-        const { game, user } = req.params;
-        if (!game || !user) throw new Error("Missing required parameter: user");
-
-        const game_address = parsePublicKey(game, "game");
-        const user_address = parsePublicKey(user, "user");
-
-        const balance_raw = await Game.getBalance(
-            connection,
-            game_address,
-            user_address,
-        );
-        const balance = parseInt(balance_raw) / Math.pow(10, GAME_DECIMALS);
-
-        return res.status(200).json({
-            status: "ok",
-            data: balance,
-        });
-    }),
-);
-
-/// Sign a withdraw for a user
-app.post(
-    "/games/:game/withdrawals/:id",
-    handleAsync(async (req, res) => {
-        const { game, id } = req.query;
-        if (typeof game !== "string") {
-            throw new Error("game must be string");
-        }
-        if (typeof id !== "string") {
-            throw new Error("id must be string");
-        }
-
-        const data = validateRequestBody(req.body, [
-            { name: "user", type: "string" },
-            { name: "withdraw_authority_key", type: "string" },
-        ]);
-
-        const game_public_key = parsePublicKey(game, "game");
-        const user_public_key = parsePublicKey(data.user, "user");
-        const withdraw_id_bytes = parseHex(id, "id");
-
-        // Parse the withdraw authority private key
-        let withdraw_authority_key: Uint8Array = parseHex(
-            data.withdraw_authority_key,
-            "withdraw_authority_key",
-        );
-
-        // Generate the signature
-        const signature = Game.withdrawSign(
-            game_public_key,
-            withdraw_id_bytes,
-            user_public_key,
-            withdraw_authority_key,
-        );
-
-        return res.status(200).json({
-            status: "ok",
-            data: {
-                signature: Buffer.from(signature).toString("hex"),
-            },
-        });
-    }),
-);
-
-// Verify a game message
-app.post(
-    "/games/:game/authenticate",
-    handleAsync(async (req, res) => {
-        const { game } = req.query;
-        const { message, signature } = req.body;
-
-        // Validate required parameters
-        if (typeof game !== "string") {
-            throw new Error("Query param 'game' must be a string");
-        }
-        if (typeof message !== "string") {
-            throw new Error("Body param 'message' must be a string");
-        }
-        if (typeof signature !== "string") {
-            throw new Error("Body param 'signature' must be a string");
-        }
-
-        // Parse game address
-        const gamePublicKey = parsePublicKey(game, "game");
-
-        // Parse signature (from base58)
-        const signatureBytes = bs58.decode(signature);
-
-        // Verify the message and get the authenticated user
-        const user = Auth.verifyMessage(gamePublicKey, message, signatureBytes);
-
-        return res.status(200).json({
-            status: "ok",
-            data: user.toBase58(),
-        });
-    }),
-);
-
-/************************************
-|   Routes for React: `ivy-react`   |
-************************************/
-
-// Send a transaction
-app.post(
-    "/tx/send",
-    handleAsync(async (req, res) => {
-        const data = validateRequestBody(req.body, [
-            { name: "tx_base64", type: "string" },
-        ]);
-
-        const txBase64: string = data.tx_base64;
-        const txBytes = Buffer.from(txBase64, "base64");
-
-        let tx: Transaction | VersionedTransaction;
-        try {
-            tx = VersionedTransaction.deserialize(txBytes);
-        } catch (_) {
-            tx = Transaction.from(txBytes);
-        }
-        let insData: Uint8Array;
-        if (tx instanceof Transaction) {
-            let ivyInstruction: TransactionInstruction | null = null;
-            for (const ins of tx.instructions) {
-                if (ins.programId.equals(IVY_PROGRAM_ID)) {
-                    ivyInstruction = ins;
-                    break;
-                }
-            }
-            if (!ivyInstruction) {
-                throw new Error(
-                    "could not find Ivy program in given instructions",
-                );
-            }
-            insData = ivyInstruction.data as Uint8Array;
-        } else {
-            const ivyIndex = tx.message.staticAccountKeys.findIndex((x) =>
-                x.equals(IVY_PROGRAM_ID),
-            );
-            if (ivyIndex < 0) {
-                throw new Error("can't find Ivy program in given transaction");
-            }
-            let ivyInstruction: MessageCompiledInstruction | null = null;
-            for (const ins of tx.message.compiledInstructions) {
-                if (ins.programIdIndex === ivyIndex) {
-                    ivyInstruction = ins;
-                    break;
-                }
-            }
-            if (!ivyInstruction) {
-                throw new Error("can't find Ivy instruction");
-            }
-            insData = ivyInstruction.data;
-        }
-        const insName = getIvyInstructionName(insData);
-        if (!insName) {
-            throw new Error(
-                "can't deserialize Ivy instruction name: " +
-                    JSON.stringify(Array.from(insData)),
-            );
-        }
-        if (priorityFeeService) {
-            // give data to priority fee service
-            priorityFeeService.provide(insName, txBase64);
-        }
-
-        let signature: string;
-        try {
-            signature = await connection.sendEncodedTransaction(txBase64, {
-                preflightCommitment: connection.commitment,
-            });
-        } catch (e) {
-            if (!(e instanceof SendTransactionError)) {
-                throw new Error("can't send tx: " + String(e));
-            }
-            let logs = "";
-            try {
-                logs = JSON.stringify(await e.getLogs(connection), null, 4);
-            } catch (_e) {}
-            throw new Error(
-                `${e.transactionError.message}${logs ? `\nLogs: ${logs}` : ""} `,
-            );
-        }
-
-        return res.status(200).json({
-            status: "ok",
-            data: { signature },
-        });
-    }),
-);
-
-/// Confirm a transaction with signature `signature`
-app.get(
-    "/tx/confirm/:signature",
-    handleAsync(async (req, res) => {
-        const { signature } = req.params;
-        const { lastValidBlockHeight } = req.query;
-
-        if (!signature) {
-            throw new Error("Missing required parameter: signature");
-        }
-        if (!lastValidBlockHeight || typeof lastValidBlockHeight !== "string") {
-            throw new Error(
-                "Missing or invalid required query param: lastValidBlockHeight",
-            );
-        }
-
-        const block_height = parseInt(lastValidBlockHeight);
-        if (isNaN(block_height)) {
-            throw new Error("lastValidBlockHeight must be a valid number");
-        }
-
-        await confirmTransaction(connection, signature, block_height);
-
-        return res.status(200).json({
-            status: "ok",
-            data: null,
-        });
-    }),
-);
-
-/// Get the effects (input + output amount) for a given transaction hash
-app.get(
-    "/tx/effects/:signature",
-    handleAsync(async (req, res) => {
-        const { signature } = req.params;
-        const {
-            inputMint: inputMintStr,
-            outputMint: outputMintStr,
-            lastValidBlockHeight: lastValidBlockHeightStr,
-        } = req.query;
-
-        if (!signature) {
-            throw new Error("Missing required parameter: signature");
-        }
-        if (
-            lastValidBlockHeightStr &&
-            typeof lastValidBlockHeightStr !== "string"
-        ) {
-            throw new Error(
-                "Missing or invalid required query param: lastValidBlockHeight",
-            );
-        }
-        if (!inputMintStr || typeof inputMintStr !== "string") {
-            throw new Error(
-                "Missing or invalid required query param: inputMint",
-            );
-        }
-        if (!outputMintStr || typeof outputMintStr !== "string") {
-            throw new Error(
-                "Missing or invalid required query param: outputMint",
-            );
-        }
-        const inputMint = parsePublicKey(inputMintStr, "inputMint");
-        const outputMint = parsePublicKey(outputMintStr, "outputMint");
-        let lastValidBlockHeight: number | undefined = undefined;
-        if (lastValidBlockHeightStr) {
-            lastValidBlockHeight = parseInt(lastValidBlockHeightStr);
-            if (isNaN(lastValidBlockHeight)) {
-                throw new Error("lastValidBlockHeight must be a valid number");
-            }
-        }
-
-        const { inputRaw, outputRaw } = await getEffects(
-            connection,
-            signature,
-            inputMint,
-            outputMint,
-            lastValidBlockHeight,
-        );
-
-        return res.status(200).json({
-            status: "ok",
-            data: { inputRaw, outputRaw },
-        });
-    }),
-);
-
-// Get multiple accounts' data as base64 array (for ALT lookup)
-app.post(
-    "/accounts-data",
-    handleAsync(async (req, res) => {
-        const data = validateRequestBody(req.body, [
-            { name: "accounts", type: "array" },
-        ]);
-
-        if (!Array.isArray(data.accounts)) {
-            throw new Error("Accounts must be an array");
-        }
-
-        // Convert string accounts to PublicKey objects
-        const publicKeys = data.accounts.map((account) =>
-            parsePublicKey(account, "account"),
-        );
-
-        if (data.accounts.length > 100) {
-            throw new Error("Maximum of 100 accounts allowed");
-        }
-
-        // Fetch the accounts data
-        const accountsData =
-            await connection.getMultipleAccountsInfo(publicKeys);
-
-        // Format the response with base64 data
-        const result = accountsData.map((account) => {
-            if (!account) return null;
-            return account.data.toString("base64");
-        });
-
-        return res.status(200).json({
-            status: "ok",
-            data: result,
-        });
-    }),
-);
-
-// Get user's token balance
-app.post(
-    "/token-balance",
-    handleAsync(async (req, res) => {
-        const data = validateRequestBody(req.body, [
-            { name: "user", type: "string" },
-            { name: "mint", type: "string" },
-        ]);
-
-        const user = parsePublicKey(data.user, "user");
-        const mint = parsePublicKey(data.mint, "mint");
-        let balance: string; // raw, so it's in u64
-        if (mint.equals(WSOL_MINT)) {
-            // this is Solana, get user's native balance
-            const info = await connection.getAccountInfo(user);
-            if (info) {
-                balance = info.lamports.toString();
-            } else {
-                balance = "0";
-            }
-        } else {
-            // get associated token account
-            const info = await connection.getAccountInfo(
-                getAssociatedTokenAddressSync(mint, user),
-            );
-            if (info) {
-                balance = String(AccountLayout.decode(info.data).amount);
-            } else {
-                balance = "0";
-            }
-        }
-
-        return res.status(200).json({
-            status: "ok",
-            data: balance,
-        });
-    }),
-);
-
-// Get game treasury balance
-app.post(
-    "/treasury-balance",
-    handleAsync(async (req, res) => {
-        const data = validateRequestBody(req.body, [
-            { name: "game", type: "string" },
-        ]);
-        const game = parsePublicKey(data.game, "game");
-        const { treasury_wallet } = Game.deriveAddresses(game);
-        const v = await connection.getTokenAccountBalance(treasury_wallet);
-        return res.status(200).json({
-            status: "ok",
-            data: v.value.amount,
-        });
-    }),
-);
-
-// Get blockchain context to help craft transactions :)
-app.get(
-    "/ctx/:insName",
-    handleAsync(async (req, res) => {
-        const { insName } = req.params;
-        const [glb, reasonablePriorityFee] = await Promise.all([
-            cache.blockhash.get(),
-            priorityFeeService?.getFor(insName) || 1_000,
-        ]);
-        return res.status(200).json({
-            status: "ok",
-            data: {
-                blockhash: glb.blockhash,
-                lastValidBlockHeight: glb.lastValidBlockHeight,
-                reasonablePriorityFee,
-            },
-        });
-    }),
-);
-
-// Get world ALT info
-app.get(
-    "/world-alt",
-    handleAsync(async (_, res) => {
-        const { alt, data } = await cache.worldAlt.get();
-        return res.status(200).json({
-            status: "ok",
-            data: {
-                key: alt.key.toBase58(),
-                data: data.toString("base64"),
-            },
-        });
-    }),
-);
-
-/*************************************
-|  Routes for Rust `ivy-aggregator`  |
-*************************************/
-
-// Event Routes
-app.get(
-    "/events",
-    handleAsync(async (req, res) => {
-        const { after } = req.query;
-        if (
-            after !== undefined &&
-            after !== null &&
-            typeof after !== "string"
-        ) {
-            throw new Error(
-                "Query param 'after' must be string, null, or undefined",
-            );
-        }
-
-        const events = await getEvents(
-            connection,
-            after as string | undefined,
-            EVENTS_MAX_CONCURRENT_REQUESTS,
-            EVENTS_USE_BATCH,
-        );
-
-        return res.status(200).json({
-            status: "ok",
-            data: events,
-        });
-    }),
-);
+// Health
+app.get("/", handleAsync(health(deps)));
+
+// ID + Seeds
+app.get("/id", handleAsync(generateId(deps)));
+app.post("/game-seed", handleAsync(generateGameSeed(deps)));
+
+// Assets
+app.post("/assets/images", handleAsync(uploadImage(deps)));
+app.post("/assets/metadata", handleAsync(uploadMetadata(deps)));
+
+// Game TX
+app.post("/tx/game/create", handleAsync(createGameTx(deps)));
+app.post("/tx/game/edit", handleAsync(editGameTx(deps)));
+app.post("/tx/game/debit", handleAsync(debitGameTx(deps)));
+app.post("/tx/game/withdraw-claim", handleAsync(withdrawClaimTx(deps)));
+app.post("/tx/game/deposit-complete", handleAsync(depositCompleteTx(deps)));
+app.post("/tx/game/burn-complete", handleAsync(burnCompleteTx(deps)));
+
+// Games REST
+app.get("/games/:game/balances/:user", handleAsync(getGameBalance(deps)));
+app.post("/games/:game/withdrawals/:id", handleAsync(signWithdrawal(deps)));
+app.post("/games/:game/authenticate", handleAsync(authenticate(deps)));
+
+// Transaction utilities
+app.post("/tx/send", handleAsync(sendTransaction(deps)));
+app.get("/tx/confirm/:signature", handleAsync(confirmTransactionRoute(deps)));
+app.get("/tx/effects/:signature", handleAsync(getTransactionEffects(deps)));
+
+// Chain utilities
+app.post("/accounts-data", handleAsync(getAccountsData(deps)));
+app.post("/token-balance", handleAsync(getTokenBalance(deps)));
+app.post("/treasury-balance", handleAsync(getTreasuryBalance(deps)));
+app.get("/ctx/:insName", handleAsync(getContext(deps)));
+app.get("/world-alt", handleAsync(getWorldAlt(deps)));
+
+// Price
+app.get("/sol-price", handleAsync(getSolPrice(deps)));
 
 // Start server
 app.listen(LISTEN_PORT, () => {

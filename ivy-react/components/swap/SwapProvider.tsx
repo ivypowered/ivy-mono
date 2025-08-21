@@ -1,4 +1,3 @@
-// components/swap/SwapProvider.tsx
 import {
     createContext,
     useContext,
@@ -32,9 +31,9 @@ import {
     WSOL_MINT_B58,
 } from "@/lib/constants";
 import { PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
-import { useQuoteResult } from "./QuoteProvider";
+import { QuoteContext, useQuoteResult } from "./QuoteProvider";
 import { useBalance } from "./BalanceProvider";
-import { useMediaQuery } from "@/lib/use-media-query";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import { Api } from "@/lib/api";
 import Decimal from "decimal.js-light";
 
@@ -45,16 +44,9 @@ interface SwapProviderProps {
     commonTokens: SwapToken[];
     connectWallet: () => void;
     fetchBalance: (user: PublicKey, token: SwapToken) => Promise<Decimal>;
-    fetchQuote: (
-        user: PublicKey | undefined,
-        inputToken: SwapToken,
-        outputToken: SwapToken,
-        inputAmount: Decimal,
-        outputAmount: Decimal,
-        slippageBps: number,
-    ) => Promise<Quote>;
     initialInputToken: SwapToken;
     initialOutputToken: SwapToken;
+    quoteContext: QuoteContext;
     reloadBalances: () => void;
     signTransaction: (
         tx: Transaction | VersionedTransaction,
@@ -73,9 +65,9 @@ export function SwapProvider({
     commonTokens,
     connectWallet,
     fetchBalance,
-    fetchQuote,
     initialInputToken,
     initialOutputToken,
+    quoteContext,
     reloadBalances,
     signTransaction,
     tokens,
@@ -155,7 +147,7 @@ export function SwapProvider({
             : DECIMAL_ZERO,
         state.slippageBps,
         refreshKey,
-        fetchQuote,
+        quoteContext,
     );
 
     const isTiny = useMediaQuery("(max-width: 359px)");

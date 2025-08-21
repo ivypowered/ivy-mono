@@ -1,33 +1,33 @@
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 import { Keypair, PublicKey } from "@solana/web3.js";
+import { ZodError } from "zod";
 
-// Type definitions for request validation
-type FieldType =
-    | "string"
-    | "number"
-    | "object"
-    | "boolean"
-    | "array"
-    | ["string", "number"];
-
-interface FieldValidation {
-    name: string;
-    type: FieldType | FieldType[];
-    optional?: boolean;
-}
-
-// Error handler for async routes
-export const handleAsync = (
-    fn: (req: Request, res: Response, next: NextFunction) => Promise<any>,
+// Error handler + automatic JSON envelope for async routes
+// - Wraps successful responses as { status: "ok", data: <return value> }
+// - Wraps errors as { status: "err", msg }
+export const handleAsync = <T = unknown>(
+    fn: (req: Request, res: Response, next: NextFunction) => Promise<T>,
 ) => {
-    return (req: Request, res: Response, next: NextFunction) => {
-        Promise.resolve(fn(req, res, next)).catch((err) => {
-            const message = err instanceof Error ? err.message : String(err);
-            return res.status(400).json({
-                status: "err",
-                msg: message,
-            });
-        });
+    return async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const data = await fn(req, res, next);
+            if (!res.headersSent) {
+                res.status(200).json({ status: "ok", data });
+            }
+        } catch (err) {
+            let message =
+                err instanceof Error
+                    ? err.message
+                    : String(err ?? "Unknown error");
+            if (err instanceof ZodError) {
+                message = err.issues
+                    .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+                    .join("; ");
+            }
+            if (!res.headersSent) {
+                res.status(400).json({ status: "err", msg: message });
+            }
+        }
     };
 };
 
@@ -83,66 +83,15 @@ export const parseAuthority = (
     }
 };
 
-// Validate request body fields
-export function validateRequestBody(body: any, fields: FieldValidation[]) {
-    if (typeof body !== "object" || body === null) {
-        throw new Error("Request body must be a JSON object");
+// Helper function to convert hex string to Uint8Array
+export function parseHex(hexId: string, idName: string): Uint8Array {
+    try {
+        // Remove '0x' prefix if present
+        if (hexId.startsWith("0x")) {
+            hexId = hexId.substring(2);
+        }
+        return Uint8Array.from(Buffer.from(hexId, "hex"));
+    } catch (error) {
+        throw new Error(`Invalid ${idName} format: ${error}`);
     }
-
-    const result: Record<string, any> = {};
-
-    for (const field of fields) {
-        const value = body[field.name];
-        if (value === undefined || value === null) {
-            if (!field.optional) {
-                throw new Error(`Missing required field: ${field.name}`);
-            }
-            continue;
-        }
-
-        const expectedTypes = Array.isArray(field.type)
-            ? field.type
-            : [field.type];
-        const actualType = typeof value;
-        let typeMatch = false;
-        let processedValue = value;
-
-        if (
-            expectedTypes.some(
-                (type) => type === actualType || type === "object",
-            )
-        ) {
-            typeMatch = true;
-        } else if (expectedTypes.includes("array") && Array.isArray(value)) {
-            typeMatch = true;
-        } else if (
-            expectedTypes.includes("number") &&
-            actualType === "string" &&
-            !isNaN(parseInt(value))
-        ) {
-            typeMatch = true;
-            processedValue = parseInt(value);
-        } else if (
-            expectedTypes.includes("boolean") &&
-            (value === "true" ||
-                value === "false" ||
-                value === true ||
-                value === false)
-        ) {
-            typeMatch = true;
-            // Convert string "true"/"false" to actual boolean if needed
-            processedValue =
-                typeof value === "string" ? value === "true" : value;
-        }
-
-        if (!typeMatch) {
-            throw new Error(
-                `Field '${field.name}' must be of type ${expectedTypes.join(" or ")}, received ${actualType}`,
-            );
-        }
-
-        result[field.name] = processedValue;
-    }
-
-    return result;
 }

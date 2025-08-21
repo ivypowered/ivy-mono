@@ -38,10 +38,10 @@ typedef struct {
     address game;
     address mint;
     address swap_alt;
-    bytes64 name;
-    bytes16 symbol;
     u64 ivy_balance;
     u64 game_balance;
+    // #idl strings name symbol
+    u8 strdata[];
 } GameCreateEvent;
 
 // #idl event discriminator GameCreateEvent
@@ -53,13 +53,23 @@ typedef struct {
     address game;
     address owner;
     address withdraw_authority;
-    bytes128 game_url;
-    bytes128 cover_url;
-    bytes128 metadata_url;
+    // #idl strings game_url short_desc metadata_url icon_url
+    u8 strdata[];
 } GameEditEvent;
 
 // #idl event discriminator GameEditEvent
 static const u64 GAME_EDIT_EVENT_DISCRIMINATOR = UINT64_C(0xf0ded0ff3776f1e1);
+
+// #idl event declaration
+typedef struct {
+    u64 discriminator;
+    address game;
+    // #idl strings short_desc
+    u8 strdata[];
+} GameUpgradeEvent;
+
+// #idl event discriminator GameUpgradeEvent
+static const u64 GAME_UPGRADE_EVENT_DISCRIMINATOR = UINT64_C(0x7393bd91715e4054);
 
 // #idl event declaration
 typedef struct {
@@ -107,16 +117,6 @@ typedef struct {
 // #idl event discriminator GameWithdrawEvent
 static const u64 GAME_WITHDRAW_EVENT_DISCRIMINATOR = UINT64_C(0xbb1188a853869ff6);
 
-// #idl event declaration
-typedef struct {
-    u64 discriminator;
-    address game;
-} GamePromoteEvent;
-
-// #idl event discriminator GamePromoteEvent
-static const u64 GAME_PROMOTE_EVENT_DISCRIMINATOR = UINT64_C(0x27bc06abd8a8c1ea);
-
-// #idl struct declaration
 typedef struct {
     u64 discriminator;
 
@@ -152,10 +152,40 @@ typedef struct {
     u64 ivy_balance;
     /// Game token bonding curve balance
     u64 game_balance;
+} GameOld;
+
+// #idl struct declaration
+typedef struct {
+    u64 discriminator;
+
+    /// The seed, the game's unique identifier.
+    bytes32 seed;
+    /// The owner of the game, can change it at will
+    address owner;
+    /// Withdraw authority - able to sign withdrawals
+    /// that users can claim from the treasury wallet
+    address withdraw_authority;
+    /// The game's token mint.
+    address mint;
+    /// The game's IVY wallet
+    address ivy_wallet;
+    /// The game token wallet for the bonding curve
+    address curve_wallet;
+    /// The game token wallet for treasury operations
+    /// (receives deposits and disburses withdraws)
+    address treasury_wallet;
+
+    /// IVY bonding curve balance
+    u64 ivy_balance;
+    /// Game token bonding curve balance
+    u64 game_balance;
 } Game;
 
+// #idl struct discriminator GameOld
+static const u64 GAME_OLD_DISCRIMINATOR = UINT64_C(0x84c13fa33c678215);
+
 // #idl struct discriminator Game
-static const u64 GAME_DISCRIMINATOR = UINT64_C(0x84c13fa33c678215);
+static const u64 GAME_DISCRIMINATOR = UINT64_C(0xd4b3253578894187);
 
 /// `game_load` takes any arbitrary `SolAccountInfo` and attempts to
 /// deserialize it as a valid `Game` from it, reverting if this operation
@@ -174,6 +204,146 @@ static Game* game_load(const Context* ctx, const SolAccountInfo* game) {
         g->discriminator == GAME_DISCRIMINATOR, "Provided Game discriminator incorrect"
     );
     return g;
+}
+
+/// Is the provided account a valid game?
+static bool game_is_valid(const Context* ctx, const SolAccountInfo* game) {
+    return address_equal(ctx->program_id, game->owner) &&
+        game->data_len >= sizeof(Game) &&
+        ((const Game*)game->data)->discriminator == GAME_DISCRIMINATOR;
+}
+
+/// `game_old_load` takes any arbitrary `SolAccountInfo` and attempts to
+/// deserialize it as a valid `GameOld` from it, reverting if this operation
+/// would be invalid.
+static GameOld* game_old_load(const Context* ctx, const SolAccountInfo* game_old) {
+    // See SECURITY.md for more details
+    // 1. Ensure account ownership
+    require(
+        address_equal(ctx->program_id, game_old->owner),
+        "Incorrect GameOld account owner"
+    );
+    // 2. Ensure data is of necessary length
+    require(
+        game_old->data_len >= sizeof(GameOld), "Provided GameOld account data too small"
+    );
+    GameOld* g = (GameOld*)game_old->data;
+    // 3. Verify discriminator
+    require(
+        g->discriminator == GAME_OLD_DISCRIMINATOR,
+        "Provided GameOld discriminator incorrect"
+    );
+    return g;
+}
+
+/* ------------------------------ */
+
+// #idl instruction accounts game_upgrade
+typedef struct {
+    // #idl writable
+    SolAccountInfo game;
+    // #idl signer
+    SolAccountInfo world_owner;
+    // #idl readonly
+    SolAccountInfo world;
+    // #idl readonly
+    SolAccountInfo event_authority;
+    // #idl readonly
+    SolAccountInfo this_program;
+    // #idl readonly
+    SolAccountInfo system_program;
+} GameUpgradeAccounts;
+
+// #idl instruction data game_upgrade
+typedef struct {
+    // #idl strings short_desc icon_url
+    u8 str_params[];
+} GameUpgradeData;
+
+// #idl instruction discriminator game_upgrade
+static const u64 GAME_UPGRADE_DISCRIMINATOR = UINT64_C(0xd8cd0184f8645ded);
+
+// #idl instruction declaration
+static void game_upgrade(
+    const Context* ctx,
+    GameUpgradeAccounts* accounts,
+    const GameUpgradeData* data,
+    u64 data_len
+) {
+    // Load world and verify authorization
+    const World* world = world_load(ctx, &accounts->world);
+    authorize(&accounts->world_owner, world->owner);
+
+    // Load old game
+    GameOld* game_old = game_old_load(ctx, &accounts->game);
+
+    // Load the string params
+    reader r = reader_new(
+        data->str_params, safe_sub_64(data_len, offsetof(GameUpgradeData, str_params))
+    );
+    slice short_desc = reader_read_anchor_string_borrowed(&r);
+    slice icon_url = reader_read_anchor_string_borrowed(&r);
+
+    // Store old data we need to preserve
+    bytes32 seed = game_old->seed;
+    address owner = game_old->owner;
+    address withdraw_authority = game_old->withdraw_authority;
+    address mint = game_old->mint;
+    address ivy_wallet = game_old->ivy_wallet;
+    address curve_wallet = game_old->curve_wallet;
+    address treasury_wallet = game_old->treasury_wallet;
+    address swap_alt = game_old->swap_alt;
+    u64 ivy_balance = game_old->ivy_balance;
+    u64 game_balance = game_old->game_balance;
+
+    // Get game_url from old game (but we won't store it in the new structure)
+    bytes128 game_url = game_old->game_url;
+    slice game_url_slice = slice_from_str_safe(game_url.x, sizeof(game_url.x));
+
+    // Calculate new size (without game_url)
+    u64 new_size = sizeof(Game);
+
+    // Reallocate struct
+    sol_realloc(&accounts->game, new_size);
+
+    // Transfer extra lamports (must use direct transfer, because we own `accounts->game`)
+    u64 extra = safe_sub_64(*accounts->game.lamports, minimum_balance(new_size));
+    *accounts->game.lamports -= extra;
+    *accounts->world_owner.lamports += extra;
+
+    // Write new Game structure
+    Game* game_new = (Game*)accounts->game.data;
+    game_new->discriminator = GAME_DISCRIMINATOR;
+    game_new->seed = seed;
+    game_new->owner = owner;
+    game_new->withdraw_authority = withdraw_authority;
+    game_new->mint = mint;
+    game_new->ivy_wallet = ivy_wallet;
+    game_new->curve_wallet = curve_wallet;
+    game_new->treasury_wallet = treasury_wallet;
+    game_new->ivy_balance = ivy_balance;
+    game_new->game_balance = game_balance;
+
+    // Emit upgrade event with short_desc
+    u64 upgrade_event_len = offsetof(GameUpgradeEvent, strdata) + 4 +
+        short_desc.len; // short_desc length (u32) + short_desc (bytes)
+
+    GameUpgradeEvent* upgrade_event = heap_alloc(upgrade_event_len);
+    upgrade_event->discriminator = GAME_UPGRADE_EVENT_DISCRIMINATOR;
+    upgrade_event->game = *accounts->game.key;
+
+    writer w = writer_new((u8*)upgrade_event, upgrade_event_len);
+    writer_skip(&w, offsetof(GameUpgradeEvent, strdata));
+    writer_write_anchor_string(&w, short_desc);
+    writer_write_anchor_string(&w, icon_url);
+
+    event_emit(
+        /* ctx */ ctx,
+        /* event_data */ slice_new((const u8*)upgrade_event, upgrade_event_len),
+        /* global_address */ *accounts->world.key,
+        /* event_authority */ world->event_authority,
+        /* event_authority_nonce */ world->event_authority_nonce
+    );
 }
 
 /* ------------------------------ */
@@ -224,15 +394,13 @@ typedef struct {
 typedef struct {
     bytes32 seed;
     u64 ivy_purchase;
-    u64 min_game_received;
     u64 swap_alt_slot;
     u8 swap_alt_nonce;
-    u8 il_exponent;
     bool create_dest;
     // the following will directly insert the strings in the given
     // memory location in the data (no padding)
-    // #idl strings name symbol game_url cover_url metadata_url
-    u8 str_params[];
+    // #idl strings name symbol game_url short_desc metadata_url icon_url
+    u8 strdata[];
 } GameCreateData;
 
 // #idl instruction discriminator game_create
@@ -247,13 +415,14 @@ static void game_create(
 ) {
     // Load the string params
     reader r = reader_new(
-        data->str_params, safe_sub_64(data_len, offsetof(GameCreateData, str_params))
+        data->strdata, safe_sub_64(data_len, offsetof(GameCreateData, strdata))
     );
     slice name = reader_read_anchor_string_borrowed(&r);
     slice symbol = reader_read_anchor_string_borrowed(&r);
     slice game_url = reader_read_anchor_string_borrowed(&r);
-    slice cover_url = reader_read_anchor_string_borrowed(&r);
+    slice short_desc = reader_read_anchor_string_borrowed(&r);
     slice metadata_url = reader_read_anchor_string_borrowed(&r);
+    slice icon_url = reader_read_anchor_string_borrowed(&r);
 
     // Verify that our seeds match the game address
     // We MUST do this: see SECURITY.md
@@ -271,13 +440,16 @@ static void game_create(
     // Extract addresses
     address user = *accounts->user.key;
 
+    // Calculate size for new Game structure
+    u64 game_size = sizeof(Game);
+
     // Create the game account via system program CPI
     system_create_account(
         /* ctx */ ctx,
         /* destination */ game_address,
         /* payer */ user,
         /* owner */ *ctx->program_id,
-        /* size */ sizeof(Game),
+        /* size */ game_size,
         /* seeds */ game_seeds,
         /* seeds_len */ SOL_ARRAY_SIZE(game_seeds)
     );
@@ -288,17 +460,9 @@ static void game_create(
     // Initialize the Game structure
     Game* g = (Game*)accounts->game.data;
     g->discriminator = GAME_DISCRIMINATOR;
+    g->seed = data->seed;
     g->owner = user;
     g->withdraw_authority = ADDRESS_ZERO;
-    g->game_url = (bytes128){};
-    require(game_url.len <= sizeof(g->game_url), "Game URL too large");
-    sol_memcpy(g->game_url.x, game_url.addr, game_url.len);
-    g->cover_url = (bytes128){};
-    require(cover_url.len <= sizeof(g->cover_url), "Cover URL too large");
-    sol_memcpy(g->cover_url.x, cover_url.addr, cover_url.len);
-    sol_memset(g->reserved, 0, sizeof(g->reserved));
-    g->is_official_launch = false;
-    g->seed = data->seed;
 
     // Create and store token mint (with user as temporary mint authority)
     slice mint_seeds[2] = {
@@ -395,12 +559,15 @@ static void game_create(
     require(utf8_validate(symbol.addr, symbol.len), "game symbol is not valid UTF-8");
     require(utf8_validate(game_url.addr, game_url.len), "game URL is not valid UTF-8");
     require(
-        utf8_validate(cover_url.addr, cover_url.len),
-        "game cover URL is not valid UTF-8"
+        utf8_validate(short_desc.addr, short_desc.len),
+        "game short description is not valid UTF-8"
     );
     require(
         utf8_validate(metadata_url.addr, metadata_url.len),
         "game metadata URL is not valid UTF-8"
+    );
+    require(
+        utf8_validate(icon_url.addr, icon_url.len), "game icon URL is not valid UTF-8"
     );
 
     // Create token metadata with game as update authority
@@ -418,20 +585,9 @@ static void game_create(
         /* data */ &metadata_data
     );
 
-    // Calculate initial liquidity
+    // Get initial liquidity
     u64 ivy_initial_liquidity = world->ivy_initial_liquidity;
     u64 game_initial_liquidity = world->game_initial_liquidity;
-    if (data->il_exponent == 0) {
-        // nothing
-    } else if (data->il_exponent == 1) {
-        ivy_initial_liquidity *= 10;
-        game_initial_liquidity *= 10;
-    } else if (data->il_exponent == 2) {
-        ivy_initial_liquidity *= 100;
-        game_initial_liquidity *= 100;
-    } else {
-        require(false, "invalid il_exponent");
-    }
 
     // Calculate how much user receives for initial purchase
     // (Initial purchases incur no fees)
@@ -440,7 +596,6 @@ static void game_create(
         /* y */ game_initial_liquidity,
         /* dx */ data->ivy_purchase
     );
-    require(game_received >= data->min_game_received, "Slippage tolerance exceeded");
 
     // Store starting balances
     g->ivy_balance = safe_add_64(ivy_initial_liquidity, data->ivy_purchase);
@@ -539,29 +694,28 @@ static void game_create(
         );
     }
 
-    // Store swap ALT in game
-    g->swap_alt = swap_alt;
-
     {
         // Emit create event as if no swap has occurred
-        GameCreateEvent create_event = {
-            .discriminator = GAME_CREATE_EVENT_DISCRIMINATOR,
-            .game = game_address,
-            .mint = mint_address,
-            .swap_alt = swap_alt,
-            .name = (bytes64){},
-            .symbol = (bytes16){},
-            .ivy_balance = ivy_initial_liquidity,
-            .game_balance = game_initial_liquidity
-        };
-        require(name.len <= sizeof(create_event.name), "Name too large");
-        sol_memcpy(create_event.name.x, name.addr, name.len);
-        require(symbol.len <= sizeof(create_event.symbol), "Symbol too large");
-        sol_memcpy(create_event.symbol.x, symbol.addr, symbol.len);
-
+        u64 create_event_len = offsetof(GameCreateEvent, strdata) +
+            4 // name length (u32)
+            + name.len // name (bytes)
+            + 4 // symbol length (u32)
+            + symbol.len // symbol (bytes)
+            ;
+        GameCreateEvent* create_event = heap_alloc(create_event_len);
+        create_event->discriminator = GAME_CREATE_EVENT_DISCRIMINATOR;
+        create_event->game = game_address;
+        create_event->mint = mint_address;
+        create_event->swap_alt = swap_alt;
+        create_event->ivy_balance = ivy_initial_liquidity;
+        create_event->game_balance = game_initial_liquidity;
+        writer w = writer_new((u8*)create_event, create_event_len);
+        writer_skip(&w, offsetof(GameCreateEvent, strdata));
+        writer_write_anchor_string(&w, name);
+        writer_write_anchor_string(&w, symbol);
         event_emit(
             /* ctx */ ctx,
-            /* event_data */ slice_new((const u8*)&create_event, sizeof(create_event)),
+            /* event_data */ slice_new((const u8*)create_event, create_event_len),
             /* global_address */ *accounts->world.key,
             /* event_authority */ world->event_authority,
             /* event_authority_nonce */ world->event_authority_nonce
@@ -569,29 +723,29 @@ static void game_create(
     }
 
     {
-        // Emit edit event
-        GameEditEvent edit_event = {
-            .discriminator = GAME_EDIT_EVENT_DISCRIMINATOR,
-            .game = game_address,
-            .owner = user,
-            .withdraw_authority = ADDRESS_ZERO,
-            .game_url = (bytes128){},
-            .cover_url = (bytes128){},
-            .metadata_url = (bytes128){},
-        };
-        require(game_url.len <= sizeof(edit_event.game_url), "Game URL too large");
-        sol_memcpy(edit_event.game_url.x, game_url.addr, game_url.len);
-        require(cover_url.len <= sizeof(edit_event.cover_url), "Cover URL too large");
-        sol_memcpy(edit_event.cover_url.x, cover_url.addr, cover_url.len);
-        require(
-            metadata_url.len <= sizeof(edit_event.metadata_url),
-            "Metadata URL too large"
-        );
-        sol_memcpy(edit_event.metadata_url.x, metadata_url.addr, metadata_url.len);
+        // Emit edit event with variable-length strings
+        u64 edit_event_len = offsetof(GameEditEvent, strdata) // static field len
+            + 4 + game_url.len // game url length (u32) + game_url (bytes)
+            + 4 + short_desc.len // short_desc length (u32) + short_desc (bytes)
+            + 4 + metadata_url.len // metadata_url length (u32) + metadata_url (bytes)
+            + 4 + icon_url.len; // icon_url length (u32) + icon_url (bytes)
+
+        GameEditEvent* edit_event = heap_alloc(edit_event_len);
+        edit_event->discriminator = GAME_EDIT_EVENT_DISCRIMINATOR;
+        edit_event->game = game_address;
+        edit_event->owner = user;
+        edit_event->withdraw_authority = ADDRESS_ZERO;
+
+        writer w = writer_new((u8*)edit_event, edit_event_len);
+        writer_skip(&w, offsetof(GameEditEvent, strdata));
+        writer_write_anchor_string(&w, game_url);
+        writer_write_anchor_string(&w, short_desc);
+        writer_write_anchor_string(&w, metadata_url);
+        writer_write_anchor_string(&w, icon_url);
 
         event_emit(
             /* ctx */ ctx,
-            /* event_data */ slice_new((const u8*)&edit_event, sizeof(edit_event)),
+            /* event_data */ slice_new((const u8*)edit_event, edit_event_len),
             /* global_address */ *accounts->world.key,
             /* event_authority */ world->event_authority,
             /* event_authority_nonce */ world->event_authority_nonce
@@ -874,15 +1028,16 @@ typedef struct {
     SolAccountInfo event_authority;
     // #idl readonly
     SolAccountInfo this_program;
+    // #idl readonly
+    SolAccountInfo system_program;
 } GameEditAccounts;
 
 // #idl instruction data game_edit
 typedef struct {
     address new_owner;
     address new_withdraw_authority;
-    bytes128 new_game_url;
-    bytes128 new_cover_url;
-    bytes128 new_metadata_url;
+    // #idl strings new_game_url new_short_desc new_metadata_url new_icon_url
+    u8 strdata[];
 } GameEditData;
 
 // #idl instruction discriminator game_edit
@@ -890,32 +1045,46 @@ static const u64 GAME_EDIT_DISCRIMINATOR = UINT64_C(0xd41e9e63705d32ac);
 
 // #idl instruction declaration
 static void game_edit(
-    const Context* ctx, const GameEditAccounts* accounts, const GameEditData* data
+    const Context* ctx,
+    GameEditAccounts* accounts,
+    const GameEditData* data,
+    u64 data_len
 ) {
     Game* game = game_load(ctx, &accounts->game);
 
     // Authorize
     authorize(&accounts->owner, game->owner);
 
+    // Load the string params
+    reader r = reader_new(
+        data->strdata, safe_sub_64(data_len, offsetof(GameEditData, strdata))
+    );
+    slice new_game_url = reader_read_anchor_string_borrowed(&r);
+    slice new_short_desc = reader_read_anchor_string_borrowed(&r);
+    slice new_metadata_url = reader_read_anchor_string_borrowed(&r);
+    slice new_icon_url = reader_read_anchor_string_borrowed(&r);
+
     // Validate UTF-8
     require(
-        utf8_validate_zt(&data->new_game_url, sizeof(data->new_game_url)),
+        utf8_validate(new_game_url.addr, new_game_url.len),
         "new game URL is not valid UTF-8"
     );
     require(
-        utf8_validate_zt(&data->new_cover_url, sizeof(data->new_cover_url)),
-        "new cover URL is not valid UTF-8"
+        utf8_validate(new_short_desc.addr, new_short_desc.len),
+        "new short description is not valid UTF-8"
     );
     require(
-        utf8_validate_zt(&data->new_metadata_url, sizeof(data->new_metadata_url)),
+        utf8_validate(new_metadata_url.addr, new_metadata_url.len),
         "new metadata URL is not valid UTF-8"
     );
+    require(
+        utf8_validate(new_icon_url.addr, new_icon_url.len),
+        "new icon URL is not valid UTF-8"
+    );
 
-    // Update all fields
+    // Update owner and withdraw authority
     game->owner = data->new_owner;
     game->withdraw_authority = data->new_withdraw_authority;
-    game->game_url = data->new_game_url;
-    game->cover_url = data->new_cover_url;
 
     // Load old metadata
     address metadata_addr = metadata_derive_address(game->mint);
@@ -930,8 +1099,7 @@ static void game_edit(
     metadata_unpack(&accounts->metadata, &metadata_data);
 
     // Update data
-    metadata_data.uri =
-        slice_from_str_safe(&data->new_metadata_url, sizeof(data->new_metadata_url));
+    metadata_data.uri = new_metadata_url;
 
     // Send tx
     slice game_seeds[2] = {
@@ -948,23 +1116,33 @@ static void game_edit(
         /* update_authority_seeds_len */ SOL_ARRAY_SIZE(game_seeds)
     );
 
-    // Emit edit event
-    GameEditEvent edit_event = {
-        .discriminator = GAME_EDIT_EVENT_DISCRIMINATOR,
-        .game = *accounts->game.key,
-        .owner = game->owner,
-        .withdraw_authority = game->withdraw_authority,
-        .game_url = game->game_url,
-        .cover_url = game->cover_url,
-        .metadata_url = data->new_metadata_url,
-    };
+    // Emit edit event with variable-length strings
+    u64 edit_event_len = offsetof(GameEditEvent, strdata) // static fields
+        + 4 + new_game_url.len // len (u32) + new_game_url (bytes)
+        + 4 + new_short_desc.len // len (u32) + new_short_desc (bytes)
+        + 4 + new_metadata_url.len // len (u32) + new_metadata_url (bytes)
+        + 4 + new_icon_url.len // len (u32) + new_icon_url (bytes)
+        ;
+
+    GameEditEvent* edit_event = heap_alloc(edit_event_len);
+    edit_event->discriminator = GAME_EDIT_EVENT_DISCRIMINATOR;
+    edit_event->game = *accounts->game.key;
+    edit_event->owner = game->owner;
+    edit_event->withdraw_authority = game->withdraw_authority;
+
+    writer w = writer_new((u8*)edit_event, edit_event_len);
+    writer_skip(&w, offsetof(GameEditEvent, strdata));
+    writer_write_anchor_string(&w, new_game_url);
+    writer_write_anchor_string(&w, new_short_desc);
+    writer_write_anchor_string(&w, new_metadata_url);
+    writer_write_anchor_string(&w, new_icon_url);
 
     // Load world to get event authority + nonce
     const World* world = world_load(ctx, &accounts->world);
 
     event_emit(
         /* ctx */ ctx,
-        /* event_data */ slice_new((const u8*)&edit_event, sizeof(edit_event)),
+        /* event_data */ slice_new((const u8*)edit_event, edit_event_len),
         /* global_address */ *accounts->world.key,
         /* event_authority */ world->event_authority,
         /* event_authority_nonce */ world->event_authority_nonce
@@ -1548,58 +1726,6 @@ static void game_deposit_complete(
     event_emit(
         /* ctx */ ctx,
         /* event_data */ slice_new((const u8*)&deposit_event, sizeof(deposit_event)),
-        /* global_address */ *accounts->world.key,
-        /* event_authority */ world->event_authority,
-        /* event_authority_nonce */ world->event_authority_nonce
-    );
-}
-
-/* ------------------------------ */
-
-// #idl instruction accounts game_promote
-typedef struct {
-    // #idl writable
-    SolAccountInfo game;
-    // #idl readonly
-    SolAccountInfo world;
-    // #idl signer
-    SolAccountInfo world_owner;
-    // #idl readonly
-    SolAccountInfo event_authority;
-    // #idl readonly
-    SolAccountInfo this_program;
-} GamePromoteAccounts;
-
-// #idl instruction data game_promote
-typedef struct {
-} GamePromoteData;
-
-// #idl instruction discriminator game_promote
-static const u64 GAME_PROMOTE_DISCRIMINATOR = UINT64_C(0x5fb965d257be44eb);
-
-/// Promote this game to an official launch!
-// #idl instruction declaration
-static void game_promote(
-    const Context* ctx, const GamePromoteAccounts* accounts, const GamePromoteData* data
-) {
-    Game* game = game_load(ctx, &accounts->game);
-    const World* world = world_load(ctx, &accounts->world);
-
-    // Ensure authorization
-    authorize(&accounts->world_owner, world->owner);
-
-    // Promote game
-    game->is_official_launch = true;
-
-    // Emit promote event
-    GamePromoteEvent promote_event = {
-        .discriminator = GAME_PROMOTE_EVENT_DISCRIMINATOR,
-        .game = *accounts->game.key,
-    };
-
-    event_emit(
-        /* ctx */ ctx,
-        /* event_data */ slice_new((const u8*)&promote_event, sizeof(promote_event)),
         /* global_address */ *accounts->world.key,
         /* event_authority */ world->event_authority,
         /* event_authority_nonce */ world->event_authority_nonce

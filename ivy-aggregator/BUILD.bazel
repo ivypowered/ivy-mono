@@ -1,6 +1,19 @@
 genrule(
+    name = "generate",
+    srcs = ["//ivy:idl/ivy.json", "mk_event_rs.py"],
+    local = True,
+    cmd = """
+        ROOT_DIR=$$(pwd)
+        cd $$(dirname $(location mk_event_rs.py))
+        python3 mk_event_rs.py $$ROOT_DIR/$(location //ivy:idl/ivy.json) > src/types/event.rs
+        date +%s.%N > $$ROOT_DIR/$@
+    """,
+    outs = ["generate.marker"],
+)
+
+genrule(
     name = "build",
-    srcs = glob(["src/**/*.rs"]) + ["Cargo.toml", "Cargo.lock"],
+    srcs = glob(["src/**/*.rs"]) + ["Cargo.toml", "Cargo.lock", ":generate"],
     local = True,
     cmd = """
         ROOT_DIR=$$(pwd)
@@ -13,9 +26,10 @@ genrule(
 
 genrule(
     name = "dev",
-    srcs = [":build", "Cargo.toml"],
+    srcs = ["//ivy:idl/ivy.json", ":build", "Cargo.toml"],
     local = True,
     cmd = """
+        ROOT_DIR=$$(pwd)
         EXEC_DIR=$$(pwd)/$$(dirname $(location Cargo.toml))
 
         cat > "$@" << EOF
@@ -29,8 +43,9 @@ cd $${EXEC_DIR}
 # Delete the old priv if it exists
 rm -rf ./priv
 
-# Run the program
-./target/release/ivy-aggregator
+# Run the program with the current program ID
+PROGRAM_ID=$$(cat $$ROOT_DIR/$(location //ivy:idl/ivy.json) | python3 -c 'import json,sys;print(json.load(sys.stdin)["address"],end="")') \
+    ./target/release/ivy-aggregator
 
 EOF
         # Make the created script executable

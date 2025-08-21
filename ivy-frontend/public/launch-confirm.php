@@ -12,9 +12,8 @@ $errors = [];
 // Variables that will store the gamecoin data
 $game_seed = "";
 $game_name = $game_symbol = $game_url = "";
-$game_address = $icon_url = $cover_url = $metadata_url = "";
+$game_address = $icon_url = $short_desc = $metadata_url = "";
 $ivy_purchase = $min_game_received = "";
-$il_exponent = "0";
 $transaction_data = [];
 
 // Check if the required GET params are present
@@ -24,11 +23,10 @@ $required_params = [
     "symbol",
     "game_url",
     "icon_url",
-    "cover_url",
+    "short_desc",
     "metadata_url",
     "ivy_purchase",
     "min_game_received",
-    "il_exponent",
 ];
 
 foreach ($required_params as $param) {
@@ -45,17 +43,10 @@ if (empty($errors)) {
     $game_symbol = $_GET["symbol"];
     $game_url = $_GET["game_url"];
     $icon_url = $_GET["icon_url"];
-    $cover_url = $_GET["cover_url"];
+    $short_desc = $_GET["short_desc"];
     $metadata_url = $_GET["metadata_url"];
     $ivy_purchase = $_GET["ivy_purchase"];
     $min_game_received = $_GET["min_game_received"];
-    $il_exponent = $_GET["il_exponent"];
-
-    // Validate il_exponent again (defensive)
-    $il_exponent_int = intval($il_exponent);
-    if ($il_exponent_int < 0 || $il_exponent_int > 2) {
-        $errors[] = "Invalid initial market cap selection";
-    }
 
     if (empty($errors)) {
         try {
@@ -66,11 +57,10 @@ if (empty($errors)) {
                 "symbol" => $game_symbol,
                 "icon_url" => $icon_url,
                 "game_url" => $game_url,
-                "cover_url" => $cover_url,
+                "short_desc" => $short_desc,
                 "metadata_url" => $metadata_url,
                 "ivy_purchase" => $ivy_purchase,
                 "min_game_received" => $min_game_received,
-                "il_exponent" => strval($il_exponent_int),
             ];
 
             $game_response = call_backend(
@@ -87,7 +77,7 @@ if (empty($errors)) {
             $game_address = $game_response["address"];
             $transaction_data = [
                 "tx" => $game_response["tx"],
-                "returnUrl" => "/upload-done",
+                "returnUrl" => "/launch-done",
                 "returnParams" => [
                     "gameAddress" => $game_response["address"],
                 ],
@@ -121,13 +111,6 @@ require_once __DIR__ . "/../includes/header.php";
             </div>
         <?php else: ?>
             <div class="border-2 border-emerald-400 bg-zinc-900">
-                <!-- Gamecoin Cover Art -->
-                <div class="border-b-2 border-emerald-400">
-                    <img src="<?= htmlspecialchars($cover_url) ?>"
-                         alt="Gamecoin cover"
-                         class="w-full max-h-[400px] object-cover">
-                </div>
-
                 <!-- Gamecoin Details -->
                 <div class="p-4 flex flex-col gap-4">
                     <div class="flex items-center justify-between">
@@ -148,6 +131,14 @@ require_once __DIR__ . "/../includes/header.php";
                                     $game_symbol,
                                 ) ?></span>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Short Description -->
+                    <div>
+                        <div class="text-xs uppercase text-zinc-500 mb-1">Short Description</div>
+                        <div class="text-sm text-zinc-300 bg-zinc-800 p-2 border border-zinc-700">
+                            <?= htmlspecialchars($short_desc) ?>
                         </div>
                     </div>
 
@@ -188,7 +179,7 @@ require_once __DIR__ . "/../includes/header.php";
 
                     <!-- Gamecoin Address -->
                     <div>
-                        <div class="text-xs uppercase text-zinc-500 mb-1">Gamecoin Address</div>
+                        <div class="text-xs uppercase text-zinc-500 mb-1">Data Address</div>
                         <div class="font-mono text-sm text-zinc-300 bg-zinc-800 p-2 border border-zinc-700 overflow-x-auto">
                             <?= htmlspecialchars($game_address) ?>
                         </div>

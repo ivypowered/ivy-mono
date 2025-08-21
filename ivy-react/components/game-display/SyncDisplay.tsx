@@ -1,0 +1,170 @@
+"use client";
+
+import { useState, useMemo, useRef } from "react";
+import { SwapProvider } from "@/components/swap/SwapProvider";
+import { ChartInterval } from "@/components/chart/chartTypes";
+import { SwapWidget } from "@/components/swap/SwapWidget";
+import { SwapToken } from "@/components/swap/swapTypes";
+import { COMMON_TOKENS, SOL_TOKEN, TRANSPARENT_1X1 } from "@/lib/constants";
+import { ChartHeader } from "../chart/ChartHeader";
+import { PublicKey } from "@solana/web3.js";
+import { ChartBase } from "../chart/ChartBase";
+import { useTokens } from "@/lib/hooks";
+import { useWallet } from "../wallet/WalletProvider";
+import { useSyncStream } from "@/lib/useSyncStream";
+import { QuoteContext } from "@/components/swap/QuoteProvider";
+import Decimal from "decimal.js-light";
+import { fetchBalance } from "./util";
+
+export interface SyncInfo {
+    address: string;
+    name: string;
+    symbol: string;
+    image?: string;
+    create_timestamp: number;
+    token_mint: string;
+    decimals: number;
+}
+
+// Sync display component for pump.fun tokens
+export function SyncDisplay({ syncInfo }: { syncInfo: SyncInfo }) {
+    const { publicKey, signTransaction, openModal } = useWallet();
+    const tokens = useTokens();
+    const [chartInterval, setChartInterval] = useState<ChartInterval>(() => {
+        const age =
+            Math.floor(new Date().getTime() / 1000) - syncInfo.create_timestamp;
+        const chartWidth = 96; // assuming we're showing 96 candles
+        if (age < chartWidth * 60) {
+            // 1m chart will show full history
+            return "1m";
+        }
+        if (age < chartWidth * (60 * 5)) {
+            // 5m chart will show full history
+            return "5m";
+        }
+        // show 15m otherwise
+        return "15m";
+    });
+
+    // Use the sync stream hook
+    const { data: streamData, loading: isStreamLoading } = useSyncStream(
+        syncInfo.address,
+        chartInterval,
+    );
+
+    // Create the sync token object
+    const syncToken = useMemo<SwapToken>(() => {
+        return {
+            name: syncInfo.name,
+            symbol: syncInfo.symbol,
+            icon: syncInfo.image || TRANSPARENT_1X1,
+            decimals: syncInfo.decimals,
+            mint: syncInfo.token_mint,
+        };
+    }, [syncInfo]);
+
+    // Create quote context for sync tokens
+    const quoteContext: QuoteContext = useMemo(() => {
+        return {
+            syncInfo: streamData
+                ? {
+                      solReserves: streamData.solReserves,
+                      tokenReserves: streamData.tokenReserves,
+                      isMigrated: streamData.isMigrated,
+                      pswapPool: streamData.pswapPool,
+                      solPrice: streamData.solPrice,
+                  }
+                : null,
+            tokenMint: new PublicKey(syncInfo.token_mint),
+            isSync: true,
+        };
+    }, [streamData, syncInfo.token_mint]);
+
+    // Calculate price data from stream
+    const priceUsd = useMemo(() => {
+        if (streamData?.candles && streamData.candles.length > 0) {
+            return streamData.candles[streamData.candles.length - 1].close;
+        }
+        return 0;
+    }, [streamData?.candles]);
+
+    const changePercentUsd = streamData?.changePct24h || 0;
+    const marketCap = streamData?.mktCapUsd || 0;
+
+    // Created at from sync timestamp
+    const createdAt = useMemo(() => {
+        if (!syncInfo.create_timestamp) {
+            return undefined;
+        }
+        return new Date(syncInfo.create_timestamp * 1000);
+    }, [syncInfo.create_timestamp]);
+
+    // Refs for balance management
+    const reloadBalancesRef = useRef<(() => void) | null>(null);
+    const updateBalanceRef = useRef<
+        ((mint: string, amount: Decimal) => void) | null
+    >(null);
+
+    return (
+        <div className="w-full flex flex-col items-center py-8">
+            <div className="w-full max-w-[1080px] px-4">
+                <SwapProvider
+                    connectWallet={openModal}
+                    commonTokens={COMMON_TOKENS}
+                    fetchBalance={fetchBalance}
+                    quoteContext={quoteContext}
+                    reloadBalances={reloadBalancesRef.current || (() => {})}
+                    signTransaction={
+                        signTransaction ||
+                        (() => {
+                            throw new Error(
+                                "can't sign transaction: signTransaction not found",
+                            );
+                        })
+                    }
+                    tokens={tokens}
+                    initialInputToken={SOL_TOKEN}
+                    initialOutputToken={syncToken}
+                    user={publicKey || undefined}
+                    updateBalanceRef={updateBalanceRef}
+                >
+                    <div className="grid w-full grid-cols-1 lg:grid-cols-10 gap-4">
+                        <div className="relative flex w-full flex-col gap-y-4 overflow-hidden border-4 border-emerald-400 lg:col-span-6 lg:self-start">
+                            <div className="relative flex-1 overflow-hidden w-full h-full min-w-0">
+                                <div
+                                    className="flex flex-col w-full h-full bg-zinc-900"
+                                    style={{ minWidth: 0 }}
+                                >
+                                    <ChartHeader
+                                        token={syncToken}
+                                        priceUsd={priceUsd}
+                                        changePercentUsd={changePercentUsd}
+                                        marketCap={marketCap}
+                                        createdAt={createdAt}
+                                        interval={chartInterval}
+                                        setInterval={setChartInterval}
+                                        activeTab={"Chart"}
+                                        setActiveTab={() => {}} // Only chart tab for sync tokens
+                                        withPlayButton={false}
+                                        editHref=""
+                                    />
+
+                                    <div className="flex-1 min-h-[400px] relative">
+                                        <ChartBase
+                                            data={streamData?.candles || []}
+                                            height={400}
+                                            isLoading={isStreamLoading}
+                                            interval={chartInterval}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <SwapWidget></SwapWidget>
+                    </div>
+                </SwapProvider>
+            </div>
+        </div>
+    );
+}

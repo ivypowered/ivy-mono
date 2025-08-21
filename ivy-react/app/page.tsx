@@ -9,26 +9,25 @@ import { GameDisplay } from "@/components/game-display/GameDisplay";
 
 export default function Home() {
     const exampleGame: unknown = {
-        name: "Ivy Dice",
-        symbol: "DICE",
-        address: "7JizP3Ko7kauyAfrLMPfjg1BKzjKJUm6ShDQCv1VLCug",
-        mint: "HEBSUx3YWDMnHPSTRsu2NvmPmQAcUSkf3scVPj8XtuHi",
-        swap_alt: "DQ8eb4ByGeKCo43mULS1CUBAawUxisNNucbjmcLcbtHR",
-        owner: "2sQ4hGJrxomxXuRzCNSSvHgBwt5CNiKXSfUw19AMVjgA",
-        withdraw_authority: "H1JppQY4ohQPdvHv6CMwWYYPg7eUDrSRygCpopqsay35",
-        game_url: "https://dice.ivypowered.com",
-        cover_url:
-            "https://cdn.ivypowered.com/ipfs/bafkreifei2isc2i74hny72q23tfuw6oddk6tdqmwlt25soyw6hc2hgvyri",
+        name: "Test Game 50",
+        symbol: "TG50",
+        address: "AeEbzDLAwZXtLtMr9jzTofTuuoeYpE4uvEP5znNAbF4M",
+        mint: "2s5eSxiVevRvFqCXBEmtmPj3d7rAT2yJ1vRrVC6tifGA",
+        swap_alt: "5fithuZCM95C3F3khHyfzS7ukQdp4CXSNZ2zzH7Y1MxT",
+        owner: "B7hNPabTPzBFUFUvC1a8XM1Th1Mxe2YPdPoGWvXmNJBH",
+        withdraw_authority: "11111111111111111111111111111111",
+        game_url: "https://example.com/games/game_50",
+        icon_url: "/assets/images/placeholder_64x64.svg",
+        short_desc: "This is the short description for game #50",
         metadata_url:
-            "https://cdn.ivypowered.com/ipfs/bafkreiekir26andf6wwdk7k5dofm56zdooxhp4vnqfu63h3ffqmpuy5y3y",
-        create_timestamp: 1752906866,
-        ivy_balance: "182981468795",
-        game_balance: "999701393111773442",
-        starting_ivy_balance: "182926829268",
-        comment_buf_index: 0,
-        last_price_usd: 0.0000013180551,
-        mkt_cap_usd: 1317.6615,
-        change_pct_24h: 9.795042,
+            "http://127.0.0.1:4000/tmp/34499237612f9834cb3e79fe4fab3f278def878016d909c35d56e973d451ba1a.json",
+        create_timestamp: 1755749854,
+        ivy_balance: "612745098039",
+        game_balance: "1000000000000000000",
+        starting_ivy_balance: "612745098039",
+        last_price_usd: 0.000003896064,
+        mkt_cap_usd: 3896.064,
+        change_pct_24h: 0,
     };
 
     return (
@@ -117,12 +116,7 @@ export default function Home() {
             {/* Main Content - Game */}
             <WalletProvider>
                 <></>
-                {
-                    <GameDisplay
-                        game={exampleGame as GameObject}
-                        showComments={true}
-                    />
-                }
+                {<GameDisplay game={exampleGame as GameObject} />}
             </WalletProvider>
 
             {/* Footer */}

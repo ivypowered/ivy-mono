@@ -7,8 +7,7 @@
 require_once __DIR__ . "/../includes/api.php";
 
 // Initialize variables
-$game_name = $game_symbol = $game_url = $game_description = "";
-$il_exponent = "0";
+$game_name = $game_symbol = $game_url = $game_description = $short_desc = "";
 $errors = [];
 
 // Get IVY info from aggregator
@@ -22,8 +21,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $game_url = $_POST["game_url"] ?? "";
     $game_description = $_POST["game_description"] ?? "";
     $initial_purchase = $_POST["initial_purchase"] ?? "0";
-    $il_exponent = $_POST["il_exponent"] ?? "0";
-    $il_exponent_int = intval($il_exponent);
+
+    // Generate short description (first 128 chars or 125 chars + "...")
+    if (strlen($game_description) <= 128) {
+        $short_desc = $game_description;
+    } else {
+        $short_desc = substr($game_description, 0, 125) . "...";
+    }
 
     // Input validation
     if (empty($game_name)) {
@@ -37,13 +41,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $errors[] = "Gamecoin symbol must be 2-10 uppercase letters or numbers";
     }
 
-    if (empty($game_url) || !filter_var($game_url, FILTER_VALIDATE_URL)) {
-        $errors[] = "Valid game URL is required";
-    }
-
-    // Validate il_exponent
-    if ($il_exponent_int < 0 || $il_exponent_int > 2) {
-        $errors[] = "Please choose a valid initial market cap option";
+    // Validate short description
+    if (empty($short_desc)) {
+        $errors[] = "Short description is required";
     }
 
     // Validate file sizes
@@ -53,14 +53,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $errors[] = "Error uploading gamecoin icon";
     } elseif ($_FILES["game_icon"]["size"] > 2 * 1024 * 1024) {
         $errors[] = "Icon file is too large (max 2MB)";
-    }
-
-    if (!isset($_FILES["game_cover"])) {
-        $errors[] = "Cover image is required";
-    } elseif ($_FILES["game_cover"]["error"] != UPLOAD_ERR_OK) {
-        $errors[] = "Error uploading gamecoin cover";
-    } elseif ($_FILES["game_cover"]["size"] > 3 * 1024 * 1024) {
-        $errors[] = "Cover file is too large (max 3MB)";
     }
 
     // Validate initial purchase (non-negative number; blank allowed)
@@ -77,9 +69,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $icon_base64 = base64_encode(
                 file_get_contents($_FILES["game_icon"]["tmp_name"]),
             );
-            $cover_base64 = base64_encode(
-                file_get_contents($_FILES["game_cover"]["tmp_name"]),
-            );
 
             // 1. Upload icon image to IPFS
             $icon_data = [
@@ -91,17 +80,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 throw new Exception("Failed to upload gamecoin icon");
             }
 
-            // 2. Upload cover image to IPFS
-            $cover_data = [
-                "base64_image" => $cover_base64,
-                "image_type" => $_FILES["game_cover"]["type"],
-            ];
-            $cover_url = call_backend("/assets/images", "POST", $cover_data);
-            if ($cover_url === null) {
-                throw new Exception("Failed to upload gamecoin cover");
-            }
-
-            // 3. Upload metadata to IPFS
+            // 2. Upload metadata to IPFS
             $metadata_data = [
                 "name" => $game_name,
                 "symbol" => $game_symbol,
@@ -117,15 +96,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 throw new Exception("Failed to upload gamecoin metadata");
             }
 
-            // 4. Fetch game seed
+            // 3. Fetch game seed
             $seed = call_backend("/game-seed", "POST");
 
-            // Scale liquidity by il_exponent (0 => x1, 1 => x10, 2 => x100)
-            $scale = pow(10, $il_exponent_int);
-            $ivy_initial_liquidity =
-                floatval($ivy_info["ivy_initial_liquidity"]) * $scale;
-            $game_initial_liquidity =
-                floatval($ivy_info["game_initial_liquidity"]) * $scale;
+            // Use default liquidity values
+            $ivy_initial_liquidity = floatval(
+                $ivy_info["ivy_initial_liquidity"],
+            );
+            $game_initial_liquidity = floatval(
+                $ivy_info["game_initial_liquidity"],
+            );
             $min_game_received = "0";
 
             // Calculate tokens to receive
@@ -144,11 +124,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 "symbol" => $game_symbol,
                 "game_url" => $game_url,
                 "icon_url" => $icon_url,
-                "cover_url" => $cover_url,
+                "short_desc" => $short_desc,
                 "metadata_url" => $metadata_url,
                 "ivy_purchase" => $initial_purchase,
                 "min_game_received" => $min_game_received,
-                "il_exponent" => strval($il_exponent_int),
             ];
 
             header(
@@ -176,7 +155,7 @@ require_once __DIR__ . "/../includes/header.php";
 ?>
 
 <main class="py-8">
-    <div class="mx-auto max-w-6xl px-6">
+    <div class="mx-auto max-w-2xl px-6">
         <!-- Header -->
         <h1 class="text-3xl font-bold mb-8 text-center">Launch Gamecoin</h1>
 
@@ -194,138 +173,77 @@ require_once __DIR__ . "/../includes/header.php";
         <?php endif; ?>
 
         <!-- Form -->
-        <form id="uploadForm" method="POST" action="/upload" enctype="multipart/form-data" class="border-4 border-emerald-400 p-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Left Column -->
-                <div class="space-y-6">
-                    <!-- Gamecoin Name -->
-                    <div>
-                        <label for="game_name" class="block mb-2 font-bold">Name</label>
-                        <input type="text" id="game_name" name="game_name"
-                            value="<?php echo htmlspecialchars($game_name); ?>"
-                            class="w-full bg-emerald-950 border-2 border-emerald-400 p-3"
-                            placeholder="Enter gamecoin name" required>
-                        <p class="text-sm text-emerald-400 mt-1">Choose a unique and descriptive name</p>
-                    </div>
-
-                    <!-- Gamecoin Symbol -->
-                    <div>
-                        <label for="game_symbol" class="block mb-2 font-bold">Symbol</label>
-                        <input type="text" id="game_symbol" name="game_symbol"
-                            value="<?php echo htmlspecialchars(
-                                $game_symbol,
-                            ); ?>"
-                            class="w-full bg-emerald-950 border-2 border-emerald-400 p-3 uppercase"
-                            placeholder="GAME" maxlength="10" minlength="2" pattern="[A-Z0-9]{2,10}"
-                            title="Must be 2-10 uppercase letters or numbers" required
-                            oninput="this.value = this.value.toUpperCase()">
-                        <p class="text-sm text-emerald-400 mt-1">2-10 characters, uppercase letters and numbers only</p>
-                    </div>
-
-                    <!-- Game URL -->
-                    <div>
-                        <label for="game_url" class="block mb-2 font-bold">Game URL</label>
-                        <input type="url" id="game_url" name="game_url"
-                            value="<?php echo htmlspecialchars($game_url); ?>"
-                            class="w-full bg-emerald-950 border-2 border-emerald-400 p-3"
-                            placeholder="https://yourgame.com" required>
-                        <p class="text-sm text-emerald-400 mt-1">URL to your game that will be loaded in an iframe</p>
-                    </div>
-
-                    <!-- Initial Market Cap (il_exponent) -->
-                    <div>
-                        <label class="block mb-2 font-bold">Initial Market Cap</label>
-                        <input type="hidden" id="il_exponent" name="il_exponent" value="<?php echo htmlspecialchars(
-                            $il_exponent,
-                        ); ?>">
-                        <div id="il-options" class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <button type="button" class="il-option bg-emerald-950 text-emerald-400 border-2 border-emerald-400 p-3 text-center" data-exp="0">
-                                <div class="font-bold" data-il-usd>$0.00</div>
-                                <div class="text-sm" data-il-ivy>0 IVY</div>
-                            </button>
-                            <button type="button" class="il-option bg-emerald-950 text-emerald-400 border-2 border-emerald-400 p-3 text-center" data-exp="1">
-                                <div class="font-bold" data-il-usd>$0.00</div>
-                                <div class="text-sm" data-il-ivy>0 IVY</div>
-                            </button>
-                            <button type="button" class="il-option bg-emerald-950 text-emerald-400 border-2 border-emerald-400 p-3 text-center" data-exp="2">
-                                <div class="font-bold" data-il-usd>$0.00</div>
-                                <div class="text-sm" data-il-ivy>0 IVY</div>
-                            </button>
-                        </div>
-                        <p class="text-sm text-emerald-400 mt-1">Select your initial market capitalization</p>
-                    </div>
-
-                    <!-- Initial Purchase Amount -->
-                    <div>
-                        <label for="initial_purchase" class="block mb-2 font-bold">Initial Purchase (IVY)</label>
-                        <input type="number" id="initial_purchase" name="initial_purchase"
-                            class="w-full bg-emerald-950 border-2 border-emerald-400 p-3"
-                            placeholder="0" min="0" step="1">
-                        <p class="text-sm text-emerald-400 mt-1">Amount of IVY to invest; leave blank if unsure.</p>
-
-                        <!-- Results display -->
-                        <div class="mt-3 p-3 bg-emerald-950/50 border border-emerald-400/30">
-                            <p>You will receive: <span id="gamecoins_received" class="font-bold">0</span> tokens</p>
-                            <p>This is <span id="percentage_supply" class="font-bold">0%</span> of total supply</p>
-                        </div>
-                    </div>
+        <form id="uploadForm" method="POST" action="/launch" enctype="multipart/form-data" class="border-4 border-emerald-400 p-6">
+            <div class="space-y-6">
+                <!-- Name and Symbol in two-column layout -->
+                <div>
+                    <label for="game_name" class="block mb-2 font-bold">Name</label>
+                    <input type="text" id="game_name" name="game_name"
+                        value="<?php echo htmlspecialchars($game_name); ?>"
+                        class="w-full bg-emerald-950 border-2 border-emerald-400 p-3"
+                        placeholder="Enter gamecoin name" required>
                 </div>
 
-                <!-- Right Column -->
-                <div class="space-y-6">
-                    <!-- Full Description -->
-                    <div>
-                        <label for="game_description" class="block mb-2 font-bold">Full Description</label>
-                        <textarea id="game_description" name="game_description" rows="6"
-                            class="w-full bg-emerald-950 border-2 border-emerald-400 p-3"
-                            placeholder="Detailed description of your gamecoin..."><?php echo htmlspecialchars(
-                                $game_description,
-                            ); ?></textarea>
-                        <p class="text-sm text-emerald-400 mt-1">Full description displayed on your gamecoin's detail page</p>
-                    </div>
+                <div>
+                    <label for="game_symbol" class="block mb-2 font-bold">Symbol</label>
+                    <input type="text" id="game_symbol" name="game_symbol"
+                        value="<?php echo htmlspecialchars($game_symbol); ?>"
+                        class="w-full bg-emerald-950 border-2 border-emerald-400 p-3 uppercase"
+                        placeholder="GAME" maxlength="10" minlength="2" pattern="[A-Z0-9]{2,10}"
+                        title="Must be 2-10 uppercase letters or numbers" required
+                        oninput="this.value = this.value.toUpperCase()">
+                </div>
 
-                    <!-- Gamecoin Icon -->
-                    <div>
-                        <label for="game_icon" class="block mb-2 font-bold">Gamecoin Icon <span class="text-red-500">*</span></label>
-                        <div id="icon-dropzone" class="border-2 border-dashed border-emerald-400 p-4 text-center h-40 flex flex-col items-center justify-center relative cursor-pointer hover:border-emerald-300">
-                            <div id="icon-placeholder" class="flex flex-col items-center pointer-events-none">
-                                <?php echo icon(
-                                    "image-plus",
-                                    "h-10 w-10 text-emerald-400 mb-2",
-                                ); ?>
-                                <p class="mb-1 font-medium">Upload Gamecoin Icon</p>
-                                <p class="text-sm text-emerald-400">Square format</p>
-                            </div>
-                            <img id="icon-preview" src="#" alt="Gamecoin icon preview" class="hidden h-32 w-32 object-contain"/>
-                            <input type="file" id="game_icon" name="game_icon"
-                                accept="image/*"
-                                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                aria-label="Upload Gamecoin Icon" required>
-                        </div>
-                        <p id="icon-filename" class="text-xs text-gray-400 mt-1 truncate"></p>
-                        <p class="text-sm text-emerald-400 mt-1">Displayed as your gamecoin's icon (max. 2MB)</p>
-                    </div>
+                <!-- URL -->
+                <div>
+                    <label for="game_url" class="block mb-2 font-bold">URL</label>
+                    <input type="url" id="game_url" name="game_url"
+                        value="<?php echo htmlspecialchars($game_url); ?>"
+                        class="w-full bg-emerald-950 border-2 border-emerald-400 p-3"
+                        placeholder="https://yourgame.com" required>
+                </div>
 
-                    <!-- Cover Image -->
-                    <div>
-                        <label for="game_cover" class="block mb-2 font-bold">Cover Image <span class="text-red-500">*</span></label>
-                        <div id="cover-dropzone" class="border-2 border-dashed border-emerald-400 p-4 text-center h-40 flex flex-col items-center justify-center relative cursor-pointer hover:border-emerald-300">
-                            <div id="cover-placeholder" class="flex flex-col items-center pointer-events-none">
-                                <?php echo icon(
-                                    "image-plus",
-                                    "h-10 w-10 text-emerald-400 mb-2",
-                                ); ?>
-                                <p class="mb-1 font-medium">Upload Cover Image</p>
-                                <p class="text-sm text-emerald-400">3:2 ratio recommended</p>
-                            </div>
-                            <img id="cover-preview" src="#" alt="Gamecoin cover preview" class="hidden max-h-32 max-w-full object-contain"/>
-                            <input type="file" id="game_cover" name="game_cover"
-                                accept="image/*"
-                                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                aria-label="Upload Cover Image" required>
+                <!-- Description -->
+                <div>
+                    <label for="game_description" class="block mb-2 font-bold">Description</label>
+                    <textarea id="game_description" name="game_description" rows="4"
+                        class="w-full bg-emerald-950 border-2 border-emerald-400 p-3"
+                        placeholder="Describe your gamecoin..."><?php echo htmlspecialchars(
+                            $game_description,
+                        ); ?></textarea>
+                </div>
+
+                <!-- Icon -->
+                <div>
+                    <label for="game_icon" class="block mb-2 font-bold">Icon <span class="text-red-500">*</span></label>
+                    <div id="icon-dropzone" class="border-2 border-dashed border-emerald-400 p-4 text-center h-40 flex flex-col items-center justify-center relative cursor-pointer hover:border-emerald-300">
+                        <div id="icon-placeholder" class="flex flex-col items-center pointer-events-none">
+                            <?php echo icon(
+                                "image-plus",
+                                "h-10 w-10 text-emerald-400 mb-2",
+                            ); ?>
+                            <p class="mb-1 font-medium">Upload Icon</p>
                         </div>
-                        <p id="cover-filename" class="text-xs text-gray-400 mt-1 truncate"></p>
-                        <p class="text-sm text-emerald-400 mt-1">Displayed on gamecoin listings (max. 3MB)</p>
+                        <img id="icon-preview" src="#" alt="Gamecoin icon preview" class="hidden h-32 w-32 object-contain"/>
+                        <input type="file" id="game_icon" name="game_icon"
+                            accept="image/*"
+                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            aria-label="Upload Gamecoin Icon" required>
+                    </div>
+                    <p id="icon-filename" class="text-xs text-gray-400 mt-1 truncate"></p>
+                </div>
+
+                <!-- Initial Purchase -->
+                <div>
+                    <label for="initial_purchase" class="block mb-2 font-bold">Initial Purchase (IVY)</label>
+                    <input type="number" id="initial_purchase" name="initial_purchase"
+                        class="w-full bg-emerald-950 border-2 border-emerald-400 p-3"
+                        placeholder="0" min="0" step="1">
+
+                    <!-- Results display -->
+                    <div class="mt-3 p-3 bg-emerald-950/50 border border-emerald-400/30">
+                        <p>You will receive: <span id="gamecoins_received" class="font-bold">0</span> tokens</p>
+                        <p>This is <span id="percentage_supply" class="font-bold">0%</span> of total supply</p>
                     </div>
                 </div>
             </div>
@@ -397,7 +315,6 @@ require_once __DIR__ . "/../includes/header.php";
 
         // Initialize previews
         setupImagePreview('game_icon', 'icon-placeholder', 'icon-preview', 'icon-filename', 'icon-dropzone');
-        setupImagePreview('game_cover', 'cover-placeholder', 'cover-preview', 'cover-filename', 'cover-dropzone');
 
         // Add event listeners to all required form fields
         document.querySelectorAll('#uploadForm input[required], #uploadForm textarea[required]').forEach(element => {
@@ -408,15 +325,11 @@ require_once __DIR__ . "/../includes/header.php";
         // Check form validity on page load
         document.addEventListener('DOMContentLoaded', checkFormValidity);
 
-        // Add calculation for initial purchase + il_exponent options
+        // Add calculation for initial purchase
         document.addEventListener('DOMContentLoaded', function() {
             const initialPurchaseInput = document.getElementById('initial_purchase');
             const gamecoinsReceived = document.getElementById('gamecoins_received');
             const percentageSupply = document.getElementById('percentage_supply');
-
-            // Hidden input for il_exponent
-            const ilInput = document.getElementById('il_exponent');
-            const ilButtons = Array.from(document.querySelectorAll('#il-options .il-option'));
 
             // Base values from PHP
             const baseIvyInitialLiquidity = <?php echo $ivy_info[
@@ -425,60 +338,14 @@ require_once __DIR__ . "/../includes/header.php";
             const baseGameInitialLiquidity = <?php echo $ivy_info[
                 "game_initial_liquidity"
             ]; ?>;
-            const ivyPrice = <?php echo isset($ivy_info["ivy_price"])
-                ? $ivy_info["ivy_price"]
-                : 0; ?>;
-
-            // Render IL option buttons with USD + IVY
-            function formatUSD(value) {
-                try {
-                    return value.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
-                } catch {
-                    return `$${value.toFixed(2)}`;
-                }
-            }
-
-            function renderILButtons() {
-                ilButtons.forEach(btn => {
-                    const exp = parseInt(btn.dataset.exp, 10);
-                    const factor = Math.pow(10, exp);
-                    const liqIVY = baseIvyInitialLiquidity * factor;
-                    const capUSD = liqIVY * ivyPrice;
-
-                    const usdEl = btn.querySelector('[data-il-usd]');
-                    const ivyEl = btn.querySelector('[data-il-ivy]');
-                    if (usdEl) usdEl.textContent = formatUSD(capUSD);
-                    if (ivyEl) ivyEl.textContent = `${Math.round(liqIVY).toLocaleString()} IVY`;
-                });
-            }
-
-            function setSelectedIL(exp) {
-                ilInput.value = String(exp);
-                ilButtons.forEach(btn => {
-                    const isActive = parseInt(btn.dataset.exp, 10) === exp;
-                    btn.classList.toggle('bg-emerald-400', isActive);
-                    btn.classList.toggle('text-emerald-950', isActive);
-                    btn.classList.toggle('font-bold', isActive);
-                    btn.classList.toggle('bg-emerald-950', !isActive);
-                    btn.classList.toggle('text-emerald-400', !isActive);
-                });
-                updateGamecoinCalculation();
-            }
-
-            ilButtons.forEach(btn => {
-                btn.addEventListener('click', () => setSelectedIL(parseInt(btn.dataset.exp, 10)));
-            });
 
             // Update calculation when input changes
             initialPurchaseInput.addEventListener('input', updateGamecoinCalculation);
             initialPurchaseInput.addEventListener('change', updateGamecoinCalculation);
 
             function updateGamecoinCalculation() {
-                const exp = parseInt(ilInput.value || '0', 10);
-                const scale = Math.pow(10, exp);
-
-                const ivyInitialLiquidity = baseIvyInitialLiquidity * scale;
-                const gameInitialLiquidity = baseGameInitialLiquidity * scale;
+                const ivyInitialLiquidity = baseIvyInitialLiquidity;
+                const gameInitialLiquidity = baseGameInitialLiquidity;
 
                 const purchaseAmount = parseFloat(initialPurchaseInput.value) || 0;
 
@@ -497,9 +364,6 @@ require_once __DIR__ . "/../includes/header.php";
             }
 
             // Initialize
-            renderILButtons();
-            const initialExp = parseInt(ilInput.value || '0', 10);
-            setSelectedIL(initialExp);
             updateGamecoinCalculation();
         });
     </script>

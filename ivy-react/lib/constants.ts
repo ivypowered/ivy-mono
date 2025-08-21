@@ -6,8 +6,9 @@ import Decimal from "decimal.js-light";
 export const TRANSPARENT_1X1 =
     "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
-// API base URL
-export const API_BASE = "/api";
+// API base URLs
+export const API_BASE = "http://127.0.0.1:4000";
+export const API_STREAM_BASE = "http://127.0.0.1:5000";
 
 // Decimal configurations
 export const USDC_DECIMALS = 6;
@@ -48,3 +49,38 @@ export const TOKEN_PROGRAM_ID = new PublicKey(
 // Other constants
 export const MAX_SF = 8;
 export const DECIMAL_ZERO = new Decimal(0);
+
+// Mock tokens
+export const COMMON_TOKENS = [
+    {
+        mint: WSOL_MINT.toBase58(),
+        symbol: "SOL",
+        name: "Solana",
+        decimals: 9,
+        icon: "/assets/images/sol.png",
+    },
+    {
+        mint: USDC_MINT_B58,
+        symbol: "USDC",
+        name: "USD Coin",
+        decimals: 6,
+        icon: "/assets/images/usdc.png",
+    },
+    {
+        mint: USDT_MINT.toBase58(),
+        symbol: "USDT",
+        name: "Tether",
+        decimals: 6,
+        icon: "/assets/images/usdt.svg",
+    },
+    {
+        mint: IVY_MINT_B58,
+        symbol: "IVY",
+        name: "Ivy",
+        decimals: 9,
+        icon: "/assets/images/ivy-icon.svg",
+    },
+];
+
+export const SOL_TOKEN = COMMON_TOKENS[0];
+export const IVY_TOKEN = COMMON_TOKENS[3];

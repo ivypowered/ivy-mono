@@ -3,100 +3,10 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { Button } from "../ui/button";
-import {
-    MessageCircle,
-    User,
-    Clock,
-    ChevronLeft,
-    ChevronRight,
-} from "lucide-react";
+import { MessageCircle, User, Clock } from "lucide-react";
 import { processTransaction } from "@/lib/utils";
 import { Comment } from "@/import/ivy-sdk";
-import { Api, CommentData, CommentInfo } from "@/lib/api";
-
-const MAX_COMMENTS = 5;
-
-// --- Pagination Component ---
-
-interface PaginationProps {
-    currentPage: number;
-    totalItems: number;
-    itemsPerPage: number;
-    onPageChange: (page: number) => void;
-    disabled?: boolean;
-}
-
-function Pagination({
-    currentPage,
-    totalItems,
-    itemsPerPage,
-    onPageChange,
-    disabled = false,
-}: PaginationProps) {
-    const showPrev = currentPage > 0;
-    // Don't show next if there aren't any comments on the next page
-    const showNext = totalItems > (currentPage + 1) * itemsPerPage;
-
-    if (!showPrev && !showNext) {
-        return null;
-    }
-
-    const prevPage = currentPage - 1;
-    const nextPage = currentPage + 1;
-
-    const buttonClass =
-        "rounded-none border-2 border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-emerald-950 w-10 h-10 flex items-center justify-center transition-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-emerald-400";
-
-    return (
-        <div className="mt-8 flex justify-center items-center gap-2">
-            {showPrev && (
-                <>
-                    <button
-                        onClick={() => onPageChange(prevPage)}
-                        className={buttonClass}
-                        aria-label="Previous Page"
-                        disabled={disabled}
-                    >
-                        <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <button
-                        onClick={() => onPageChange(prevPage)}
-                        className={buttonClass}
-                        disabled={disabled}
-                    >
-                        {prevPage + 1}
-                    </button>
-                </>
-            )}
-
-            <span className="rounded-none bg-emerald-400 text-emerald-950 w-10 h-10 flex items-center justify-center font-bold">
-                {currentPage + 1}
-            </span>
-
-            {showNext && (
-                <>
-                    <button
-                        onClick={() => onPageChange(nextPage)}
-                        className={buttonClass}
-                        disabled={disabled}
-                    >
-                        {nextPage + 1}
-                    </button>
-                    <button
-                        onClick={() => onPageChange(nextPage)}
-                        className={buttonClass}
-                        aria-label="Next Page"
-                        disabled={disabled}
-                    >
-                        <ChevronRight className="h-4 w-4" />
-                    </button>
-                </>
-            )}
-        </div>
-    );
-}
-
-// --- Helper Functions and Sub-components --- (keeping existing code)
+import { CommentData } from "@/lib/api";
 
 /**
  * Parses comment text to find and separate ">>" references.
@@ -281,8 +191,8 @@ interface CommentsProps {
     signTransaction: (
         tx: Transaction | VersionedTransaction,
     ) => Promise<Transaction | VersionedTransaction>;
-    className?: string;
-    initialCommentBufIndex: number;
+    comments?: CommentData[]; // Now passed from parent via stream
+    totalComments: number;
 }
 
 export function Comments({
@@ -290,21 +200,13 @@ export function Comments({
     userAddress,
     onConnectWallet,
     signTransaction,
-    initialCommentBufIndex,
+    comments,
+    totalComments,
 }: CommentsProps) {
     const commentBoxRef = useRef<HTMLTextAreaElement | null>(null);
     const [commentText, setCommentText] = useState("");
     const [posting, setPosting] = useState(false);
     const [postError, setPostError] = useState<string | null>(null);
-
-    // State for the comments list
-    const [comments, setComments] = useState<CommentData[]>([]);
-    const [totalComments, setTotalComments] = useState(0);
-    const [commentBufIndex, setCommentBufIndex] = useState(
-        initialCommentBufIndex,
-    );
-    const [loading, setLoading] = useState(true);
-    const [fetchError, setFetchError] = useState<string | null>(null);
 
     // State for interactivity
     const [replyTo, setReplyTo] = useState<number>(-1);
@@ -316,70 +218,29 @@ export function Comments({
     const commentsContainerRef = useRef<HTMLDivElement>(null);
     const commentRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-    const [page, setPage] = useState<number>(0);
-
-    // Derived state for visual feedback during page loads
-    const isPageLoading = loading && comments.length > 0 && !fetchError;
-
-    const refreshComments = useCallback(
-        async (withPage: number) => {
-            setLoading(true);
-            setFetchError(null);
-            try {
-                const info = await Api.getComments(
-                    new PublicKey(gameAddress),
-                    MAX_COMMENTS,
-                    withPage * MAX_COMMENTS,
-                    true,
-                );
-                commentRefs.current.clear();
-                setComments(info.comments);
-                setTotalComments(info.total);
-                setCommentBufIndex(info.comment_buf_index);
-            } catch (err) {
-                setFetchError(
-                    err instanceof Error
-                        ? err.message
-                        : "Failed to load comments",
-                );
-            } finally {
-                setLoading(false);
-            }
-        },
-        [gameAddress],
-    );
-
+    // Update comment refs when comments change
     useEffect(() => {
-        refreshComments(page);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        commentRefs.current.clear();
+    }, [comments]);
 
-    const handlePageChange = async (newPage: number) => {
-        // Refresh comments
-        await refreshComments(newPage);
-        // Teleport user to top of comment section
-        commentsContainerRef.current?.scrollIntoView({
-            behavior: "instant",
-            block: "start",
-        });
-        // Set page
-        setPage(newPage);
-    };
-
-    // Effect to handle "reply to" functionality by updating the input text
+    // Effect to handle "reply to" functionality
     useEffect(() => {
         if (replyTo >= 0 && !posting) {
             if (!commentText.includes(`>>${replyTo}`)) {
                 setCommentText((c) => `${c}>>${replyTo} `.trimStart());
                 commentBoxRef.current?.focus();
             }
-            setReplyTo(-1); // Reset after use
+            setReplyTo(-1);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [replyTo, commentText]);
+    }, [replyTo, commentText, posting]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!comments) {
+            setPostError("can't send comment when they're still loading");
+            return;
+        }
 
         if (!userAddress) {
             onConnectWallet?.();
@@ -404,70 +265,13 @@ export function Comments({
 
             await processTransaction(
                 "CommentPost",
-                Comment.post(
-                    userPublicKey,
-                    gamePublicKey,
-                    text,
-                    commentBufIndex,
-                ),
+                Comment.post(userPublicKey, gamePublicKey, text),
                 userPublicKey,
                 signTransaction,
                 () => {},
             );
 
-            // Manually handle the refresh to perform patching logic for backend latency
-            setFetchError(null);
-
-            let info: CommentInfo;
-            try {
-                // Requirement 2b: Load new comments with page = 0
-                info = await Api.getComments(
-                    new PublicKey(gameAddress),
-                    MAX_COMMENTS,
-                    0, // Always fetch page 0
-                    true,
-                );
-
-                // Patching logic to optimistically display the new comment if backend hasn't caught up
-                let found = false;
-                if (info.comments.length !== comments.length) {
-                    for (const c of info.comments) {
-                        if (c.text === text && c.user === userAddress) {
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-                if (!found) {
-                    let tempIndex = 0;
-                    if (info.comments.length > 0) {
-                        tempIndex = info.comments[0].index + 1;
-                    }
-                    info.comments.unshift({
-                        text: text,
-                        timestamp: Math.floor(
-                            new Date().getTime() / 1000,
-                        ).toString(),
-                        user: userAddress,
-                        index: tempIndex,
-                    });
-                    info.total++;
-                }
-
-                // Update state with new comments
-                commentRefs.current.clear();
-                setComments(info.comments);
-                setTotalComments(info.total);
-                setCommentBufIndex(info.comment_buf_index);
-                setCommentText("");
-
-                // Set page to 0
-                setPage(0);
-            } catch (err) {
-                setFetchError(String(err));
-            } finally {
-                setLoading(false);
-            }
+            setCommentText("");
         } catch (err) {
             console.error("Failed to post comment:", err);
             setPostError(
@@ -481,7 +285,6 @@ export function Comments({
     const handleReferenceClick = useCallback((index: number) => {
         const element = commentRefs.current.get(index);
         element?.scrollIntoView({ behavior: "instant", block: "center" });
-        // Briefly highlight the referenced comment
         element?.classList.add("referenced-highlight");
         setTimeout(
             () => element?.classList.remove("referenced-highlight"),
@@ -491,40 +294,17 @@ export function Comments({
 
     const isValidIndex = useCallback(
         (index: number) => {
-            // prettier-ignore
-            const max = (
-                (totalComments - 1) // 1st comment in reversed list
-                - (page * MAX_COMMENTS) // how many pages?
-            );
-            const min = Math.max(0, max - MAX_COMMENTS + 1);
-            return index >= min && index <= max;
+            // All comments are visible now, so check if index exists in our comments
+            return !!(comments && comments.some((c) => c.index === index));
         },
-        [totalComments, page],
+        [comments],
     );
 
-    if (loading && comments.length === 0) {
+    if (!comments) {
         return (
             <div className="bg-zinc-900 border-4 border-emerald-400">
                 <div className="p-4 h-32 flex items-center justify-center text-zinc-500 text-md">
                     loading comments...
-                </div>
-            </div>
-        );
-    }
-
-    if (fetchError && comments.length === 0) {
-        return (
-            <div className="bg-zinc-900 border-4 border-emerald-400">
-                <div className="p-4 h-32 flex flex-col items-center justify-center space-y-2 text-md text-zinc-400">
-                    <div className="flex">
-                        Failed to load comments: {fetchError || "unknown error"}
-                    </div>
-                    <Button
-                        className="mt-4 text-white rounded-none border-emerald-400 bg-transparent border-2 transition-none hover:bg-zinc-800 font-bold"
-                        onClick={() => refreshComments(page)}
-                    >
-                        Retry
-                    </Button>
                 </div>
             </div>
         );
@@ -560,9 +340,7 @@ export function Comments({
                             }}
                             placeholder="Type a comment..."
                             disabled={posting}
-                            className={
-                                "w-full h-24 p-3 bg-zinc-800 border-2 text-white placeholder-zinc-500 resize-none focus:outline-none border-zinc-600 focus:border-emerald-400 disabled:opacity-70"
-                            }
+                            className="w-full h-24 p-3 bg-zinc-800 border-2 text-white placeholder-zinc-500 resize-none focus:outline-none border-zinc-600 focus:border-emerald-400 disabled:opacity-70"
                             ref={commentBoxRef}
                         />
                         <div className="absolute right-4 bottom-4 text-zinc-500 text-sm">
@@ -579,7 +357,7 @@ export function Comments({
                     <div className="flex justify-end">
                         <Button
                             type="submit"
-                            disabled={posting || loading || !commentText.trim()}
+                            disabled={posting || !commentText.trim()}
                             className="rounded-none transition-none bg-emerald-400 text-emerald-950 hover:bg-emerald-500 font-bold disabled:opacity-70 disabled:bg-emerald-400"
                         >
                             {posting
@@ -592,31 +370,10 @@ export function Comments({
                 </form>
             </div>
 
-            {/* Error */}
-            {fetchError && (
-                <div className="pb-4 pr-4 pl-4 text-center py-8">
-                    <div className="text-red-400 mb-2">
-                        Failed to load comments
-                    </div>
-                    <div className="text-zinc-500 text-sm">{postError}</div>
-                    <Button
-                        className="mt-4 text-white rounded-none border-emerald-400 bg-transparent border-2 transition-none hover:bg-zinc-800 font-bold"
-                        onClick={() => refreshComments(page)}
-                    >
-                        Retry
-                    </Button>
-                </div>
-            )}
-
-            {!fetchError && comments.length > 0 && (
-                <div
-                    className={
-                        isPageLoading
-                            ? "pb-4 pr-4 pl-4 opacity-50 pointer-events-none"
-                            : "pb-4 pr-4 pl-4"
-                    }
-                >
-                    <div className="space-y-4">
+            {/* Comments List - All visible, no pagination */}
+            {comments.length > 0 && (
+                <div className="pb-4 pr-4 pl-4">
+                    <div className="space-y-4 max-h-[800px] overflow-y-auto">
                         {comments.map((comment) => (
                             <CommentItem
                                 key={comment.index}
@@ -642,15 +399,6 @@ export function Comments({
                             />
                         ))}
                     </div>
-
-                    {/* Pagination */}
-                    <Pagination
-                        currentPage={page}
-                        totalItems={totalComments}
-                        itemsPerPage={MAX_COMMENTS}
-                        onPageChange={handlePageChange}
-                        disabled={loading || posting}
-                    />
                 </div>
             )}
         </div>

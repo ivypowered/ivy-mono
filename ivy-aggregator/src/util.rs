@@ -6,16 +6,17 @@ pub fn from_ivy_amount(ivy_amount: u64) -> f32 {
     return (ivy_amount as f32) / 1_000_000_000.0; // 9 decimals
 }
 
+pub fn from_sol_amount(sol_amount: u64) -> f32 {
+    return (sol_amount as f32) / 1_000_000_000.0; // 9 decimals
+}
+
+pub fn from_token_amount(token_amount: u64) -> f32 {
+    // PF tokens are 6 decimals, our synced ones are 9 decimals
+    return (token_amount as f32) / 1_000_000_000.0; // 9 decimals
+}
+
 pub fn from_usdc_amount(usdc_amount: u64) -> f32 {
     return (usdc_amount as f32) / 1_000_000.0; // 6 decimals
-}
-
-pub fn to_usdc_amount(usdc_float: f64) -> u64 {
-    return (usdc_float * 1_000_000.0) as u64; // 6 decimals
-}
-
-pub fn to_ivy_amount(ivy_float: f64) -> u64 {
-    return (ivy_float * 1_000_000_000.0) as u64; // 9 decimals
 }
 
 /// Convert a float USD value into a `u64` tenths of a cent (mils)

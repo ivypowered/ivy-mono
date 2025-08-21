@@ -19,17 +19,12 @@ function game_render($game)
     $game_address = htmlspecialchars($game["address"] ?? "");
     $game_name = htmlspecialchars($game["name"] ?? "Untitled Game");
     $game_symbol = htmlspecialchars(strtoupper($game["symbol"] ?? "???"));
-    $image_url = !empty($game["cover_url"])
-        ? htmlspecialchars($game["cover_url"])
+    $short_desc = htmlspecialchars($game["short_desc"] ?? "");
+    $image_url = !empty($game["icon_url"])
+        ? htmlspecialchars($game["icon_url"])
         : "/assets/images/placeholder.png";
-    $is_official =
-        isset($game["is_official_launch"]) &&
-        $game["is_official_launch"] === true;
 
-    $market_cap_usd = 0;
-    if (isset($game["ivy_balance"]) && is_numeric($game["ivy_balance"])) {
-        $market_cap_usd = $game["mkt_cap_usd"];
-    }
+    $market_cap_usd = $game["mkt_cap_usd"];
 
     $create_timestamp =
         isset($game["create_timestamp"]) &&
@@ -42,29 +37,56 @@ function game_render($game)
         return;
     }
     ?>
-    <a href="/game?address=<?php echo $game_address; ?>" class="border-2 border-emerald-400 overflow-hidden group h-full flex flex-col hover:bg-emerald-950/50 transition-colors">
-        <div class="relative">
-            <img src="<?php echo $image_url; ?>" alt="<?php echo $game_name; ?>" class="w-full aspect-[3/2] object-cover bg-zinc-800">
-        </div>
-        <div class="p-3 flex flex-col flex-grow">
-            <div class="flex items-center justify-between mb-1">
-                <div class="flex items-center gap-1 min-w-0">
-                    <h3 class="text-base font-bold truncate" title="<?php echo $game_name; ?>"><?php echo $game_name; ?></h3>
+    <div class="group relative">
+        <a href="/game?address=<?php echo $game_address; ?>" class="block">
+            <div class="flex h-fit w-full overflow-hidden border-2 p-3 group-hover:border-emerald-400 border-transparent hover:bg-emerald-950/30 max-h-[300px] gap-3">
+                <!-- Image on the left -->
+                <div class="aspect-square relative min-w-[128px] self-start">
+                    <img
+                        src="<?php echo $image_url; ?>"
+                        alt="<?php echo $game_name; ?>"
+                        loading="lazy"
+                        width="128"
+                        height="128"
+                        class="h-32 w-32 object-cover bg-zinc-800"
+                    >
                 </div>
-                <span class="text-xs text-emerald-400 font-bold ml-1 flex-shrink-0"><?php echo $game_symbol; ?></span>
-            </div>
-            <div class="flex items-center justify-between text-zinc-300 text-xs">
-                <div>$<?php echo is_numeric($market_cap_usd)
-                    ? fmt_number_short($market_cap_usd)
-                    : "N/A"; ?> market cap</div>
-                <div class="flex items-center gap-1">
-                    <?php echo icon("clock", "h-3 w-3"); ?>
-                    <?php echo fmt_timestamp($create_timestamp); ?>
+
+                <!-- Content on the right -->
+                <div class="flex-1 grid h-fit gap-2">
+                    <!-- Metadata section (created at and market cap) -->
+                    <div class="space-y-1 pb-1">
+                        <!-- Created info and timestamp -->
+                        <div class="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+                            created <?php echo fmt_timestamp(
+                                $create_timestamp,
+                            ); ?>
+                        </div>
+
+                        <!-- Market cap -->
+                        <div class="flex gap-1 text-xs text-emerald-400 font-semibold">
+                            market cap: $<?php echo is_numeric($market_cap_usd)
+                                ? fmt_number_short($market_cap_usd)
+                                : "N/A"; ?>
+                        </div>
+                    </div>
+
+                    <!-- Game name, symbol and description on same line -->
+                    <div>
+                        <p class="text-sm text-zinc-300">
+                            <span class="font-extrabold">
+                                <?php echo $game_name; ?>
+                                (<?php echo $game_symbol; ?>)<?php if (!empty($short_desc)): ?>:<?php endif; ?>
+                            </span>
+                            <?php if (!empty($short_desc)): ?>
+                                <?php echo $short_desc; ?>
+                            <?php endif; ?>
+                        </p>
+                    </div>
                 </div>
             </div>
-            <div class="flex-grow"></div> <!-- Pushes content above bottom -->
-        </div>
-    </a>
+        </a>
+    </div>
     <?php
 }
 ?>

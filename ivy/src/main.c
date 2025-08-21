@@ -1,6 +1,7 @@
 #include "comment.h"
 #include "game.h"
 #include "mix.h"
+#include "sync.h"
 #include "vault.h"
 #include "world.h"
 #include <ivy-lib/context.h>
@@ -190,17 +191,6 @@ extern u64 entrypoint(const u8* input) {
                 data_len
             );
 
-        case GAME_PROMOTE_DISCRIMINATOR:
-            CALL_INSTRUCTION(
-                ctx,
-                "GamePromote",
-                game_promote,
-                GamePromoteAccounts,
-                GamePromoteData,
-                data,
-                data_len
-            );
-
         // Vault operations
         case VAULT_CREATE_DISCRIMINATOR:
             CALL_INSTRUCTION(
@@ -282,7 +272,7 @@ extern u64 entrypoint(const u8* input) {
             );
 
         case GAME_EDIT_DISCRIMINATOR:
-            CALL_INSTRUCTION(
+            CALL_INSTRUCTION_WITH_LEN(
                 ctx,
                 "GameEdit",
                 game_edit,
@@ -337,6 +327,40 @@ extern u64 entrypoint(const u8* input) {
                 comment_post,
                 CommentPostAccounts,
                 CommentPostData,
+                data,
+                data_len
+            );
+
+        // Sync
+        case SYNC_CREATE_DISCRIMINATOR:
+            CALL_INSTRUCTION_WITH_LEN(
+                ctx,
+                "SyncCreate",
+                sync_create,
+                SyncCreateAccounts,
+                SyncCreateData,
+                data,
+                data_len
+            );
+
+        case SYNC_SWAP_DISCRIMINATOR:
+            CALL_INSTRUCTION(
+                ctx,
+                "SyncSwap",
+                sync_swap,
+                SyncSwapAccounts,
+                SyncSwapData,
+                data,
+                data_len
+            );
+
+        case SYNC_PSWAP_DISCRIMINATOR:
+            CALL_INSTRUCTION(
+                ctx,
+                "SyncPswap",
+                sync_pswap,
+                SyncPswapAccounts,
+                SyncPswapData,
                 data,
                 data_len
             );

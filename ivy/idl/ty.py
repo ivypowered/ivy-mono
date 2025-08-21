@@ -13,10 +13,11 @@ class CVariable:
 
 class CStruct:
     """Represents a struct declaration."""
-    def __init__(self, name: str, vars: List[CVariable], pragma: Optional[str]):
+    def __init__(self, name: str, vars: List[CVariable], pragma: Optional[str], is_packed: bool):
         self.name = name
         self.vars = vars
         self.pragma = pragma
+        self.is_packed = is_packed
 
 class CFunction:
     """Represents a function declaration."""

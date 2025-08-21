@@ -147,4 +147,12 @@ static void context_invoke_signed(
     );
 }
 
+// Safely get an account at the given index
+static SolAccountInfo* context_get_account(const Context* ctx, u64 index) {
+    require(
+        index < ctx->ka_num, "Invalid account index passed to `context_get_account`"
+    );
+    return &ctx->ka[index];
+}
+
 #endif // IVY_CONTEXT_H

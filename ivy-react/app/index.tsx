@@ -1,78 +1,84 @@
-import React, { useRef } from "react";
+import React, { useMemo, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { createPortal } from "react-dom";
 import { GameDisplay } from "@/components/game-display/GameDisplay";
-import { createIvyGame, GameObject, IvyInfo } from "@/lib/game";
+import { GameObject } from "@/lib/game";
 import { TxWidget } from "@/components/TxWidget";
 import { WalletButton } from "@/components/WalletButton";
 import { WalletProvider } from "@/components/wallet/WalletProvider";
 import { Keypair } from "@solana/web3.js";
+import { IvyInfo, WorldDisplay } from "@/components/game-display/WorldDisplay";
+import { SyncDisplay } from "@/components/game-display/SyncDisplay";
+import { SyncInfo } from "@/components/game-display/SyncDisplay";
+import { TradeTicker } from "@/components/TradeTicker";
+import { HotTask } from "@/components/tasks/HotTask";
+import { NewTask } from "@/components/tasks/NewTask";
 
 const TOKEN_ID = "ivy-token";
 const GAME_ID = "ivy-game";
+const SYNC_ID = "ivy-sync";
 const BUTTON_ID = "tx-button";
 const WALLET_ID = "wallet-button";
 const WALLET_MOBILE_ID = "wallet-mobile-button";
+const TRADE_TICKER_ID = "trade-ticker";
+const GAMES_GRID_ID = "games-grid";
 
 interface RootProps {
     tokenElement: HTMLElement | null;
     gameElement: HTMLElement | null;
+    syncElement: HTMLElement | null;
     buttonElement: HTMLElement | null;
     walletElement: HTMLElement | null;
     walletMobileElement: HTMLElement | null;
+    tradeTickerElement: HTMLElement | null;
+    gamesGridElement: HTMLElement | null;
     gameData?: GameObject;
     ivyInfo?: IvyInfo;
+    syncInfo?: SyncInfo;
 }
 
 function Root({
     tokenElement,
     gameElement,
+    syncElement,
     buttonElement,
     walletElement,
     walletMobileElement,
+    tradeTickerElement,
+    gamesGridElement,
     gameData,
     ivyInfo,
+    syncInfo,
 }: RootProps) {
     const hasMounted = useRef(false);
     if (!hasMounted.current) {
-        // Remove skeletons
-        if (tokenElement) {
-            tokenElement.innerHTML = "";
-        }
-        if (gameElement) {
-            gameElement.innerHTML = "";
-        }
-        if (buttonElement) {
-            buttonElement.innerHTML = "";
-        }
-        if (walletElement) {
-            walletElement.innerHTML = "";
-        }
-        if (walletMobileElement) {
-            walletMobileElement.innerHTML = "";
-        }
-
+        if (tokenElement) tokenElement.innerHTML = "";
+        if (gameElement) gameElement.innerHTML = "";
+        if (buttonElement) buttonElement.innerHTML = "";
+        if (walletElement) walletElement.innerHTML = "";
+        if (walletMobileElement) walletMobileElement.innerHTML = "";
+        if (tradeTickerElement) tradeTickerElement.innerHTML = "";
         hasMounted.current = true;
     }
+
+    const tab = useMemo(() => {
+        const url = new URL(window.location.href);
+        return (url.searchParams.get("tab") || "hot").toLowerCase();
+    }, []);
 
     return (
         <WalletProvider>
             {gameElement &&
                 gameData &&
-                createPortal(
-                    <GameDisplay game={gameData} showComments={true} />,
-                    gameElement,
-                )}
+                createPortal(<GameDisplay game={gameData} />, gameElement)}
 
             {tokenElement &&
                 ivyInfo &&
-                createPortal(
-                    <GameDisplay
-                        game={createIvyGame(ivyInfo)}
-                        showComments={false}
-                    />,
-                    tokenElement,
-                )}
+                createPortal(<WorldDisplay ivyInfo={ivyInfo} />, tokenElement)}
+
+            {syncElement &&
+                syncInfo &&
+                createPortal(<SyncDisplay syncInfo={syncInfo} />, syncElement)}
 
             {buttonElement && <TxWidget button_id={BUTTON_ID} />}
 
@@ -84,6 +90,23 @@ function Root({
                     <WalletButton mobile={true} />,
                     walletMobileElement,
                 )}
+
+            {/* New: trade ticker portal */}
+            {tradeTickerElement &&
+                createPortal(
+                    <TradeTicker containerEl={tradeTickerElement} />,
+                    tradeTickerElement,
+                )}
+
+            {/* New: tasks to enhance games grid based on tab */}
+            {gamesGridElement && tab === "hot" && (
+                <HotTask gamesGridElement={gamesGridElement} />
+            )}
+
+            {gamesGridElement && tab === "new" && (
+                <NewTask gamesGridElement={gamesGridElement} />
+            )}
+            {/* tab === "top" => no live updates */}
         </WalletProvider>
     );
 }
@@ -108,17 +131,25 @@ const render = () => {
     // Get DOM elements
     const tokenElement = document.getElementById(TOKEN_ID);
     const gameElement = document.getElementById(GAME_ID);
+    const syncElement = document.getElementById(SYNC_ID);
     const buttonElement = document.getElementById(BUTTON_ID);
     const walletElement = document.getElementById(WALLET_ID);
     const walletMobileElement = document.getElementById(WALLET_MOBILE_ID);
 
-    // Return early if no elements are found
+    // NEW shells
+    const tradeTickerElement = document.getElementById(TRADE_TICKER_ID);
+    const gamesGridElement = document.getElementById(GAMES_GRID_ID);
+
+    // Return early if no elements are found anywhere
     if (
         !tokenElement &&
         !gameElement &&
+        !syncElement &&
         !buttonElement &&
         !walletElement &&
-        !walletMobileElement
+        !walletMobileElement &&
+        !tradeTickerElement &&
+        !gamesGridElement
     ) {
         return;
     }
@@ -155,6 +186,22 @@ const render = () => {
         }
     }
 
+    // Parse sync info if available
+    let syncInfo: SyncInfo | undefined;
+    if (syncElement) {
+        const infoBase64 = syncElement?.dataset.info;
+        if (!infoBase64) {
+            throw new Error("No sync info found");
+        }
+        try {
+            syncInfo = JSON.parse(
+                Buffer.from(infoBase64, "base64").toString("utf-8"),
+            ) as SyncInfo;
+        } catch (e) {
+            throw new Error(`Failed to parse sync info: ${e}`);
+        }
+    }
+
     // Create a single root for the entire application
     const rootElement = document.createElement("div");
     rootElement.id = "ivy-react-root";
@@ -165,19 +212,21 @@ const render = () => {
         <Root
             tokenElement={tokenElement}
             gameElement={gameElement}
+            syncElement={syncElement}
             buttonElement={buttonElement}
             walletElement={walletElement}
             walletMobileElement={walletMobileElement}
+            tradeTickerElement={tradeTickerElement}
+            gamesGridElement={gamesGridElement}
             gameData={gameData}
             ivyInfo={ivyInfo}
+            syncInfo={syncInfo}
         />,
     );
 };
 
 if (document.readyState === "loading") {
-    // Wait for the DOM to be fully loaded before accessing elements
     document.addEventListener("DOMContentLoaded", render);
 } else {
-    // DOM is already loaded :)
     render();
 }
