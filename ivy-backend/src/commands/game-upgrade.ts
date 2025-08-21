@@ -77,27 +77,20 @@ export function registerGameUpgradeCommand(
 
                 // Extract and process description for short_desc
                 let shortDesc: string;
-                if (webMetadata.description) {
-                    const description = String(webMetadata.description);
-                    const descBytes = new TextEncoder().encode(description);
+                const description = String(webMetadata.description || "");
+                const descBytes = new TextEncoder().encode(description);
 
-                    if (descBytes.length <= 128) {
-                        shortDesc = description;
-                    } else {
-                        // Take first 125 bytes and add "..."
-                        const truncatedBytes = descBytes.slice(0, 125);
-                        const truncatedStr = new TextDecoder().decode(
-                            truncatedBytes,
-                        );
-                        shortDesc = truncatedStr + "...";
-                    }
-                    console.log(`\nShort description: ${shortDesc}`);
+                if (descBytes.length <= 128) {
+                    shortDesc = description;
                 } else {
-                    console.error(
-                        "Error: No description found in web metadata",
+                    // Take first 125 bytes and add "..."
+                    const truncatedBytes = descBytes.slice(0, 125);
+                    const truncatedStr = new TextDecoder().decode(
+                        truncatedBytes,
                     );
-                    process.exit(1);
+                    shortDesc = truncatedStr + "...";
                 }
+                console.log(`\nShort description: ${shortDesc}`);
 
                 // Extract icon URL
                 const iconUrl = webMetadata.image;

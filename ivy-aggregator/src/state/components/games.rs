@@ -380,6 +380,9 @@ impl GamesComponent {
     }
 
     fn process_game_upgrade(&mut self, upgrade_data: &GameUpgradeEvent) {
+        if HIDDEN_GAMES.contains(&upgrade_data.game) {
+            return;
+        }
         if let Some(game_meta) = self.address_to_game_meta.get(&upgrade_data.game) {
             let game = &mut self.game_list[game_meta.index];
             game.short_desc = upgrade_data.short_desc.clone();
