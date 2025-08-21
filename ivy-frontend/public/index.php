@@ -10,13 +10,12 @@ require_once __DIR__ . "/../includes/game.php";
 require_once __DIR__ . "/../includes/pagination.php";
 
 // Determine which list to display based on query parameter
-$active_tab = $_GET["tab"] ?? "hot";
+$active_tab = isset($_GET["tab"]) ? $_GET["tab"] : "hot";
 $games = [];
 $api_error = false; // Flag to track API errors
 
 // Get the current page from the URL, default to 1 if not set
-$current_page =
-    isset($_GET["page"]) && is_numeric($_GET["page"]) ? (int) $_GET["page"] : 1;
+$current_page = isset($_GET["page"]) && is_numeric($_GET["page"]) ? (int)$_GET["page"] : 1;
 $current_page = max(1, $current_page); // Ensure page is at least 1
 $games_per_page = 60; // Number of games to show per page
 
@@ -51,9 +50,7 @@ $fetched_games_data = call_aggregator($full_endpoint);
 if ($fetched_games_data === null) {
     $games = [];
     $api_error = true;
-    error_log(
-        "Failed to fetch asset data from aggregator API for tab: $active_tab",
-    );
+    error_log("Failed to fetch asset data from aggregator API for tab: $active_tab");
 } else {
     // Ensure the response is an array (even if empty)
     $games = is_array($fetched_games_data) ? $fetched_games_data : [];
@@ -103,65 +100,25 @@ require_once __DIR__ . "/../includes/header.php";
 }
 
 @keyframes emerald-flash {
-  0%   {
-    background: #10b981; /* emerald-500 */
-    border-color: #10b981; /* emerald-500 */
-  }
-  14%  {
-    background: #34d399; /* emerald-400 */
-    border-color: #34d399; /* emerald-400 */
-  }
-  28%  {
-    background: #6ee7b7; /* emerald-300 */
-    border-color: #6ee7b7; /* emerald-300 */
-  }
-  42%  {
-    background: #059669; /* emerald-600 */
-    border-color: #059669; /* emerald-600 */
-  }
-  56%  {
-    background: #34d399; /* emerald-400 */
-    border-color: #34d399; /* emerald-400 */
-  }
-  70%  {
-    background: #10b981; /* emerald-500 */
-    border-color: #10b981; /* emerald-500 */
-  }
-  85%  {
-    background: #6ee7b7; /* emerald-300 */
-    border-color: #6ee7b7; /* emerald-300 */
-  }
-  100% {
-    background: rgb(var(--zinc-800));
-    border-color: #34d399; /* back to emerald-400 */
-  }
+  0%   { background: #10b981; border-color: #10b981; }
+  14%  { background: #34d399; border-color: #34d399; }
+  28%  { background: #6ee7b7; border-color: #6ee7b7; }
+  42%  { background: #059669; border-color: #059669; }
+  56%  { background: #34d399; border-color: #34d399; }
+  70%  { background: #10b981; border-color: #10b981; }
+  85%  { background: #6ee7b7; border-color: #6ee7b7; }
+  100% { background: rgb(var(--zinc-800)); border-color: #34d399; }
 }
 
 @keyframes emerald-fade {
-  0%   {
-    background: #6ee7b7; /* emerald-300 */
-  }
-  14%  {
-    background: #34d399; /* emerald-400 */
-  }
-  28%  {
-    background: #10b981; /* emerald-500 */
-  }
-  42%  {
-    background: #6ee7b7; /* emerald-300 */
-  }
-  56%  {
-    background: #34d399; /* emerald-400 */
-  }
-  70%  {
-    background: #10b981; /* emerald-500 */
-  }
-  85%  {
-    background: #059669; /* emerald-600 */
-  }
-  100% {
-    background: rgb(var(--zinc-800));
-  }
+  0%   { background: #6ee7b7; }
+  14%  { background: #34d399; }
+  28%  { background: #10b981; }
+  42%  { background: #6ee7b7; }
+  56%  { background: #34d399; }
+  70%  { background: #10b981; }
+  85%  { background: #059669; }
+  100% { background: rgb(var(--zinc-800)); }
 }
 
 /* Game card bubble animation: apply to the inner card shell (.border-2) */
@@ -186,14 +143,8 @@ require_once __DIR__ . "/../includes/header.php";
   }
 
   @keyframes simple-flash {
-    0%   {
-      background: rgb(52, 211, 153);
-      border-color: rgb(52, 211, 153);
-    }
-    100% {
-      background: rgb(var(--zinc-800));
-      border-color: rgb(52, 211, 153); /* back to emerald-400 */
-    }
+    0%   { background: rgb(52, 211, 153); border-color: rgb(52, 211, 153); }
+    100% { background: rgb(var(--zinc-800)); border-color: rgb(52, 211, 153); }
   }
 }
 </style>
@@ -204,15 +155,15 @@ require_once __DIR__ . "/../includes/header.php";
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
       <!-- Navigation Pills -->
       <div class="flex gap-4 overflow-x-auto">
-        <a href="?tab=hot" class="rounded-none <?php echo $active_tab === "hot"
-            ? "bg-emerald-400 text-emerald-950"
-            : "border-2 border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-emerald-950"; ?> px-6 py-2 font-bold whitespace-nowrap">Hot</a>
-        <a href="?tab=new" class="rounded-none <?php echo $active_tab === "new"
-            ? "bg-emerald-400 text-emerald-950"
-            : "border-2 border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-emerald-950"; ?> px-6 py-2 font-bold whitespace-nowrap">New</a>
-        <a href="?tab=top" class="rounded-none <?php echo $active_tab === "top"
-            ? "bg-emerald-400 text-emerald-950"
-            : "border-2 border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-emerald-950"; ?> px-6 py-2 font-bold whitespace-nowrap">Top</a>
+        <a href="?tab=hot" class="rounded-none <?php echo $active_tab === 'hot'
+            ? 'bg-emerald-400 text-emerald-950'
+            : 'border-2 border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-emerald-950'; ?> px-6 py-2 font-bold whitespace-nowrap">Hot</a>
+        <a href="?tab=new" class="rounded-none <?php echo $active_tab === 'new'
+            ? 'bg-emerald-400 text-emerald-950'
+            : 'border-2 border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-emerald-950'; ?> px-6 py-2 font-bold whitespace-nowrap">New</a>
+        <a href="?tab=top" class="rounded-none <?php echo $active_tab === 'top'
+            ? 'bg-emerald-400 text-emerald-950'
+            : 'border-2 border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-emerald-950'; ?> px-6 py-2 font-bold whitespace-nowrap">Top</a>
       </div>
 
       <!-- Trade Ticker shell -->
@@ -244,12 +195,7 @@ require_once __DIR__ . "/../includes/header.php";
     <?php
     $base_url = "?tab=$active_tab";
     if (!$api_error && !empty($games)) {
-        render_pagination(
-            $current_page,
-            $has_prev_page,
-            $has_next_page,
-            $base_url,
-        );
+        render_pagination($current_page, $has_prev_page, $has_next_page, $base_url);
     }
     ?>
   </div>
