@@ -123,6 +123,7 @@ export class Sync {
      * @param shortDesc - Short description of the token
      * @param metadataUrl - URL to token metadata JSON
      * @param iconUrl - URL to token icon image
+     * @param gameUrl - URL to token game
      */
     async create(
         user: PublicKey,
@@ -131,6 +132,7 @@ export class Sync {
         shortDesc: string,
         metadataUrl: string,
         iconUrl: string,
+        gameUrl: string,
     ): Promise<TransactionInstruction> {
         const metadata = await deriveMetadataPda(this.syncMint);
 
@@ -142,6 +144,7 @@ export class Sync {
                 shortDesc,
                 metadataUrl,
                 iconUrl,
+                gameUrl,
             )
             .accounts({
                 sync: this.sync,

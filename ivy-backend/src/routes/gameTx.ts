@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { Request } from "express";
 import { Deps } from "../types/deps";
+import { Game, IVY_MINT } from "ivy-sdk";
 import {
-    Game,
-    IVY_MINT,
-} from "ivy-sdk";
-import { ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { Keypair, PublicKey } from "@solana/web3.js";
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+    TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
+import { Keypair } from "@solana/web3.js";
 import { prepareTransaction } from "../utils/transactions";
 import { parseHex, parsePublicKey } from "../utils/requestHelpers";
 
@@ -21,48 +21,50 @@ const createSchema = z.object({
     ivy_purchase: z.string(),
 });
 
-export const createGameTx = ({ cache }: Deps) => async (req: Request) => {
-    const data = createSchema.parse(req.body);
+export const createGameTx =
+    ({ cache }: Deps) =>
+    async (req: Request) => {
+        const data = createSchema.parse(req.body);
 
-    const user_wallet = Keypair.generate();
-    const seed = Buffer.from(data.seed, "hex") as Uint8Array;
-    const recent_slot = (await cache.slot.get()) - 1;
-    const world_alt = (await cache.worldAlt.get()).alt;
+        const user_wallet = Keypair.generate();
+        const seed = Buffer.from(data.seed, "hex") as Uint8Array;
+        const recent_slot = (await cache.slot.get()) - 1;
+        const world_alt = (await cache.worldAlt.get()).alt;
 
-    const tx = await Game.create(
-        seed,
-        data.name,
-        data.symbol,
-        data.icon_url,
-        data.game_url,
-        data.short_desc,
-        data.metadata_url,
-        user_wallet.publicKey,
-        recent_slot,
-        data.ivy_purchase,
-        world_alt,
-    );
+        const tx = await Game.create(
+            seed,
+            data.name,
+            data.symbol,
+            data.icon_url,
+            data.game_url,
+            data.short_desc,
+            data.metadata_url,
+            user_wallet.publicKey,
+            recent_slot,
+            data.ivy_purchase,
+            world_alt,
+        );
 
-    const game = Game.deriveAddress(seed);
-    const { mint } = Game.deriveAddresses(game);
-    const prepared = prepareTransaction("GameCreate", tx, user_wallet, [
-        // src (user -> Ivy mint)
-        {
-            seeds: [user_wallet.publicKey, TOKEN_PROGRAM_ID, IVY_MINT],
-            program_id: ASSOCIATED_TOKEN_PROGRAM_ID,
-        },
-        // dst (user -> game mint)
-        {
-            seeds: [user_wallet.publicKey, TOKEN_PROGRAM_ID, mint],
-            program_id: ASSOCIATED_TOKEN_PROGRAM_ID,
-        },
-    ]);
+        const game = Game.deriveAddress(seed);
+        const { mint } = Game.deriveAddresses(game);
+        const prepared = prepareTransaction("GameCreate", tx, user_wallet, [
+            // src (user -> Ivy mint)
+            {
+                seeds: [user_wallet.publicKey, TOKEN_PROGRAM_ID, IVY_MINT],
+                program_id: ASSOCIATED_TOKEN_PROGRAM_ID,
+            },
+            // dst (user -> game mint)
+            {
+                seeds: [user_wallet.publicKey, TOKEN_PROGRAM_ID, mint],
+                program_id: ASSOCIATED_TOKEN_PROGRAM_ID,
+            },
+        ]);
 
-    return {
-        address: game.toString(),
-        tx: prepared,
+        return {
+            address: game.toString(),
+            tx: prepared,
+        };
     };
-};
 
 const editSchema = z.object({
     game: z.string(),
@@ -147,7 +149,11 @@ export const withdrawClaimTx = (_deps: Deps) => async (req: Request) => {
         signature_bytes,
     );
 
-    const prepared = prepareTransaction("GameWithdrawClaim", tx, user_public_key);
+    const prepared = prepareTransaction(
+        "GameWithdrawClaim",
+        tx,
+        user_public_key,
+    );
     return prepared;
 };
 
@@ -164,7 +170,11 @@ export const depositCompleteTx = (_deps: Deps) => async (req: Request) => {
 
     const user = Keypair.generate().publicKey;
 
-    const tx = await Game.depositComplete(game_public_key, deposit_id_bytes, user);
+    const tx = await Game.depositComplete(
+        game_public_key,
+        deposit_id_bytes,
+        user,
+    );
 
     const { mint } = Game.deriveAddresses(game_public_key);
     const prepared = prepareTransaction("GameDepositComplete", tx, user, [

@@ -42,19 +42,21 @@ impl ReceiptsComponent {
     pub fn on_event(&mut self, event: &Event) -> bool {
         match &event.data {
             EventData::GameBurn(data) => {
-                self.process_game_burn(event.timestamp, &event.signature, data);
-                true
+                self.process_game_burn(event.timestamp, &event.signature, data)
             }
             EventData::GameDeposit(data) => {
-                self.process_game_deposit(event.timestamp, &event.signature, data);
-                true
+                self.process_game_deposit(event.timestamp, &event.signature, data)
             }
             EventData::GameWithdraw(data) => {
-                self.process_game_withdraw(event.timestamp, &event.signature, data);
-                true
+                self.process_game_withdraw(event.timestamp, &event.signature, data)
             }
-            _ => false
+            EventData::VaultDeposit(_) | EventData::VaultWithdraw(_) => {
+                // Nothing yet, but let's keep them around in case
+                // we want to do something in the future with them
+            }
+            _ => return false,
         }
+        true
     }
 
     fn process_game_burn(&mut self, timestamp: u64, signature: &Signature, burn: &GameBurnEvent) {

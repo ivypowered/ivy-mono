@@ -5,7 +5,6 @@ import { SwapProvider } from "@/components/swap/SwapProvider";
 import { ChartInterval, ChartTab } from "@/components/chart/chartTypes";
 import { SwapWidget } from "@/components/swap/SwapWidget";
 import { GameObject } from "@/lib/game";
-import ReactMarkdown from "react-markdown";
 import { TRANSPARENT_1X1, COMMON_TOKENS, SOL_TOKEN } from "@/lib/constants";
 import { ChartHeader } from "../chart/ChartHeader";
 import { GFrame } from "./GFrame";
@@ -26,6 +25,7 @@ import { useGameStream } from "@/lib/useGameStream";
 import { QuoteContext } from "@/components/swap/QuoteProvider";
 import Decimal from "decimal.js-light";
 import { fetchBalance, fromRaw } from "./util";
+import { Description } from "./Description";
 
 // Main game display content
 export function GameDisplay({ game }: { game: GameObject }) {
@@ -75,11 +75,11 @@ export function GameDisplay({ game }: { game: GameObject }) {
         return {
             name: game.name,
             symbol: game.symbol,
-            icon: metadata?.image || TRANSPARENT_1X1,
+            icon: game.icon_url || TRANSPARENT_1X1,
             decimals: GAME_DECIMALS,
             mint: Game.deriveMint(new PublicKey(game.address)).toBase58(),
         };
-    }, [game, metadata]);
+    }, [game]);
 
     // Create quote context with stream data
     const quoteContext: QuoteContext = useMemo(
@@ -251,38 +251,26 @@ export function GameDisplay({ game }: { game: GameObject }) {
                 </SwapProvider>
 
                 {/* Game Description in Markdown with Hollow Tab */}
-                {metadata?.description && (
-                    <div className="mt-8 relative">
-                        {/* Hollow Description Tab */}
-                        <div className="absolute -top-3 left-4 bg-zinc-900 px-3 py-1 text-emerald-400 font-bold border-4 border-emerald-400 text-sm">
-                            Description
-                        </div>
-                        {/* Description Content */}
-                        <div className="border-4 border-emerald-400 p-4 pt-8 bg-zinc-900 markdown">
-                            <ReactMarkdown>
-                                {metadata?.description}
-                            </ReactMarkdown>
-                        </div>
-                    </div>
-                )}
+                <Description
+                    className="mt-8"
+                    description={metadata?.description}
+                />
 
                 {/* Comments Section */}
-                <div className="mt-8 space-y-4">
-                    {/* Comments Display */}
-                    <Comments
-                        gameAddress={game.address}
-                        userAddress={publicKey?.toBase58()}
-                        onConnectWallet={() => openModal()}
-                        signTransaction={
-                            signTransaction ||
-                            (() => {
-                                throw new Error("can't find signTransaction");
-                            })
-                        }
-                        comments={streamData?.comments}
-                        totalComments={streamData?.comments.length || 0}
-                    />
-                </div>
+                <Comments
+                    gameAddress={game.address}
+                    userAddress={publicKey?.toBase58()}
+                    onConnectWallet={() => openModal()}
+                    signTransaction={
+                        signTransaction ||
+                        (() => {
+                            throw new Error("can't find signTransaction");
+                        })
+                    }
+                    comments={streamData?.comments}
+                    totalComments={streamData?.comments.length || 0}
+                    className="mt-8"
+                />
             </div>
         </div>
     );

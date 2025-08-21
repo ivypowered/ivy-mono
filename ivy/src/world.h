@@ -55,6 +55,7 @@ static const u64 WORLD_UPDATE_EVENT_DISCRIMINATOR = UINT64_C(0x49166e011f4d3444)
 // #idl event declaration
 typedef struct {
     u64 discriminator;
+    address user;
     u64 usdc_balance;
     u64 ivy_sold;
     u64 usdc_amount;
@@ -948,6 +949,7 @@ static void world_swap(
     // Emit swap event
     WorldSwapEvent swap_event = {
         .discriminator = WORLD_SWAP_EVENT_DISCRIMINATOR,
+        .user = user,
         .usdc_balance = world->usdc_balance,
         .ivy_sold = world->ivy_curve_sold,
         .usdc_amount = data->is_buy ? user_pays : user_receives,

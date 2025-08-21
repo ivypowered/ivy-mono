@@ -19,7 +19,7 @@ import { PriorityFee } from "./priority-fee";
 // Route groups
 import { health } from "./routes/root";
 import { uploadImage, uploadMetadata } from "./routes/assets";
-import { generateGameSeed, generateId } from "./routes/ids";
+import { generateGameSeed, generateId, generateSyncSeed } from "./routes/ids";
 import {
     burnCompleteTx,
     createGameTx,
@@ -42,6 +42,7 @@ import {
     getWorldAlt,
 } from "./routes/chain";
 import { getSolPrice } from "./routes/price";
+import { createSyncTx } from "./routes/sync";
 import { Deps } from "./types/deps";
 
 // --- Setup ---
@@ -129,6 +130,7 @@ app.get("/", handleAsync(health(deps)));
 // ID + Seeds
 app.get("/id", handleAsync(generateId(deps)));
 app.post("/game-seed", handleAsync(generateGameSeed(deps)));
+app.post("/sync-seed", handleAsync(generateSyncSeed(deps)));
 
 // Assets
 app.post("/assets/images", handleAsync(uploadImage(deps)));
@@ -141,6 +143,9 @@ app.post("/tx/game/debit", handleAsync(debitGameTx(deps)));
 app.post("/tx/game/withdraw-claim", handleAsync(withdrawClaimTx(deps)));
 app.post("/tx/game/deposit-complete", handleAsync(depositCompleteTx(deps)));
 app.post("/tx/game/burn-complete", handleAsync(burnCompleteTx(deps)));
+
+// Sync TX
+app.post("/tx/sync/create", handleAsync(createSyncTx(deps)));
 
 // Games REST
 app.get("/games/:game/balances/:user", handleAsync(getGameBalance(deps)));

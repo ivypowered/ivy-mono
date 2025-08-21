@@ -193,6 +193,7 @@ interface CommentsProps {
     ) => Promise<Transaction | VersionedTransaction>;
     comments?: CommentData[]; // Now passed from parent via stream
     totalComments: number;
+    className?: string;
 }
 
 export function Comments({
@@ -202,6 +203,7 @@ export function Comments({
     signTransaction,
     comments,
     totalComments,
+    className,
 }: CommentsProps) {
     const commentBoxRef = useRef<HTMLTextAreaElement | null>(null);
     const [commentText, setCommentText] = useState("");
@@ -302,7 +304,9 @@ export function Comments({
 
     if (!comments) {
         return (
-            <div className="bg-zinc-900 border-4 border-emerald-400">
+            <div
+                className={`bg-zinc-900 border-4 border-emerald-400 ${className || ""}`}
+            >
                 <div className="p-4 h-32 flex items-center justify-center text-zinc-500 text-md">
                     loading comments...
                 </div>
@@ -313,7 +317,7 @@ export function Comments({
     return (
         <div
             ref={commentsContainerRef}
-            className="bg-zinc-900 border-4 border-emerald-400"
+            className={`bg-zinc-900 border-4 border-emerald-400 ${className || ""}`}
         >
             <style>
                 {`.referenced-highlight {

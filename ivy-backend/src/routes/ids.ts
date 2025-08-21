@@ -33,3 +33,25 @@ export const generateGameSeed = (_: Deps) => async (_req: Request) => {
     }
     return response["seed"];
 };
+
+export const generateSyncSeed = (_: Deps) => async (_req: Request) => {
+    if (!KEYGEN_URL) {
+        return Buffer.from(Game.generateSeed()).toString("hex");
+    }
+    const seed_url = KEYGEN_URL + "/seed/sync";
+    let response: any;
+    try {
+        response = await (
+            await fetch(seed_url, {
+                method: "POST",
+            })
+        ).json();
+    } catch (e) {
+        if (!(e instanceof Error)) throw e;
+        throw new Error(`can't fetch ${seed_url}: ${e.message} @ ${e.stack}`);
+    }
+    if (typeof response !== "object" || typeof response["seed"] !== "string") {
+        throw new Error("invalid response from keygen");
+    }
+    return response["seed"];
+};

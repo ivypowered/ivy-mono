@@ -8,7 +8,7 @@ genrule(
     cmd = """
         ROOT_DIR=$$(pwd)
         cd $$(dirname $(location package.json))
-        npm ci
+        npm install
         date +%s.%N > $$ROOT_DIR/$@
     """,
     outs = ["npm_install.marker"]

@@ -67,10 +67,20 @@ impl Scanner {
     }
 
     pub fn run(mut self) {
+        let mut consecutive_failures = 0;
         loop {
             match self.poll_once() {
-                Ok(()) => {}
-                Err(e) => eprintln!("Scanner: poll error: {}", e),
+                Ok(()) => {
+                    consecutive_failures = 0;
+                }
+                Err(e) => {
+                    consecutive_failures += 1;
+                    if consecutive_failures == 20
+                        || (consecutive_failures > 20 && (consecutive_failures % 100 == 0))
+                    {
+                        eprintln!("Scanner: poll error no. {}: {}", consecutive_failures, e);
+                    }
+                }
             }
             thread::sleep(Duration::from_millis(SCAN_INTERVAL_MS));
         }

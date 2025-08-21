@@ -177,6 +177,7 @@ impl SyncComponent {
             metadata_url: d.metadata_url.clone(),
             icon_url: d.icon_url.clone(),
             short_desc: d.short_desc.clone(),
+            game_url: d.game_url.clone(),
             is_migrated: false,
             pswap_pool: None,
             last_price_usd: initial_price_usd,

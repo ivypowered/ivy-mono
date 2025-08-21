@@ -38,7 +38,7 @@ typedef struct {
     u64 discriminator;
     address sync;
     address pump_mint;
-    // #idl strings name symbol short_desc metadata_url icon_url
+    // #idl strings name symbol short_desc metadata_url icon_url game_url
     u8 strdata[];
 } SyncCreateEvent;
 
@@ -150,7 +150,7 @@ typedef struct {
 // #idl instruction data sync_create
 typedef struct {
     bytes32 seed;
-    // #idl strings name symbol short_desc metadata_url icon_url
+    // #idl strings name symbol short_desc metadata_url icon_url game_url
     u8 str_params[];
 } SyncCreateData;
 
@@ -173,6 +173,7 @@ static void sync_create(
     slice short_desc = reader_read_anchor_string_borrowed(&r);
     slice metadata_url = reader_read_anchor_string_borrowed(&r);
     slice icon_url = reader_read_anchor_string_borrowed(&r);
+    slice game_url = reader_read_anchor_string_borrowed(&r);
 
     // Validate UTF-8
     require(utf8_validate(name.addr, name.len), "name is not valid UTF-8");
@@ -186,6 +187,7 @@ static void sync_create(
         "metadata URL is not valid UTF-8"
     );
     require(utf8_validate(icon_url.addr, icon_url.len), "icon URL is not valid UTF-8");
+    require(utf8_validate(game_url.addr, game_url.len), "game URL is not valid UTF-8");
 
     // Derive Sync PDA
     slice sync_seeds[2] = {
@@ -334,7 +336,8 @@ static void sync_create(
         4 + symbol.len + // symbol length (u32) + symbol (bytes)
         4 + short_desc.len + // short_desc length (u32) + short_desc (bytes)
         4 + metadata_url.len + // metadata_url length (u32) + metadata_url (bytes)
-        4 + icon_url.len; // icon_url length (u32) + icon_url (bytes)
+        4 + icon_url.len + // icon_url length (u32) + icon_url (bytes)
+        4 + game_url.len;
 
     SyncCreateEvent* create_event = heap_alloc(create_event_len);
     create_event->discriminator = SYNC_CREATE_EVENT_DISCRIMINATOR;
@@ -348,6 +351,7 @@ static void sync_create(
     writer_write_anchor_string(&w, short_desc);
     writer_write_anchor_string(&w, metadata_url);
     writer_write_anchor_string(&w, icon_url);
+    writer_write_anchor_string(&w, game_url);
 
     event_emit(
         /* ctx */ ctx,

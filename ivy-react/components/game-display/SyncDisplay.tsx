@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef } from "react";
 import { SwapProvider } from "@/components/swap/SwapProvider";
-import { ChartInterval } from "@/components/chart/chartTypes";
+import { ChartInterval, ChartTab } from "@/components/chart/chartTypes";
 import { SwapWidget } from "@/components/swap/SwapWidget";
 import { SwapToken } from "@/components/swap/swapTypes";
 import { COMMON_TOKENS, SOL_TOKEN, TRANSPARENT_1X1 } from "@/lib/constants";
@@ -15,14 +15,17 @@ import { useSyncStream } from "@/lib/useSyncStream";
 import { QuoteContext } from "@/components/swap/QuoteProvider";
 import Decimal from "decimal.js-light";
 import { fetchBalance } from "./util";
+import { SYNC_DECIMALS } from "@/import/ivy-sdk";
+import { Frame } from "../frame";
 
 export interface SyncInfo {
     address: string;
     name: string;
     symbol: string;
-    image?: string;
+    icon_url: string;
     create_timestamp: number;
     token_mint: string;
+    game_url: string;
     decimals: number;
 }
 
@@ -45,6 +48,9 @@ export function SyncDisplay({ syncInfo }: { syncInfo: SyncInfo }) {
         // show 15m otherwise
         return "15m";
     });
+    const [activeTab, setActiveTab] = useState<ChartTab>(
+        syncInfo.game_url ? "Game" : "Chart",
+    );
 
     // Use the sync stream hook
     const { data: streamData, loading: isStreamLoading } = useSyncStream(
@@ -57,8 +63,8 @@ export function SyncDisplay({ syncInfo }: { syncInfo: SyncInfo }) {
         return {
             name: syncInfo.name,
             symbol: syncInfo.symbol,
-            icon: syncInfo.image || TRANSPARENT_1X1,
-            decimals: syncInfo.decimals,
+            icon: syncInfo.icon_url || TRANSPARENT_1X1,
+            decimals: SYNC_DECIMALS,
             mint: syncInfo.token_mint,
         };
     }, [syncInfo]);
@@ -143,19 +149,31 @@ export function SyncDisplay({ syncInfo }: { syncInfo: SyncInfo }) {
                                         createdAt={createdAt}
                                         interval={chartInterval}
                                         setInterval={setChartInterval}
-                                        activeTab={"Chart"}
-                                        setActiveTab={() => {}} // Only chart tab for sync tokens
-                                        withPlayButton={false}
+                                        activeTab={activeTab}
+                                        setActiveTab={setActiveTab}
+                                        withPlayButton={!!syncInfo.game_url}
                                         editHref=""
                                     />
 
                                     <div className="flex-1 min-h-[400px] relative">
-                                        <ChartBase
-                                            data={streamData?.candles || []}
-                                            height={400}
-                                            isLoading={isStreamLoading}
-                                            interval={chartInterval}
+                                        <Frame
+                                            src={syncInfo.game_url}
+                                            title={syncInfo.name}
+                                            className={`w-full h-full ${activeTab === "Game" ? "" : "hidden"}`}
+                                            minHeight={400}
+                                            showFullscreenButton={true}
+                                            setFrameWindow={() => {}}
                                         />
+
+                                        {/* Show the chart when Chart tab is active */}
+                                        {activeTab === "Chart" && (
+                                            <ChartBase
+                                                data={streamData?.candles || []}
+                                                height={400}
+                                                isLoading={isStreamLoading}
+                                                interval={chartInterval}
+                                            />
+                                        )}
                                     </div>
                                 </div>
                             </div>

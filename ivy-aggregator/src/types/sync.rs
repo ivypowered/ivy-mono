@@ -11,6 +11,7 @@ pub struct Sync {
     pub create_timestamp: u64,
     pub metadata_url: String,
     pub icon_url: String,
+    pub game_url: String,
     pub short_desc: String,
 
     pub is_migrated: bool,

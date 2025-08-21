@@ -7,6 +7,7 @@ export interface GameObject {
     owner: string;
     swap_alt: string;
     game_url: string;
+    icon_url: string;
     // cover_url: string;
     metadata_url: string;
     create_timestamp: number;

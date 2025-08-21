@@ -4,18 +4,7 @@ use crate::types::public::Public;
 use crate::types::sync::Sync;
 use axum::extract::{Path, State as AxumState};
 use axum::http::StatusCode;
-use serde::Serialize;
 use std::sync::Arc;
-
-// Response types
-#[derive(Serialize)]
-pub struct SyncWithPrice {
-    #[serde(flatten)]
-    pub sync: Sync,
-    pub last_price_usd: f32,
-}
-
-// Handler functions
 
 /// Get a specific sync by address
 pub async fn get_sync(

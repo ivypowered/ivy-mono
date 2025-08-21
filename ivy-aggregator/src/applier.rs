@@ -116,9 +116,25 @@ impl Applier {
         // Load existing events and apply them to the state
         let mut reader = JsonReader::<Event>::new(&events_path)?;
         let mut sg = state.write().unwrap();
-        while let Some(event) = reader.read()? {
-            sg.on_event(&event);
+        if ivy_last_signature.is_none() {
+            // Ivy last signature is not initialized,
+            // let's try to initialize it from state
+            let mut ivy_ls: Option<Signature> = None;
+            while let Some(event) = reader.read()? {
+                sg.on_event(&event);
+                ivy_ls = Some(event.signature);
+            }
+            if let Some(ls) = ivy_ls {
+                ivy_cursor.write(&ls)?;
+            }
+        } else {
+            // Ivy last signature is initialized,
+            // proceed with normal operation
+            while let Some(event) = reader.read()? {
+                sg.on_event(&event);
+            }
         }
+
         // Update hot game list
         let hl = sg.assets.calculate_hot_list(&sg.games, &sg.syncs);
         sg.assets.update_hot_list(hl);

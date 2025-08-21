@@ -397,6 +397,8 @@ pub struct SyncCreateEvent {
     pub metadata_url: String,
     #[serde(rename = "iconUrl")]
     pub icon_url: String,
+    #[serde(rename = "gameUrl")]
+    pub game_url: String,
 }
 impl_event_type!(SyncCreateEvent, "syncCreateEvent", SyncCreate);
 
@@ -474,6 +476,7 @@ impl_event_type!(WorldUpdateEvent, "worldUpdateEvent", WorldUpdate);
 
 #[derive(BorshDeserialize, Debug, Clone, Serialize, Deserialize)]
 pub struct WorldSwapEvent {
+    pub user: Public,
     #[serde(rename = "usdcBalance")]
     #[serde(serialize_with = "serialize_u64_as_string")]
     #[serde(deserialize_with = "deserialize_u64_from_string")]

@@ -17,6 +17,7 @@ export const TEXT_ENCODER = new TextEncoder();
 export const MAX_TEXT_LEN = 128;
 export const GAME_DECIMALS = 9;
 export const IVY_DECIMALS = 9;
+export const SYNC_DECIMALS = 9;
 
 // Program IDs
 export const IVY_PROGRAM_ID = new PublicKey(ivy_idl.address);
