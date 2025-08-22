@@ -1,5 +1,5 @@
 // Game exports
-export { Game, GameState, GameMetadata, GameAddresses } from "./game";
+export { Game, GameState, GameAddresses } from "./game";
 
 // Interface/common exports
 export {

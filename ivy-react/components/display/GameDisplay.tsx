@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useRef } from "react";
 import { SwapProvider } from "@/components/swap/SwapProvider";
 import { ChartInterval, ChartTab } from "@/components/chart/chartTypes";
 import { SwapWidget } from "@/components/swap/SwapWidget";
@@ -9,13 +9,7 @@ import { TRANSPARENT_1X1, COMMON_TOKENS, SOL_TOKEN } from "@/lib/constants";
 import { ChartHeader } from "../chart/ChartHeader";
 import { GFrame } from "./GFrame";
 import { PublicKey } from "@solana/web3.js";
-import {
-    fetchWebMetadata,
-    Game,
-    GAME_DECIMALS,
-    WebMetadata,
-} from "@/import/ivy-sdk";
-import { infinitely } from "@/lib/utils";
+import { Game, GAME_DECIMALS } from "@/import/ivy-sdk";
 import { ChartBase } from "../chart/ChartBase";
 import { useTokens } from "@/lib/hooks";
 import { TreasuryManager } from "./TreasuryManager";
@@ -31,9 +25,6 @@ import { Description } from "./Description";
 export function GameDisplay({ game }: { game: GameObject }) {
     const { publicKey, signTransaction, signMessage, openModal } = useWallet();
     const tokens = useTokens();
-    const [metadata, setMetadata] = useState<WebMetadata | undefined>(
-        undefined,
-    );
     const [chartInterval, setChartInterval] = useState<ChartInterval>(() => {
         const age =
             Math.floor(new Date().getTime() / 1000) - game.create_timestamp;
@@ -58,18 +49,6 @@ export function GameDisplay({ game }: { game: GameObject }) {
         game.address,
         chartInterval,
     );
-
-    useEffect(() => {
-        let active = true;
-        infinitely(
-            /* f */ () => fetchWebMetadata(game.metadata_url),
-            /* desc */ "fetch game metadata",
-            /* continue_ */ () => active,
-        ).then((m) => setMetadata(m));
-        return () => {
-            active = false;
-        };
-    }, [game.metadata_url]);
 
     const gameToken = useMemo(() => {
         return {
@@ -250,11 +229,8 @@ export function GameDisplay({ game }: { game: GameObject }) {
                     </div>
                 </SwapProvider>
 
-                {/* Game Description in Markdown with Hollow Tab */}
-                <Description
-                    className="mt-8"
-                    description={metadata?.description}
-                />
+                {/* Description */}
+                <Description className="mt-8" description={game.description} />
 
                 {/* Comments Section */}
                 <Comments

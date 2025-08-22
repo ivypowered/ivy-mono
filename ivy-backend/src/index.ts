@@ -1,9 +1,5 @@
 import express from "express";
-import {
-    AddressLookupTableAccount,
-    Connection,
-    PublicKey,
-} from "@solana/web3.js";
+import { AddressLookupTableAccount, Connection } from "@solana/web3.js";
 import { World } from "ivy-sdk";
 import {
     HELIUS_RPC_URL,
@@ -39,6 +35,7 @@ import {
     getContext,
     getTokenBalance,
     getTreasuryBalance,
+    getWebMetadata,
     getWorldAlt,
 } from "./routes/chain";
 import { getSolPrice } from "./routes/price";
@@ -163,6 +160,7 @@ app.post("/token-balance", handleAsync(getTokenBalance(deps)));
 app.post("/treasury-balance", handleAsync(getTreasuryBalance(deps)));
 app.get("/ctx/:insName", handleAsync(getContext(deps)));
 app.get("/world-alt", handleAsync(getWorldAlt(deps)));
+app.post("/web-metadata", handleAsync(getWebMetadata(deps)));
 
 // Price
 app.get("/sol-price", handleAsync(getSolPrice(deps)));

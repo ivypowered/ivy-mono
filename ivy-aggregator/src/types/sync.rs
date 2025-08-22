@@ -12,7 +12,7 @@ pub struct Sync {
     pub metadata_url: String,
     pub icon_url: String,
     pub game_url: String,
-    pub short_desc: String,
+    pub description: String,
 
     pub is_migrated: bool,
     pub pswap_pool: Option<Public>,
@@ -31,7 +31,7 @@ impl Sync {
             symbol: self.symbol.clone(),
             address: self.address,
             icon_url: self.icon_url.clone(),
-            short_desc: self.short_desc.clone(),
+            description: self.description.clone(),
             create_timestamp: self.create_timestamp,
             mkt_cap_usd: self.mkt_cap_usd,
         }

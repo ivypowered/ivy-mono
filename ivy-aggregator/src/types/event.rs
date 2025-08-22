@@ -88,7 +88,6 @@ macro_rules! impl_event_type {
 pub enum EventData {
     GameCreate(GameCreateEvent),
     GameEdit(GameEditEvent),
-    GameUpgrade(GameUpgradeEvent),
     GameSwap(GameSwapEvent),
     GameBurn(GameBurnEvent),
     GameDeposit(GameDepositEvent),
@@ -107,6 +106,8 @@ pub enum EventData {
     PaBuy(pf::PaBuyEvent),
     PaSell(pf::PaSellEvent),
     SolPrice(SolPriceEvent),
+    Initialize(InitializeEvent),
+    Hydrate(HydrateEvent),
 }
 
 impl EventData {
@@ -132,11 +133,6 @@ impl EventData {
                 let event = GameEditEvent::deserialize_reader(&mut event_data)
                     .map_err(|e| format!("Failed to deserialize GameEditEvent: {}", e))?;
                 Ok(Some(EventData::GameEdit(event)))
-            }
-            0x7393bd91715e4054 => {
-                let event = GameUpgradeEvent::deserialize_reader(&mut event_data)
-                    .map_err(|e| format!("Failed to deserialize GameUpgradeEvent: {}", e))?;
-                Ok(Some(EventData::GameUpgrade(event)))
             }
             0x5772818798527af3 => {
                 let event = GameSwapEvent::deserialize_reader(&mut event_data)
@@ -233,7 +229,6 @@ impl EventData {
         match self {
             EventData::GameCreate(_) => Source::Ivy,
             EventData::GameEdit(_) => Source::Ivy,
-            EventData::GameUpgrade(_) => Source::Ivy,
             EventData::GameSwap(_) => Source::Ivy,
             EventData::GameBurn(_) => Source::Ivy,
             EventData::GameDeposit(_) => Source::Ivy,
@@ -252,6 +247,8 @@ impl EventData {
             EventData::PaBuy(..) => Source::Pa,
             EventData::PaSell(..) => Source::Pa,
             EventData::SolPrice(_) => Source::Fx,
+            EventData::Initialize(_) => Source::Misc,
+            EventData::Hydrate(_) => Source::Misc,
         }
     }
 }
@@ -277,6 +274,21 @@ pub struct SolPriceEvent {
     pub price: f64,
 }
 impl_event_type!(SolPriceEvent, "solPriceEvent", SolPrice);
+
+#[derive(BorshDeserialize, Debug, Clone, Serialize, Deserialize)]
+pub struct InitializeEvent {}
+impl_event_type!(InitializeEvent, "initializeEvent", Initialize);
+
+#[derive(BorshDeserialize, Debug, Clone, Serialize, Deserialize)]
+pub struct HydrateEvent {
+    pub asset: Public,
+    #[serde(rename = "metadataUrl")]
+    pub metadata_url: String,
+    pub description: String,
+    #[serde(rename = "iconUrl")]
+    pub icon_url: String,
+}
+impl_event_type!(HydrateEvent, "hydrateEvent", Hydrate);
 
 #[derive(BorshDeserialize, Debug, Clone, Serialize, Deserialize)]
 pub struct GameCreateEvent {
@@ -305,24 +317,10 @@ pub struct GameEditEvent {
     pub withdraw_authority: Public,
     #[serde(rename = "gameUrl")]
     pub game_url: String,
-    #[serde(rename = "shortDesc")]
-    pub short_desc: String,
     #[serde(rename = "metadataUrl")]
     pub metadata_url: String,
-    #[serde(rename = "iconUrl")]
-    pub icon_url: String,
 }
 impl_event_type!(GameEditEvent, "gameEditEvent", GameEdit);
-
-#[derive(BorshDeserialize, Debug, Clone, Serialize, Deserialize)]
-pub struct GameUpgradeEvent {
-    pub game: Public,
-    #[serde(rename = "shortDesc")]
-    pub short_desc: String,
-    #[serde(rename = "iconUrl")]
-    pub icon_url: String,
-}
-impl_event_type!(GameUpgradeEvent, "gameUpgradeEvent", GameUpgrade);
 
 #[derive(BorshDeserialize, Debug, Clone, Serialize, Deserialize)]
 pub struct GameSwapEvent {
@@ -393,12 +391,8 @@ pub struct SyncCreateEvent {
     pub pump_mint: Public,
     pub name: String,
     pub symbol: String,
-    #[serde(rename = "shortDesc")]
-    pub short_desc: String,
     #[serde(rename = "metadataUrl")]
     pub metadata_url: String,
-    #[serde(rename = "iconUrl")]
-    pub icon_url: String,
     #[serde(rename = "gameUrl")]
     pub game_url: String,
 }
@@ -525,7 +519,6 @@ impl Serialize for Event {
         let (name, data) = match &self.data {
             EventData::GameCreate(e) => (GameCreateEvent::NAME, serde_json::to_value(e)),
             EventData::GameEdit(e) => (GameEditEvent::NAME, serde_json::to_value(e)),
-            EventData::GameUpgrade(e) => (GameUpgradeEvent::NAME, serde_json::to_value(e)),
             EventData::GameSwap(e) => (GameSwapEvent::NAME, serde_json::to_value(e)),
             EventData::GameBurn(e) => (GameBurnEvent::NAME, serde_json::to_value(e)),
             EventData::GameDeposit(e) => (GameDepositEvent::NAME, serde_json::to_value(e)),
@@ -544,6 +537,8 @@ impl Serialize for Event {
             EventData::PaBuy(e) => ("paBuyEvent", serde_json::to_value(e)),
             EventData::PaSell(e) => ("paSellEvent", serde_json::to_value(e)),
             EventData::SolPrice(e) => (SolPriceEvent::NAME, serde_json::to_value(e)),
+            EventData::Initialize(e) => (InitializeEvent::NAME, serde_json::to_value(e)),
+            EventData::Hydrate(e) => (HydrateEvent::NAME, serde_json::to_value(e)),
         };
 
         let data = data.map_err(serde::ser::Error::custom)?;
@@ -593,11 +588,6 @@ fn deserialize_event_data<E: de::Error>(
     }
     if name == GameEditEvent::NAME {
         return serde_json::from_value::<GameEditEvent>(data)
-            .map(|e| e.into_event_data())
-            .map_err(E::custom);
-    }
-    if name == GameUpgradeEvent::NAME {
-        return serde_json::from_value::<GameUpgradeEvent>(data)
             .map(|e| e.into_event_data())
             .map_err(E::custom);
     }
@@ -688,6 +678,16 @@ fn deserialize_event_data<E: de::Error>(
     }
     if name == SolPriceEvent::NAME {
         return serde_json::from_value::<SolPriceEvent>(data)
+            .map(|e| e.into_event_data())
+            .map_err(E::custom);
+    }
+    if name == InitializeEvent::NAME {
+        return serde_json::from_value::<InitializeEvent>(data)
+            .map(|e| e.into_event_data())
+            .map_err(E::custom);
+    }
+    if name == HydrateEvent::NAME {
+        return serde_json::from_value::<HydrateEvent>(data)
             .map(|e| e.into_event_data())
             .map_err(E::custom);
     }

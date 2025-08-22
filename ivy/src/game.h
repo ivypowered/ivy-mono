@@ -53,23 +53,12 @@ typedef struct {
     address game;
     address owner;
     address withdraw_authority;
-    // #idl strings game_url short_desc metadata_url icon_url
+    // #idl strings game_url metadata_url
     u8 strdata[];
 } GameEditEvent;
 
 // #idl event discriminator GameEditEvent
 static const u64 GAME_EDIT_EVENT_DISCRIMINATOR = UINT64_C(0xf0ded0ff3776f1e1);
-
-// #idl event declaration
-typedef struct {
-    u64 discriminator;
-    address game;
-    // #idl strings short_desc icon_url
-    u8 strdata[];
-} GameUpgradeEvent;
-
-// #idl event discriminator GameUpgradeEvent
-static const u64 GAME_UPGRADE_EVENT_DISCRIMINATOR = UINT64_C(0x7393bd91715e4054);
 
 // #idl event declaration
 typedef struct {
@@ -116,43 +105,6 @@ typedef struct {
 
 // #idl event discriminator GameWithdrawEvent
 static const u64 GAME_WITHDRAW_EVENT_DISCRIMINATOR = UINT64_C(0xbb1188a853869ff6);
-
-typedef struct {
-    u64 discriminator;
-
-    /// The owner of the game, can change it at will
-    address owner;
-    /// Withdraw authority - able to sign withdraws that users can claim
-    /// from the treasury wallet
-    address withdraw_authority;
-    /// The URL to the HTML page which the game is loaded from.
-    bytes128 game_url;
-    /// The URL to the game's cover art.
-    bytes128 cover_url;
-    /// Reserved for future use
-    u8 reserved[127];
-    /// Is game an official launch?
-    bool is_official_launch;
-
-    /// The game's seed, its unique identifier
-    bytes32 seed;
-    /// The game's token mint.
-    address mint;
-    /// The game's IVY wallet
-    address ivy_wallet;
-    /// The game token wallet for the bonding curve
-    address curve_wallet;
-    /// The game token wallet for treasury operations
-    /// (receives deposits and disburses withdraws)
-    address treasury_wallet;
-    /// The Address Lookup Table for `swap()`
-    address swap_alt;
-
-    /// IVY bonding curve balance
-    u64 ivy_balance;
-    /// Game token bonding curve balance
-    u64 game_balance;
-} GameOld;
 
 // #idl struct declaration
 typedef struct {
@@ -213,140 +165,6 @@ static bool game_is_valid(const Context* ctx, const SolAccountInfo* game) {
         ((const Game*)game->data)->discriminator == GAME_DISCRIMINATOR;
 }
 
-/// `game_old_load` takes any arbitrary `SolAccountInfo` and attempts to
-/// deserialize it as a valid `GameOld` from it, reverting if this operation
-/// would be invalid.
-static GameOld* game_old_load(const Context* ctx, const SolAccountInfo* game_old) {
-    // See SECURITY.md for more details
-    // 1. Ensure account ownership
-    require(
-        address_equal(ctx->program_id, game_old->owner),
-        "Incorrect GameOld account owner"
-    );
-    // 2. Ensure data is of necessary length
-    require(
-        game_old->data_len >= sizeof(GameOld), "Provided GameOld account data too small"
-    );
-    GameOld* g = (GameOld*)game_old->data;
-    // 3. Verify discriminator
-    require(
-        g->discriminator == GAME_OLD_DISCRIMINATOR,
-        "Provided GameOld discriminator incorrect"
-    );
-    return g;
-}
-
-/* ------------------------------ */
-
-// #idl instruction accounts game_upgrade
-typedef struct {
-    // #idl writable
-    SolAccountInfo game;
-    // #idl signer
-    SolAccountInfo world_owner;
-    // #idl readonly
-    SolAccountInfo world;
-    // #idl readonly
-    SolAccountInfo event_authority;
-    // #idl readonly
-    SolAccountInfo this_program;
-    // #idl readonly
-    SolAccountInfo system_program;
-} GameUpgradeAccounts;
-
-// #idl instruction data game_upgrade
-typedef struct {
-    // #idl strings short_desc icon_url
-    u8 str_params[];
-} GameUpgradeData;
-
-// #idl instruction discriminator game_upgrade
-static const u64 GAME_UPGRADE_DISCRIMINATOR = UINT64_C(0xd8cd0184f8645ded);
-
-// #idl instruction declaration
-static void game_upgrade(
-    const Context* ctx,
-    GameUpgradeAccounts* accounts,
-    const GameUpgradeData* data,
-    u64 data_len
-) {
-    // Load world and verify authorization
-    const World* world = world_load(ctx, &accounts->world);
-    authorize(&accounts->world_owner, world->owner);
-
-    // Load old game
-    GameOld* game_old = game_old_load(ctx, &accounts->game);
-
-    // Load the string params
-    reader r = reader_new(
-        data->str_params, safe_sub_64(data_len, offsetof(GameUpgradeData, str_params))
-    );
-    slice short_desc = reader_read_anchor_string_borrowed(&r);
-    slice icon_url = reader_read_anchor_string_borrowed(&r);
-
-    // Store old data we need to preserve
-    bytes32 seed = game_old->seed;
-    address owner = game_old->owner;
-    address withdraw_authority = game_old->withdraw_authority;
-    address mint = game_old->mint;
-    address ivy_wallet = game_old->ivy_wallet;
-    address curve_wallet = game_old->curve_wallet;
-    address treasury_wallet = game_old->treasury_wallet;
-    address swap_alt = game_old->swap_alt;
-    u64 ivy_balance = game_old->ivy_balance;
-    u64 game_balance = game_old->game_balance;
-
-    // Get game_url from old game (but we won't store it in the new structure)
-    bytes128 game_url = game_old->game_url;
-    slice game_url_slice = slice_from_str_safe(game_url.x, sizeof(game_url.x));
-
-    // Calculate new size (without game_url)
-    u64 new_size = sizeof(Game);
-
-    // Reallocate struct
-    sol_realloc(&accounts->game, new_size);
-
-    // Transfer extra lamports (must use direct transfer, because we own `accounts->game`)
-    u64 extra = safe_sub_64(*accounts->game.lamports, minimum_balance(new_size));
-    *accounts->game.lamports -= extra;
-    *accounts->world_owner.lamports += extra;
-
-    // Write new Game structure
-    Game* game_new = (Game*)accounts->game.data;
-    game_new->discriminator = GAME_DISCRIMINATOR;
-    game_new->seed = seed;
-    game_new->owner = owner;
-    game_new->withdraw_authority = withdraw_authority;
-    game_new->mint = mint;
-    game_new->ivy_wallet = ivy_wallet;
-    game_new->curve_wallet = curve_wallet;
-    game_new->treasury_wallet = treasury_wallet;
-    game_new->ivy_balance = ivy_balance;
-    game_new->game_balance = game_balance;
-
-    // Emit upgrade event with short_desc
-    u64 upgrade_event_len = offsetof(GameUpgradeEvent, strdata) //
-        + 4 + short_desc.len // short_desc length (u32) + short_desc (bytes)
-        + 4 + icon_url.len; // icon_url length (u32) + icon_url (bytes)
-
-    GameUpgradeEvent* upgrade_event = heap_alloc(upgrade_event_len);
-    upgrade_event->discriminator = GAME_UPGRADE_EVENT_DISCRIMINATOR;
-    upgrade_event->game = *accounts->game.key;
-
-    writer w = writer_new((u8*)upgrade_event, upgrade_event_len);
-    writer_skip(&w, offsetof(GameUpgradeEvent, strdata));
-    writer_write_anchor_string(&w, short_desc);
-    writer_write_anchor_string(&w, icon_url);
-
-    event_emit(
-        /* ctx */ ctx,
-        /* event_data */ slice_new((const u8*)upgrade_event, upgrade_event_len),
-        /* global_address */ *accounts->world.key,
-        /* event_authority */ world->event_authority,
-        /* event_authority_nonce */ world->event_authority_nonce
-    );
-}
-
 /* ------------------------------ */
 
 // #idl instruction accounts game_create
@@ -400,7 +218,7 @@ typedef struct {
     bool create_dest;
     // the following will directly insert the strings in the given
     // memory location in the data (no padding)
-    // #idl strings name symbol game_url short_desc metadata_url icon_url
+    // #idl strings name symbol game_url metadata_url
     u8 strdata[];
 } GameCreateData;
 
@@ -421,9 +239,8 @@ static void game_create(
     slice name = reader_read_anchor_string_borrowed(&r);
     slice symbol = reader_read_anchor_string_borrowed(&r);
     slice game_url = reader_read_anchor_string_borrowed(&r);
-    slice short_desc = reader_read_anchor_string_borrowed(&r);
     slice metadata_url = reader_read_anchor_string_borrowed(&r);
-    slice icon_url = reader_read_anchor_string_borrowed(&r);
+    require(metadata_url.len > 0, "Metadata URL required");
 
     // Verify that our seeds match the game address
     // We MUST do this: see SECURITY.md
@@ -559,16 +376,10 @@ static void game_create(
     require(utf8_validate(name.addr, name.len), "game name is not valid UTF-8");
     require(utf8_validate(symbol.addr, symbol.len), "game symbol is not valid UTF-8");
     require(utf8_validate(game_url.addr, game_url.len), "game URL is not valid UTF-8");
-    require(
-        utf8_validate(short_desc.addr, short_desc.len),
-        "game short description is not valid UTF-8"
-    );
+
     require(
         utf8_validate(metadata_url.addr, metadata_url.len),
         "game metadata URL is not valid UTF-8"
-    );
-    require(
-        utf8_validate(icon_url.addr, icon_url.len), "game icon URL is not valid UTF-8"
     );
 
     // Create token metadata with game as update authority
@@ -727,9 +538,7 @@ static void game_create(
         // Emit edit event with variable-length strings
         u64 edit_event_len = offsetof(GameEditEvent, strdata) // static field len
             + 4 + game_url.len // game url length (u32) + game_url (bytes)
-            + 4 + short_desc.len // short_desc length (u32) + short_desc (bytes)
-            + 4 + metadata_url.len // metadata_url length (u32) + metadata_url (bytes)
-            + 4 + icon_url.len; // icon_url length (u32) + icon_url (bytes)
+            + 4 + metadata_url.len; // metadata_url length (u32) + metadata_url (bytes)
 
         GameEditEvent* edit_event = heap_alloc(edit_event_len);
         edit_event->discriminator = GAME_EDIT_EVENT_DISCRIMINATOR;
@@ -740,9 +549,7 @@ static void game_create(
         writer w = writer_new((u8*)edit_event, edit_event_len);
         writer_skip(&w, offsetof(GameEditEvent, strdata));
         writer_write_anchor_string(&w, game_url);
-        writer_write_anchor_string(&w, short_desc);
         writer_write_anchor_string(&w, metadata_url);
-        writer_write_anchor_string(&w, icon_url);
 
         event_emit(
             /* ctx */ ctx,
@@ -1037,7 +844,7 @@ typedef struct {
 typedef struct {
     address new_owner;
     address new_withdraw_authority;
-    // #idl strings new_game_url new_short_desc new_metadata_url new_icon_url
+    // #idl strings new_game_url new_metadata_url
     u8 strdata[];
 } GameEditData;
 
@@ -1061,26 +868,18 @@ static void game_edit(
         data->strdata, safe_sub_64(data_len, offsetof(GameEditData, strdata))
     );
     slice new_game_url = reader_read_anchor_string_borrowed(&r);
-    slice new_short_desc = reader_read_anchor_string_borrowed(&r);
     slice new_metadata_url = reader_read_anchor_string_borrowed(&r);
-    slice new_icon_url = reader_read_anchor_string_borrowed(&r);
+    require(new_metadata_url.len > 0, "new metadata URL required");
 
     // Validate UTF-8
     require(
         utf8_validate(new_game_url.addr, new_game_url.len),
         "new game URL is not valid UTF-8"
     );
-    require(
-        utf8_validate(new_short_desc.addr, new_short_desc.len),
-        "new short description is not valid UTF-8"
-    );
+
     require(
         utf8_validate(new_metadata_url.addr, new_metadata_url.len),
         "new metadata URL is not valid UTF-8"
-    );
-    require(
-        utf8_validate(new_icon_url.addr, new_icon_url.len),
-        "new icon URL is not valid UTF-8"
     );
 
     // Update owner and withdraw authority
@@ -1120,9 +919,7 @@ static void game_edit(
     // Emit edit event with variable-length strings
     u64 edit_event_len = offsetof(GameEditEvent, strdata) // static fields
         + 4 + new_game_url.len // len (u32) + new_game_url (bytes)
-        + 4 + new_short_desc.len // len (u32) + new_short_desc (bytes)
         + 4 + new_metadata_url.len // len (u32) + new_metadata_url (bytes)
-        + 4 + new_icon_url.len // len (u32) + new_icon_url (bytes)
         ;
 
     GameEditEvent* edit_event = heap_alloc(edit_event_len);
@@ -1134,9 +931,7 @@ static void game_edit(
     writer w = writer_new((u8*)edit_event, edit_event_len);
     writer_skip(&w, offsetof(GameEditEvent, strdata));
     writer_write_anchor_string(&w, new_game_url);
-    writer_write_anchor_string(&w, new_short_desc);
     writer_write_anchor_string(&w, new_metadata_url);
-    writer_write_anchor_string(&w, new_icon_url);
 
     // Load world to get event authority + nonce
     const World* world = world_load(ctx, &accounts->world);

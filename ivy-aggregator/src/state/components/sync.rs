@@ -9,7 +9,7 @@ use crate::state::constants::MAX_CANDLES;
 use crate::types::asset::Asset;
 use crate::types::chart::Candle;
 use crate::types::charts::{ChartKind, Charts};
-use crate::types::event::{Event, EventData, SyncCreateEvent};
+use crate::types::event::{Event, EventData, HydrateEvent, SyncCreateEvent}; // CHANGED
 use crate::types::public::Public;
 use crate::types::sync::Sync;
 use crate::types::trade::Trade;
@@ -137,6 +137,7 @@ impl SyncComponent {
             EventData::PfMigration(d) => self.handle_pf_migration(d),
             EventData::PaBuy(d) => self.handle_pa_buy(event.timestamp, d, prices, assets),
             EventData::PaSell(d) => self.handle_pa_sell(event.timestamp, d, prices, assets),
+            EventData::Hydrate(d) => self.handle_hydrate(d), // NEW
             _ => return false,
         }
         true
@@ -175,8 +176,8 @@ impl SyncComponent {
             pump_mint: d.pump_mint,
             create_timestamp: timestamp,
             metadata_url: d.metadata_url.clone(),
-            icon_url: d.icon_url.clone(),
-            short_desc: d.short_desc.clone(),
+            icon_url: String::new(),    // removed from event; hydrate later
+            description: String::new(), // removed from event; hydrate later
             game_url: d.game_url.clone(),
             is_migrated: false,
             pswap_pool: None,
@@ -204,9 +205,6 @@ impl SyncComponent {
             is_migrated: false,
             pswap_pool: None,
         });
-
-        // Send asset notification on creation
-        _ = self.assets_tx.send(sync.to_asset());
 
         self.syncs.push(sync);
         self.metas.push(meta);
@@ -376,6 +374,26 @@ impl SyncComponent {
         // Update assets component
         if old_mkt_cap_usd != s.mkt_cap_usd {
             assets.on_sync_updated(index, old_mkt_cap_usd, s.mkt_cap_usd, s.create_timestamp);
+        }
+    }
+
+    fn handle_hydrate(&mut self, d: &HydrateEvent) {
+        let Some(&index) = self.address_to_index.get(&d.asset) else {
+            return;
+        };
+        if d.icon_url.is_empty() {
+            // prevent asset spam
+            return;
+        }
+        let s = &mut self.syncs[index];
+
+        let is_new_sync = s.icon_url.is_empty() && s.description.is_empty();
+        s.icon_url = d.icon_url.clone();
+        s.description = d.description.clone();
+
+        // Notify asset stream
+        if is_new_sync {
+            _ = self.assets_tx.send(s.to_asset());
         }
     }
 

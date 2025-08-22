@@ -166,6 +166,24 @@ require_once __DIR__ . "/../includes/header.php";
             </div>
         </div>
 
+        <!-- Important Note about Graduation -->
+        <div class="border-2 border-amber-400 bg-amber-950/50 p-4 mb-6">
+            <div class="flex items-start gap-2">
+                <?php echo icon(
+                    "alert-triangle",
+                    "h-5 w-5 text-amber-400 mt-0.5",
+                ); ?>
+                <div class="text-sm">
+                    <p class="font-bold text-amber-400 mb-1">Important: Launch Before Token Graduation</p>
+                    <p class="text-amber-300">
+                        It's critical that all synced games are launched before the Pump.fun token graduates.
+                        We only start listening for graduation events after the synced game is launched. If we launch afterwards,
+                        we won't be able to detect the pool and the token will be untradable :)
+                    </p>
+                </div>
+            </div>
+        </div>
+
         <!-- Form -->
         <form id="uploadForm" method="POST" action="/sync-launch" enctype="multipart/form-data" class="border-4 border-emerald-400 p-6">
             <div class="space-y-6">

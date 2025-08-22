@@ -1,4 +1,5 @@
 mod applier;
+mod hydrator;
 mod pf;
 mod pricer;
 mod retriever;
@@ -12,6 +13,7 @@ mod util;
 mod volume;
 
 use crate::applier::Applier;
+use crate::hydrator::Hydrator;
 use crate::pricer::Pricer;
 use crate::retriever::Retriever;
 use crate::scanner::Scanner;
@@ -57,12 +59,15 @@ async fn main() {
     let pf_program_id = crate::pf::PF_PROGRAM;
     let pa_program_id = crate::pf::PA_PROGRAM;
 
-    // Create state
-    let state = Arc::new(RwLock::new(StateData::new()));
-
     // Create channels for the data pipeline
     let (scanner_tx, scanner_rx) = mpsc::channel();
     let (retriever_tx, retriever_rx) = mpsc::channel();
+
+    // NEW: hydration channel (asset, metadata_url)
+    let (hydration_tx, hydration_rx) = mpsc::channel::<(Public, String)>();
+
+    // Create state (CHANGED: pass hydration_tx)
+    let state = Arc::new(RwLock::new(StateData::new(hydration_tx)));
 
     // Create applier first
     let applier = Applier::new(
@@ -87,6 +92,17 @@ async fn main() {
     });
 
     let agent = Agent::new_with_defaults();
+
+    // NEW: Hydrator worker - fetch web metadata, emit HydrateEvent
+    let hydrator = Hydrator::new(
+        api_url.clone(),
+        hydration_rx,
+        retriever_tx.clone(),
+        agent.clone(),
+    );
+    thread::spawn(move || {
+        hydrator.run();
+    });
 
     let ivy_scanner = Scanner::new(
         &rpc_url,

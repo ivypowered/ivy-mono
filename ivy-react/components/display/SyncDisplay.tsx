@@ -17,12 +17,14 @@ import Decimal from "decimal.js-light";
 import { fetchBalance } from "./util";
 import { SYNC_DECIMALS } from "@/import/ivy-sdk";
 import { Frame } from "../frame";
+import { Description } from "./Description";
 
 export interface SyncInfo {
     address: string;
     name: string;
     symbol: string;
     icon_url: string;
+    description: string;
     create_timestamp: number;
     token_mint: string;
     game_url: string;
@@ -131,6 +133,7 @@ export function SyncDisplay({ syncInfo }: { syncInfo: SyncInfo }) {
                     tokens={tokens}
                     initialInputToken={SOL_TOKEN}
                     initialOutputToken={syncToken}
+                    isInputFixed={true}
                     user={publicKey || undefined}
                     updateBalanceRef={updateBalanceRef}
                 >
@@ -182,6 +185,12 @@ export function SyncDisplay({ syncInfo }: { syncInfo: SyncInfo }) {
                         <SwapWidget></SwapWidget>
                     </div>
                 </SwapProvider>
+
+                {/* Description */}
+                <Description
+                    className="mt-8"
+                    description={syncInfo.description}
+                />
             </div>
         </div>
     );

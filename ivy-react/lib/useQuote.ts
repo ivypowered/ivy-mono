@@ -53,7 +53,7 @@ const BIG_USDC_WSOL_ACCOUNT = new PublicKey(BIG_USDC_WSOL_ACCOUNT_B58);
 /// that they're swapping in their wallet.
 ///
 /// This is problematic when trying to create transactions along the lines of
-/// GAME -> TWL -> USDC -> *, because when we request the USDC -> * leg of the
+/// GAME -> IVY -> USDC -> *, because when we request the USDC -> * leg of the
 /// journey from Jupiter, an error will be returned since the user doesn't
 /// actually have the required USDC.
 ///

@@ -1,15 +1,16 @@
-use std::sync::RwLock;
+use std::sync::{mpsc, RwLock};
 
 pub mod components;
 pub mod constants;
 pub mod helpers;
 pub mod types;
 
+use crate::types::public::Public;
 use crate::types::{asset::Asset, event::Event, trade::Trade};
 use components::{
-    assets::AssetsComponent, games::GamesComponent, pnl::PnlComponent, prices::PricesComponent,
-    receipts::ReceiptsComponent, sync::SyncComponent, volume::VolumeComponent,
-    world::WorldComponent,
+    assets::AssetsComponent, games::GamesComponent, hydrate::HydrateComponent, pnl::PnlComponent,
+    prices::PricesComponent, receipts::ReceiptsComponent, sync::SyncComponent,
+    volume::VolumeComponent, world::WorldComponent,
 };
 use constants::MAX_CANDLES;
 use tokio::sync::{broadcast, watch};
@@ -23,6 +24,7 @@ pub struct StateData {
     pub assets: AssetsComponent,
     pub assets_rx: broadcast::Receiver<Asset>,
     pub games: GamesComponent,
+    pub hydrator: HydrateComponent,
     pub pnl: PnlComponent,
     pub prices: PricesComponent,
     pub receipts: ReceiptsComponent,
@@ -33,13 +35,14 @@ pub struct StateData {
 }
 
 impl StateData {
-    pub fn new() -> StateData {
+    pub fn new(hydrator_tx: mpsc::Sender<(Public, String)>) -> StateData {
         let (trades_tx, trades_rx) = watch::channel(None);
         let (assets_tx, assets_rx) = broadcast::channel(ASSETS_CHANNEL_BUFFER_SIZE);
         StateData {
             assets: AssetsComponent::new(),
             assets_rx,
             games: GamesComponent::new(MAX_CANDLES, trades_tx.clone(), assets_tx.clone()),
+            hydrator: HydrateComponent::new(hydrator_tx),
             pnl: PnlComponent::new(),
             prices: PricesComponent::new(),
             receipts: ReceiptsComponent::new(),
@@ -53,6 +56,7 @@ impl StateData {
     pub fn on_event(&mut self, event: &Event) -> bool {
         let mut used = false;
         used |= self.games.on_event(event, &self.world, &mut self.assets);
+        used |= self.hydrator.on_event(event);
         used |= self.pnl.on_event(event, &self.world, &self.prices);
         used |= self.prices.on_event(event);
         used |= self.receipts.on_event(event);

@@ -14,9 +14,7 @@ const createSchema = z.object({
     seed: z.string(),
     name: z.string(),
     symbol: z.string(),
-    icon_url: z.string(),
     game_url: z.string(),
-    short_desc: z.string(),
     metadata_url: z.string(),
     ivy_purchase: z.string(),
 });
@@ -35,9 +33,7 @@ export const createGameTx =
             seed,
             data.name,
             data.symbol,
-            data.icon_url,
             data.game_url,
-            data.short_desc,
             data.metadata_url,
             user_wallet.publicKey,
             recent_slot,
@@ -72,9 +68,7 @@ const editSchema = z.object({
     new_owner: z.string(),
     new_withdraw_authority: z.string(),
     game_url: z.string(),
-    short_desc: z.string(),
     metadata_url: z.string(),
-    icon_url: z.string(),
 });
 
 export const editGameTx = (_deps: Deps) => async (req: Request) => {
@@ -94,9 +88,7 @@ export const editGameTx = (_deps: Deps) => async (req: Request) => {
         new_owner_address,
         new_withdraw_authority_address,
         data.game_url,
-        data.short_desc,
         data.metadata_url,
-        data.icon_url,
     );
 
     // Preserve original insName "GameCreate" for compatibility

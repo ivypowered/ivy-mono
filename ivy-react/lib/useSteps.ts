@@ -343,6 +343,7 @@ export function useUsdcToAny(
         priceImpactBps: number;
         jupQuoteResponse: unknown;
         outputPrice: number;
+        refreshKey: number; // Add refreshKey to cache
     } | null>(null);
 
     // Track the latest request ID to handle race conditions
@@ -362,14 +363,19 @@ export function useUsdcToAny(
                 priceImpactBps: 0,
                 jupQuoteResponse: null,
                 outputPrice: 1,
+                refreshKey, // Store current refreshKey
             });
             return;
         }
 
         const inputAmount = input.amount;
 
-        // Only refetch if we don't have a cache or if refreshKey changed
-        if (cache && refreshKey === 0) return;
+        // Refetch if:
+        // 1. We don't have a cache
+        // 2. refreshKey changed from the value stored in cache
+        if (cache && cache.refreshKey === refreshKey) {
+            return;
+        }
 
         // Increment request ID for this request
         const requestId = ++latestRequestId.current;
@@ -412,6 +418,7 @@ export function useUsdcToAny(
                         priceImpactBps,
                         jupQuoteResponse: quoteResponse,
                         outputPrice: prices[0],
+                        refreshKey, // Store current refreshKey
                     });
                 }
             } catch (error) {
@@ -429,6 +436,8 @@ export function useUsdcToAny(
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         enabled,
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        input.amount?.toString(),
         // eslint-disable-next-line react-hooks/exhaustive-deps
         outputToken.toBase58(),
         outputDecimals,

@@ -4,7 +4,7 @@ use crate::types::asset::Asset;
 use crate::types::chart::Candle;
 use crate::types::charts::{ChartKind, Charts};
 use crate::types::event::{
-    CommentEvent, Event, EventData, GameCreateEvent, GameEditEvent, GameSwapEvent, GameUpgradeEvent,
+    CommentEvent, Event, EventData, GameCreateEvent, GameEditEvent, GameSwapEvent, HydrateEvent,
 };
 use crate::types::game::Game;
 use crate::types::public::Public;
@@ -166,10 +166,10 @@ impl GamesComponent {
                 self.process_game_create(event.timestamp, data, world, assets)
             }
             EventData::GameEdit(data) => self.process_game_edit(data),
+            EventData::Hydrate(data) => self.process_hydrate_event(data), // NEW
             EventData::GameSwap(data) => {
                 self.process_game_swap(event.timestamp, &event.signature, data, world, assets)
             }
-            EventData::GameUpgrade(data) => self.process_game_upgrade(data),
             EventData::Comment(data) => self.process_comment_event(data),
             _ => return false,
         };
@@ -210,7 +210,7 @@ impl GamesComponent {
             withdraw_authority: Public::zero(),
             game_url: String::new(),
             icon_url: String::new(),
-            short_desc: String::new(),
+            description: String::new(),
             metadata_url: String::new(),
             create_timestamp: timestamp,
             ivy_balance: create_data.ivy_balance,
@@ -265,30 +265,42 @@ impl GamesComponent {
         };
 
         let game = &mut self.game_list[game_meta.index];
-        if game.icon_url.is_empty()
-            && game.game_url.is_empty()
-            && game.short_desc.is_empty()
-            && game.metadata_url.is_empty()
-        {
-            // This is a new game, alert frontend
+        // Update with edit data (icon/desc removed from event, will arrive via HydrateEvent)
+        game.owner = edit_data.owner;
+        game.withdraw_authority = edit_data.withdraw_authority;
+        game.game_url = edit_data.game_url.clone();
+        game.metadata_url = edit_data.metadata_url.clone();
+    }
+
+    fn process_hydrate_event(&mut self, hydrate: &HydrateEvent) {
+        // Only apply if this hydrate event corresponds to a game
+        let game_meta = match self.address_to_game_meta.get(&hydrate.asset) {
+            Some(meta) => meta,
+            None => return,
+        };
+        if hydrate.icon_url.is_empty() {
+            // prevent asset spam
+            return;
+        }
+
+        let game = &mut self.game_list[game_meta.index];
+
+        let is_new_game = game.icon_url.is_empty() && game.description.is_empty();
+        game.icon_url = hydrate.icon_url.clone();
+        game.description = hydrate.description.clone();
+
+        // Notify assets stream if this is a new game
+        if is_new_game {
             _ = self.assets_tx.send(Asset {
                 name: game.name.clone(),
                 symbol: game.symbol.clone(),
                 address: game.address,
-                icon_url: edit_data.icon_url.clone(),
-                short_desc: edit_data.short_desc.clone(),
+                icon_url: game.icon_url.clone(),
+                description: game.description.clone(),
                 create_timestamp: game.create_timestamp,
                 mkt_cap_usd: game.mkt_cap_usd,
             });
         }
-
-        // Update with edit data
-        game.owner = edit_data.owner;
-        game.withdraw_authority = edit_data.withdraw_authority;
-        game.icon_url = edit_data.icon_url.clone();
-        game.game_url = edit_data.game_url.clone();
-        game.short_desc = edit_data.short_desc.clone();
-        game.metadata_url = edit_data.metadata_url.clone();
     }
 
     fn process_game_swap(
@@ -377,22 +389,6 @@ impl GamesComponent {
 
         // Update assets component
         assets.on_game_updated(game_index, old_mkt_cap_usd, mkt_cap_usd, create_timestamp);
-    }
-
-    fn process_game_upgrade(&mut self, upgrade_data: &GameUpgradeEvent) {
-        if HIDDEN_GAMES.contains(&upgrade_data.game) {
-            return;
-        }
-        if let Some(game_meta) = self.address_to_game_meta.get(&upgrade_data.game) {
-            let game = &mut self.game_list[game_meta.index];
-            game.short_desc = upgrade_data.short_desc.clone();
-            game.icon_url = upgrade_data.icon_url.clone();
-        } else {
-            eprintln!(
-                "warning: Received GameUpgradeEvent for nonexistent game {}",
-                upgrade_data.game
-            );
-        }
     }
 
     fn process_comment_event(&mut self, comment_data: &CommentEvent) {

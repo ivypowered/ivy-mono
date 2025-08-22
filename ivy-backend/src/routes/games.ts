@@ -5,20 +5,28 @@ import { Auth, Game, GAME_DECIMALS } from "ivy-sdk";
 import { parsePublicKey, parseHex } from "../utils/requestHelpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 
-export const getGameBalance = ({ connection }: Deps) => async (req: Request) => {
-    const params = z.object({
-        game: z.string(),
-        user: z.string(),
-    }).parse(req.params);
+const getGameBalanceSchema = z.object({
+    game: z.string(),
+    user: z.string(),
+});
 
-    const game_address = parsePublicKey(params.game, "game");
-    const user_address = parsePublicKey(params.user, "user");
+export const getGameBalance =
+    ({ connection }: Deps) =>
+    async (req: Request) => {
+        const params = getGameBalanceSchema.parse(req.params);
 
-    const balance_raw = await Game.getBalance(connection, game_address, user_address);
-    const balance = parseInt(balance_raw) / Math.pow(10, GAME_DECIMALS);
+        const game_address = parsePublicKey(params.game, "game");
+        const user_address = parsePublicKey(params.user, "user");
 
-    return balance;
-};
+        const balance_raw = await Game.getBalance(
+            connection,
+            game_address,
+            user_address,
+        );
+        const balance = parseInt(balance_raw) / Math.pow(10, GAME_DECIMALS);
+
+        return balance;
+    };
 
 const signWithdrawalBodySchema = z.object({
     user: z.string(),
@@ -32,7 +40,9 @@ const signWithdrawalParamsSchema = z.object({
 
 export const signWithdrawal = (_deps: Deps) => async (req: Request) => {
     const { game, id } = signWithdrawalParamsSchema.parse(req.params);
-    const { user, withdraw_authority_key } = signWithdrawalBodySchema.parse(req.body);
+    const { user, withdraw_authority_key } = signWithdrawalBodySchema.parse(
+        req.body,
+    );
 
     const game_public_key = parsePublicKey(game, "game");
     const user_public_key = parsePublicKey(user, "user");

@@ -549,7 +549,7 @@ pub async fn stream_assets(
                         symbol: asset.symbol,
                         address: asset.address,
                         icon_url: asset.icon_url,
-                        short_desc: asset.short_desc,
+                        short_desc: asset.description,
                         create_timestamp: asset.create_timestamp,
                         mkt_cap_usd: asset.mkt_cap_usd,
                     };

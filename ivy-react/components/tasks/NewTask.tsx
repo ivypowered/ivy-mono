@@ -76,10 +76,16 @@ function AssetCard({ asset }: { asset: AssetData }) {
     const gameAddress = asset.address || "";
     const gameName = asset.name || "Untitled Game";
     const gameSymbol = (asset.symbol || "???").toUpperCase();
-    const shortDesc = asset.shortDesc || "";
+    const description = asset.description || "";
     const imageUrl = asset.iconUrl || "/assets/images/placeholder.png";
     const marketCapUsd = asset.mktCapUsd || 0;
     const createTimestamp = asset.createTimestamp || 0;
+
+    // Cap description to 280 characters
+    const shortDesc =
+        description.length > 280
+            ? description.substring(0, 280) + "..."
+            : description;
 
     // Skip if no address
     if (!gameAddress) {

@@ -15,7 +15,7 @@ pub struct Game {
     pub withdraw_authority: Public,
     pub game_url: String,
     pub icon_url: String,
-    pub short_desc: String,
+    pub description: String,
     pub metadata_url: String,
     pub create_timestamp: u64,
     #[serde(serialize_with = "serialize_u64_as_string")]
@@ -40,7 +40,7 @@ impl Game {
             symbol: self.symbol.clone(),
             address: self.address,
             icon_url: self.icon_url.clone(),
-            short_desc: self.short_desc.clone(),
+            description: self.description.clone(),
             create_timestamp: self.create_timestamp,
             mkt_cap_usd: self.mkt_cap_usd,
         }

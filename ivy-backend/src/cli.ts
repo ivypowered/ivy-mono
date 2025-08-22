@@ -12,7 +12,6 @@ import { registerNewGameCommand } from "./commands/new-game";
 import { registerDebugMintCommand } from "./commands/debug-mint";
 import { registerCreateTestGamesCommand } from "./commands/create-test-games";
 import { registerGameEditCommand } from "./commands/game-edit";
-import { registerGameUpgradeCommand } from "./commands/game-upgrade";
 
 // Load env
 dotenv.config();
@@ -36,7 +35,6 @@ registerNewGameCommand(program, connection);
 registerDebugMintCommand(program, connection);
 registerCreateTestGamesCommand(program, connection);
 registerGameEditCommand(program, connection);
-registerGameUpgradeCommand(program, connection);
 
 // Parse
 program.parse(process.argv);

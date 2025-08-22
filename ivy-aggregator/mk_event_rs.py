@@ -118,6 +118,27 @@ def generate_sol_price_event():
     rust_code += "impl_event_type!(SolPriceEvent, \"solPriceEvent\", SolPrice);\n"
     return rust_code
 
+def generate_initialize_event():
+    """Generate the InitializeEvent struct"""
+    rust_code = "#[derive(BorshDeserialize, Debug, Clone, Serialize, Deserialize)]\n"
+    rust_code += "pub struct InitializeEvent {}\n"
+    rust_code += "impl_event_type!(InitializeEvent, \"initializeEvent\", Initialize);\n"
+    return rust_code
+
+def generate_hydrate_event():
+    """Generate the HydrateEvent struct"""
+    rust_code = "#[derive(BorshDeserialize, Debug, Clone, Serialize, Deserialize)]\n"
+    rust_code += "pub struct HydrateEvent {\n"
+    rust_code += "    pub asset: Public,\n"
+    rust_code += "    #[serde(rename = \"metadataUrl\")]\n"
+    rust_code += "    pub metadata_url: String,\n"
+    rust_code += "    pub description: String,\n"
+    rust_code += "    #[serde(rename = \"iconUrl\")]\n"
+    rust_code += "    pub icon_url: String,\n"
+    rust_code += "}\n"
+    rust_code += "impl_event_type!(HydrateEvent, \"hydrateEvent\", Hydrate);\n"
+    return rust_code
+
 def generate_event_enum_with_from_bytes(event_info, include_pump_fun=True):
     """Generate the EventData enum with from_bytes implementation"""
     rust_code = "#[derive(Debug, Clone)]\n"
@@ -135,6 +156,9 @@ def generate_event_enum_with_from_bytes(event_info, include_pump_fun=True):
 
     # Add SolPriceEvent variant
     rust_code += "    SolPrice(SolPriceEvent),\n"
+    # Add new variants
+    rust_code += "    Initialize(InitializeEvent),\n"
+    rust_code += "    Hydrate(HydrateEvent),\n"
 
     rust_code += "}\n\n"
 
@@ -198,6 +222,8 @@ def generate_event_enum_with_from_bytes(event_info, include_pump_fun=True):
 
     # Add match arm for SolPriceEvent
     rust_code += "            EventData::SolPrice(_) => Source::Fx,\n"
+    rust_code += "            EventData::Initialize(_) => Source::Misc,\n"
+    rust_code += "            EventData::Hydrate(_) => Source::Misc,\n"
 
     rust_code += "        }\n"
     rust_code += "    }\n"
@@ -225,6 +251,9 @@ def generate_serialize_impl(event_info, include_pump_fun=True):
 
     # Add SolPriceEvent
     rust_code += f"            EventData::SolPrice(e) => (SolPriceEvent::NAME, serde_json::to_value(e)),\n"
+    # Add new events
+    rust_code += f"            EventData::Initialize(e) => (InitializeEvent::NAME, serde_json::to_value(e)),\n"
+    rust_code += f"            EventData::Hydrate(e) => (HydrateEvent::NAME, serde_json::to_value(e)),\n"
 
     rust_code += "        };\n\n"
     rust_code += "        let data = data.map_err(serde::ser::Error::custom)?;\n\n"
@@ -292,6 +321,19 @@ def generate_deserialize_event_data(event_info, include_pump_fun=True):
     # Add SolPriceEvent
     rust_code += f"    if name == SolPriceEvent::NAME {{\n"
     rust_code += f"        return serde_json::from_value::<SolPriceEvent>(data)\n"
+    rust_code += f"            .map(|e| e.into_event_data())\n"
+    rust_code += f"            .map_err(E::custom);\n"
+    rust_code += f"    }}\n"
+
+    # Add new events
+    rust_code += f"    if name == InitializeEvent::NAME {{\n"
+    rust_code += f"        return serde_json::from_value::<InitializeEvent>(data)\n"
+    rust_code += f"            .map(|e| e.into_event_data())\n"
+    rust_code += f"            .map_err(E::custom);\n"
+    rust_code += f"    }}\n"
+
+    rust_code += f"    if name == HydrateEvent::NAME {{\n"
+    rust_code += f"        return serde_json::from_value::<HydrateEvent>(data)\n"
     rust_code += f"            .map(|e| e.into_event_data())\n"
     rust_code += f"            .map_err(E::custom);\n"
     rust_code += f"    }}\n"
@@ -449,6 +491,11 @@ pub struct Event {
 
     # Add SolPriceEvent first
     rust_code += generate_sol_price_event()
+    rust_code += "\n"
+    # Add the new events
+    rust_code += generate_initialize_event()
+    rust_code += "\n"
+    rust_code += generate_hydrate_event()
     rust_code += "\n"
 
     for event_name, _, _ in event_info:

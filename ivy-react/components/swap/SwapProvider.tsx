@@ -46,6 +46,7 @@ interface SwapProviderProps {
     fetchBalance: (user: PublicKey, token: SwapToken) => Promise<Decimal>;
     initialInputToken: SwapToken;
     initialOutputToken: SwapToken;
+    isInputFixed?: boolean;
     quoteContext: QuoteContext;
     reloadBalances: () => void;
     signTransaction: (
@@ -67,6 +68,7 @@ export function SwapProvider({
     fetchBalance,
     initialInputToken,
     initialOutputToken,
+    isInputFixed,
     quoteContext,
     reloadBalances,
     signTransaction,
@@ -77,7 +79,7 @@ export function SwapProvider({
     const [state, setState] = useState<SwapState>(() => ({
         inputToken: initialInputToken,
         outputToken: initialOutputToken,
-        inputFixed: false,
+        inputFixed: !!isInputFixed,
         outputFixed: true,
         inputAmount: DECIMAL_ZERO,
         outputAmount: DECIMAL_ZERO,

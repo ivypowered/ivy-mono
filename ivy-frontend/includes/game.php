@@ -19,7 +19,14 @@ function game_render($game)
     $game_address = htmlspecialchars($game["address"] ?? "");
     $game_name = htmlspecialchars($game["name"] ?? "Untitled Game");
     $game_symbol = htmlspecialchars(strtoupper($game["symbol"] ?? "???"));
-    $short_desc = htmlspecialchars($game["short_desc"] ?? "");
+
+    // Get description and cap at 280 chars
+    $description = $game["description"] ?? "";
+    if (strlen($description) > 280) {
+        $description = substr($description, 0, 277) . "...";
+    }
+    $description = htmlspecialchars($description);
+
     $image_url = !empty($game["icon_url"])
         ? htmlspecialchars($game["icon_url"])
         : "/assets/images/placeholder.png";
@@ -76,10 +83,10 @@ function game_render($game)
                         <p class="text-sm text-zinc-300">
                             <span class="font-extrabold">
                                 <?php echo $game_name; ?>
-                                (<?php echo $game_symbol; ?>)<?php if (!empty($short_desc)): ?>:<?php endif; ?>
+                                (<?php echo $game_symbol; ?>)<?php if (!empty($description)): ?>:<?php endif; ?>
                             </span>
-                            <?php if (!empty($short_desc)): ?>
-                                <?php echo $short_desc; ?>
+                            <?php if (!empty($description)): ?>
+                                <?php echo $description; ?>
                             <?php endif; ?>
                         </p>
                     </div>

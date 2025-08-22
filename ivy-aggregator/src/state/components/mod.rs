@@ -1,5 +1,6 @@
 pub mod assets;
 pub mod games;
+pub mod hydrate;
 pub mod pnl;
 pub mod prices;
 pub mod receipts;

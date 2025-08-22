@@ -129,9 +129,7 @@ export class Sync {
         user: PublicKey,
         name: string,
         symbol: string,
-        shortDesc: string,
         metadataUrl: string,
-        iconUrl: string,
         gameUrl: string,
     ): Promise<TransactionInstruction> {
         const metadata = await deriveMetadataPda(this.syncMint);
@@ -141,9 +139,7 @@ export class Sync {
                 Array.from(this.seed),
                 name,
                 symbol,
-                shortDesc,
                 metadataUrl,
-                iconUrl,
                 gameUrl,
             )
             .accounts({

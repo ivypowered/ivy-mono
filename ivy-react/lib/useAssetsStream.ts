@@ -6,7 +6,7 @@ export interface AssetData {
     symbol: string;
     address: string;
     iconUrl: string;
-    shortDesc: string;
+    description: string;
     createTimestamp: number;
     mktCapUsd: number;
 }
@@ -37,7 +37,7 @@ export function useAssetsStream() {
                         symbol: assetRaw.symbol,
                         address: assetRaw.address,
                         iconUrl: assetRaw.icon_url,
-                        shortDesc: assetRaw.short_desc,
+                        description: assetRaw.description,
                         createTimestamp: assetRaw.create_timestamp,
                         mktCapUsd: assetRaw.mkt_cap_usd,
                     };

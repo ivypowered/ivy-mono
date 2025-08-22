@@ -19,8 +19,6 @@ import {
     loadChainMetadata,
     ChainMetadata,
     deriveAddressLookupTableAddress,
-    zt2str,
-    str2zt,
     mkpad,
     NULL_RECENT_BLOCKHASH,
     getAssociatedTokenAddressSync,
@@ -28,13 +26,6 @@ import {
 import { MAX_TEXT_LEN } from "./interface";
 import { BN } from "@coral-xyz/anchor";
 import nacl from "tweetnacl";
-
-export interface GameMetadata {
-    name: string;
-    symbol: string;
-    short_desc: string;
-    icon_url: string;
-}
 
 export interface GameState {
     seed: Uint8Array;
@@ -194,23 +185,15 @@ export class Game {
         seed: Uint8Array,
         name: string,
         symbol: string,
-        icon_url: string,
         game_url: string,
-        short_desc: string,
         metadata_url: string,
         user: PublicKey,
         recent_slot: number,
         ivy_purchase: string,
         world_alt: AddressLookupTableAccount,
     ): Promise<VersionedTransaction> {
-        if (icon_url.length > MAX_TEXT_LEN) {
-            throw new Error(`Icon URL too long (max ${MAX_TEXT_LEN} chars)`);
-        }
         if (game_url.length > MAX_TEXT_LEN) {
             throw new Error(`Game URL too long (max ${MAX_TEXT_LEN} chars)`);
-        }
-        if (short_desc.length > MAX_TEXT_LEN) {
-            throw new Error(`Cover URL too long (max ${MAX_TEXT_LEN} chars)`);
         }
 
         const game = this.deriveAddress(seed);
@@ -238,9 +221,7 @@ export class Game {
                 name,
                 symbol,
                 game_url,
-                short_desc,
                 metadata_url,
-                icon_url,
             )
             .accounts({
                 game: game,
@@ -599,15 +580,10 @@ export class Game {
         new_owner: PublicKey,
         new_withdraw_authority: PublicKey,
         game_url: string,
-        short_desc: string,
         metadata_url: string,
-        icon_url: string,
     ): Promise<Transaction> {
         if (game_url.length > MAX_TEXT_LEN) {
             throw new Error(`Game URL too long (max ${MAX_TEXT_LEN} chars)`);
-        }
-        if (short_desc.length > MAX_TEXT_LEN) {
-            throw new Error(`Cover URL too long (max ${MAX_TEXT_LEN} chars)`);
         }
         if (metadata_url.length > MAX_TEXT_LEN) {
             throw new Error(
@@ -619,49 +595,11 @@ export class Game {
         const metadata = deriveMetadataAddress(mint);
 
         const tx = await ivy_program.methods
-            .gameEdit(
-                new_owner,
-                new_withdraw_authority,
-                game_url,
-                short_desc,
-                metadata_url,
-                icon_url,
-            )
+            .gameEdit(new_owner, new_withdraw_authority, game_url, metadata_url)
             .accounts({
                 game: game_address,
                 owner: owner,
                 metadata: metadata,
-                world: WORLD_ADDRESS,
-            })
-            .transaction();
-
-        return tx;
-    }
-
-    /**
-     * Upgrades an old game structure to the new format
-     * This removes the game_url field from the on-chain structure
-     */
-    static async upgrade(
-        game_address: PublicKey,
-        world_owner: PublicKey,
-        short_desc: string,
-        icon_url: string,
-    ): Promise<Transaction> {
-        if (short_desc.length > MAX_TEXT_LEN) {
-            throw new Error(
-                `Short description too long (max ${MAX_TEXT_LEN} chars)`,
-            );
-        }
-        if (icon_url.length > MAX_TEXT_LEN) {
-            throw new Error(`Icon URL too long (max ${MAX_TEXT_LEN} chars)`);
-        }
-
-        const tx = await ivy_program.methods
-            .gameUpgrade(short_desc, icon_url)
-            .accounts({
-                game: game_address,
-                worldOwner: world_owner,
                 world: WORLD_ADDRESS,
             })
             .transaction();
