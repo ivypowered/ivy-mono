@@ -419,6 +419,8 @@ typedef struct {
     SolAccountInfo event_authority;
     // #idl readonly
     SolAccountInfo this_program;
+    // #idl writable
+    SolAccountInfo beneficiary;
 } SyncSwapAccounts;
 
 // #idl instruction data sync_swap
@@ -785,7 +787,7 @@ typedef struct {
     SolAccountInfo event_authority;
     // #idl readonly
     SolAccountInfo this_program;
-    // #idl readonly
+    // #idl writable
     SolAccountInfo beneficiary;
 } SyncPswapAccounts;
 

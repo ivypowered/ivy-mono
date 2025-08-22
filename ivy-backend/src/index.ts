@@ -94,25 +94,6 @@ const deps: Deps = {
 // --- Middleware ---
 app.use(express.json({ limit: "5mb" }));
 
-// --- CORS middleware ---
-app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header(
-        "Access-Control-Allow-Methods",
-        "GET, POST, OPTIONS, PUT, DELETE",
-    );
-    res.header(
-        "Access-Control-Allow-Headers",
-        "Origin, X-Requested-With, Content-Type, Accept, Authorization",
-    );
-
-    if (req.method === "OPTIONS") {
-        return res.sendStatus(200);
-    }
-
-    next();
-});
-
 // Static Assets (for debug uploads)
 if (!PINATA_JWT || !PINATA_GATEWAY) {
     app.use("/tmp", express.static("tmp"));

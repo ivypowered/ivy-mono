@@ -31,7 +31,7 @@ function game_render($game)
         ? htmlspecialchars($game["icon_url"])
         : "/assets/images/placeholder.png";
 
-    $market_cap_usd = $game["mkt_cap_usd"];
+    $market_cap_usd = $game["mkt_cap_usd"] ?? null;
 
     $create_timestamp =
         isset($game["create_timestamp"]) &&
@@ -44,23 +44,21 @@ function game_render($game)
         return;
     }
     ?>
-    <div class="group relative">
-        <a href="/game?address=<?php echo $game_address; ?>" class="block">
+    <div class="group relative min-w-0">
+        <a href="/game?address=<?php echo $game_address; ?>" class="block max-w-full min-w-0">
             <div class="flex h-fit w-full overflow-hidden border-2 p-3 group-hover:border-emerald-400 border-transparent hover:bg-emerald-950/30 max-h-[300px] gap-3">
-                <!-- Image on the left -->
-                <div class="aspect-square relative min-w-[128px] self-start">
+                <!-- Image on the left - Made responsive -->
+                <div class="aspect-square relative flex-shrink-0 w-20 sm:w-32">
                     <img
                         src="<?php echo $image_url; ?>"
                         alt="<?php echo $game_name; ?>"
                         loading="lazy"
-                        width="128"
-                        height="128"
-                        class="h-32 w-32 object-cover bg-zinc-800"
+                        class="h-20 w-20 sm:h-32 sm:w-32 object-cover bg-zinc-800"
                     >
                 </div>
 
-                <!-- Content on the right -->
-                <div class="flex-1 grid h-fit gap-2">
+                <!-- Content on the right - Added min-w-0 to allow text truncation -->
+                <div class="flex-1 grid h-fit gap-2 min-w-0">
                     <!-- Metadata section (created at and market cap) -->
                     <div class="space-y-1 pb-1">
                         <!-- Created info and timestamp -->
@@ -78,9 +76,9 @@ function game_render($game)
                         </div>
                     </div>
 
-                    <!-- Game name, symbol and description on same line -->
+                    <!-- Game name, symbol and description - Added break-words for long text -->
                     <div>
-                        <p class="text-sm text-zinc-300">
+                        <p class="text-sm text-zinc-300 break-words">
                             <span class="font-extrabold">
                                 <?php echo $game_name; ?>
                                 (<?php echo $game_symbol; ?>)<?php if (!empty($description)): ?>:<?php endif; ?>

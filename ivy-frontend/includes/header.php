@@ -179,9 +179,9 @@ header("Content-Type: text/html; charset=UTF-8");
                             <input type="search" name="q" placeholder="search games..." class="h-12 w-full rounded-none border-2 border-emerald-400 bg-emerald-50 pl-10 text-sm font-bold text-emerald-950 placeholder:text-emerald-900/70 focus:outline-none focus:ring-0 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none">
                         </form>
                     </div>
-                    <a href="/upload" class="text-center rounded-none bg-emerald-400 text-emerald-950 hover:bg-emerald-300 font-bold px-4 py-3 flex items-center justify-center gap-2 text-sm">
-                        <?= icon("upload", "h-5 w-5") ?>
-                        <span>upload game</span>
+                    <a href="/launch" class="text-center rounded-none bg-emerald-400 text-emerald-950 hover:bg-emerald-300 font-bold px-4 py-3 flex items-center justify-center gap-2 text-sm">
+                        <?= icon("rocket", "h-5 w-5") ?>
+                        <span>launch gamecoin</span>
                     </a>
                 </div>
             </div>

@@ -12,7 +12,6 @@ use axum::{
     Router,
 };
 use std::{net::SocketAddr, sync::Arc};
-use tower_http::cors::CorsLayer;
 use tower_http::normalize_path::NormalizePathLayer;
 use tower_layer::Layer;
 
@@ -67,7 +66,6 @@ pub fn create_router(state: Arc<State>) -> Router {
         .route("/validate/address/{address}", get(validate_address))
         // Add state and CORS
         .with_state(state)
-        .layer(CorsLayer::permissive())
 }
 
 pub struct Server {

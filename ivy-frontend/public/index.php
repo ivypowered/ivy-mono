@@ -206,7 +206,7 @@ require_once __DIR__ . "/../includes/header.php";
 </style>
 
 <main class="py-8">
-  <div class="mx-auto max-w-7xl px-6">
+  <div class="mx-auto max-w-7xl px-3 sm:px-6">
     <!-- Header with Navigation Pills and Trade Ticker -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
       <!-- Navigation Pills -->

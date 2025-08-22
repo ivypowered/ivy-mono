@@ -160,6 +160,7 @@ export class Sync {
                 pumpTreasuryWallet: pumpWallet,
                 userSyncAta,
                 world: WORLD_ADDRESS,
+                beneficiary: SYNC_BENEFICIARY,
             })
             .instruction();
     }
