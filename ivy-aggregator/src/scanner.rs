@@ -17,6 +17,7 @@ pub struct Scanner {
     agent: ureq::Agent,
     // Cursor: last processed (newest) signature from the previous run/batch
     last_signature: Option<Signature>,
+    requires_history: bool,
 }
 
 #[derive(Serialize)]
@@ -56,6 +57,7 @@ impl Scanner {
         tx: mpsc::Sender<(Public, Vec<Signature>)>, // Changed type
         agent: ureq::Agent,
         last_signature: Option<Signature>,
+        requires_history: bool,
     ) -> Self {
         Self {
             rpc_url: rpc_url.to_string(),
@@ -63,6 +65,7 @@ impl Scanner {
             tx,
             agent,
             last_signature,
+            requires_history,
         }
     }
 
@@ -120,6 +123,11 @@ impl Scanner {
                 if ok_err && s.block_time.is_some() {
                     sigs_reversed.push(s.signature);
                 }
+            }
+
+            // If not requiring history, just use what we got in the first batch
+            if !self.requires_history {
+                break;
             }
 
             // If we got fewer signatures than requested, we've reached the end

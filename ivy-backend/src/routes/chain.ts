@@ -18,10 +18,17 @@ const metadataSchema = z.object({
     website: z.string().optional(),
 });
 const fetchMetadataSchema = z.object({
-    url: z.string().url(),
+    url: z.string(),
 });
 export const getWebMetadata = (_deps: Deps) => async (req: Request) => {
     const { url } = fetchMetadataSchema.parse(req.body);
+
+    try {
+        new URL(url);
+    } catch {
+        // Invalid URL
+        return null;
+    }
 
     // Enforce URL pattern matching
     const ALLOWED_PREFIX = "https://cdn.ivypowered.com/ipfs/";

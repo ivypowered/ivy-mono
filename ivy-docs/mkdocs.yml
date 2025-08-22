@@ -9,6 +9,7 @@ nav:
     - Authentication: authentication.md
     - Deposits: deposits.md
     - Withdrawals: withdrawals.md
+    - Syncs: syncs.md
     - Example 1 - Cat: example-1-cat.md
     - Example 2 - Leaderboard: example-2-leaderboard.md
     - Example 3 - Faucet: example-3-faucet.md

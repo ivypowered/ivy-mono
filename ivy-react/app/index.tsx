@@ -54,6 +54,7 @@ function Root({
     if (!hasMounted.current) {
         if (tokenElement) tokenElement.innerHTML = "";
         if (gameElement) gameElement.innerHTML = "";
+        if (syncElement) syncElement.innerHTML = "";
         if (buttonElement) buttonElement.innerHTML = "";
         if (walletElement) walletElement.innerHTML = "";
         if (walletMobileElement) walletMobileElement.innerHTML = "";
@@ -157,7 +158,7 @@ const render = () => {
     // Parse game data if available
     let gameData: GameObject | undefined;
     if (gameElement) {
-        const gameBase64 = gameElement?.dataset.game;
+        const gameBase64 = gameElement?.dataset.info;
         if (!gameBase64) {
             throw new Error("Can't find game in dataset");
         }

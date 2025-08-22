@@ -27,13 +27,13 @@ fn default_count() -> usize {
 // Handler functions
 pub async fn get_comments(
     AxumState(state): AxumState<Arc<State>>,
-    Path(game): Path<Public>,
+    Path(asset): Path<Public>, // Changed from 'game' to 'asset' for clarity
     Query(params): Query<CommentsParams>,
 ) -> Json<ApiResponse<CommentInfo>> {
     let data = state.read().unwrap();
-    let (total, comments) =
-        data.games
-            .get_comment_info(game, params.count, params.skip, params.reverse);
+    let (total, comments) = data
+        .comments // Changed from data.games to data.comments
+        .get_comment_info(asset, params.count, params.skip, params.reverse);
 
     success(CommentInfo { total, comments })
 }

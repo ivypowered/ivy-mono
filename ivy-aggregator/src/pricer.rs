@@ -3,20 +3,22 @@ use crate::types::signature::Signature;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
-use ureq;
+use ureq::Agent;
 
 const SOL_PRICE_INTERVAL: Duration = Duration::from_secs(60);
 
 pub struct Pricer {
     api_url: String,
     retriever_tx: mpsc::Sender<Vec<Event>>,
+    agent: Agent,
 }
 
 impl Pricer {
-    pub fn new(api_url: String, retriever_tx: mpsc::Sender<Vec<Event>>) -> Self {
+    pub fn new(api_url: String, retriever_tx: mpsc::Sender<Vec<Event>>, agent: Agent) -> Self {
         Self {
             api_url,
             retriever_tx,
+            agent,
         }
     }
 
@@ -34,7 +36,7 @@ impl Pricer {
     fn fetch_and_send_price(&self) {
         let url = format!("{}/sol-price", self.api_url);
 
-        let mut response = match ureq::get(&url).call() {
+        let response = match self.agent.get(&url).call() {
             Ok(response) => response,
             Err(e) => {
                 eprintln!("Pricer: Failed to fetch SOL price: {}", e);
@@ -42,7 +44,7 @@ impl Pricer {
             }
         };
 
-        let json = match response.body_mut().read_json::<serde_json::Value>() {
+        let json = match response.into_body().read_json::<serde_json::Value>() {
             Ok(json) => json,
             Err(e) => {
                 eprintln!("Pricer: Failed to parse JSON response: {}", e);

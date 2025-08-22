@@ -5,11 +5,11 @@ use tokio::sync::{broadcast, watch};
 
 use crate::pf::{PaBuyEvent, PaSellEvent, PfMigrationEvent, PfTradeEvent};
 use crate::state::components::prices::PricesComponent;
-use crate::state::constants::MAX_CANDLES;
+use crate::state::constants::{HIDDEN_SYNCS, MAX_CANDLES};
 use crate::types::asset::Asset;
 use crate::types::chart::Candle;
 use crate::types::charts::{ChartKind, Charts};
-use crate::types::event::{Event, EventData, HydrateEvent, SyncCreateEvent}; // CHANGED
+use crate::types::event::{Event, EventData, HydrateEvent, SyncCreateEvent};
 use crate::types::public::Public;
 use crate::types::sync::Sync;
 use crate::types::trade::Trade;
@@ -132,15 +132,20 @@ impl SyncComponent {
         assets: &mut AssetsComponent,
     ) -> bool {
         match &event.data {
-            EventData::SyncCreate(d) => self.handle_sync_create(event.timestamp, d, prices, assets),
+            EventData::SyncCreate(d) => {
+                self.handle_sync_create(event.timestamp, d, prices, assets);
+                true
+            }
             EventData::PfTrade(d) => self.handle_pf_trade(event.timestamp, d, prices, assets),
             EventData::PfMigration(d) => self.handle_pf_migration(d),
             EventData::PaBuy(d) => self.handle_pa_buy(event.timestamp, d, prices, assets),
             EventData::PaSell(d) => self.handle_pa_sell(event.timestamp, d, prices, assets),
-            EventData::Hydrate(d) => self.handle_hydrate(d), // NEW
-            _ => return false,
+            EventData::Hydrate(d) => {
+                self.handle_hydrate(d);
+                true
+            }
+            _ => false,
         }
-        true
     }
 
     fn handle_sync_create(
@@ -150,6 +155,11 @@ impl SyncComponent {
         prices: &PricesComponent,
         assets: &mut AssetsComponent,
     ) {
+        // Check if this sync is hidden
+        if HIDDEN_SYNCS.contains(&d.sync) {
+            return;
+        }
+
         if self.address_to_index.contains_key(&d.sync) {
             eprintln!("warning: duplicate SyncCreate for {}", d.sync);
             return;
@@ -173,7 +183,7 @@ impl SyncComponent {
             name: d.name.clone(),
             symbol: d.symbol.clone(),
             address: d.sync,
-            pump_mint: d.pump_mint,
+            external_mint: d.pump_mint,
             create_timestamp: timestamp,
             metadata_url: d.metadata_url.clone(),
             icon_url: String::new(),    // removed from event; hydrate later
@@ -183,6 +193,7 @@ impl SyncComponent {
             pswap_pool: None,
             last_price_usd: initial_price_usd,
             mkt_cap_usd: initial_mkt_cap_usd,
+            change_pct_24h: 0.0,
             sol_reserves: initial_sol_reserves,
             token_reserves: initial_token_reserves,
         };
@@ -193,7 +204,9 @@ impl SyncComponent {
         // Add initial candle to charts (similar to game.rs)
         // Using 0.0 for volume since this is just creation, not a trade
         if initial_price_usd.is_normal() {
-            _ = meta.charts.append(timestamp, initial_price_usd, 0.0);
+            if let Err(e) = meta.charts.append(timestamp, initial_price_usd, 0.0) {
+                eprintln!("Failed to append chart data for sync create: {:?}", e);
+            }
         }
 
         // Broadcast initial update
@@ -223,22 +236,28 @@ impl SyncComponent {
         d: &PfTradeEvent,
         prices: &PricesComponent,
         assets: &mut AssetsComponent,
-    ) {
+    ) -> bool {
         // Single lookup to get index, then direct access to both sync and metas
         let Some(&index) = self.pump_mint_to_index.get(&d.mint) else {
-            return;
+            return false;
         };
         let s = &mut self.syncs[index];
+
+        // Check if this sync is hidden
+        if HIDDEN_SYNCS.contains(&s.address) {
+            return false;
+        }
+
         let meta = &mut self.metas[index];
 
         // ignore PF after migration
         if s.is_migrated {
-            return;
+            return false;
         }
 
         // Skip zero amounts
         if d.token_amount == 0 {
-            return;
+            return false;
         }
 
         // Store old market cap for asset update
@@ -252,13 +271,16 @@ impl SyncComponent {
             (from_sol_amount(d.sol_amount) * sol_usd) / from_token_amount(d.token_amount);
 
         if !price_usd.is_normal() || !volume_usd.is_normal() {
-            return;
+            return false;
         }
 
-        _ = meta.charts.append(timestamp, price_usd, volume_usd);
+        if let Err(e) = meta.charts.append(timestamp, price_usd, volume_usd) {
+            eprintln!("Failed to append chart data for pf trade: {:?}", e);
+        }
 
         s.last_price_usd = price_usd;
         s.mkt_cap_usd = price_usd * SYNC_MAX_SUPPLY_TOKENS;
+        s.change_pct_24h = meta.charts.get_change_pct_24h().unwrap_or(0.0);
 
         // Update virtual reserves (these come from the PfTradeEvent)
         s.sol_reserves = d.virtual_sol_reserves;
@@ -291,16 +313,26 @@ impl SyncComponent {
         if old_mkt_cap_usd != s.mkt_cap_usd {
             assets.on_sync_updated(index, old_mkt_cap_usd, s.mkt_cap_usd, s.create_timestamp);
         }
+
+        // Persist this event
+        true
     }
 
-    fn handle_pf_migration(&mut self, d: &PfMigrationEvent) {
+    fn handle_pf_migration(&mut self, d: &PfMigrationEvent) -> bool {
         let Some(&index) = self.pump_mint_to_index.get(&d.mint) else {
-            return;
+            return false;
         };
         let s = &mut self.syncs[index];
+
+        // Check if this sync is hidden
+        if HIDDEN_SYNCS.contains(&s.address) {
+            return false;
+        }
+
         s.is_migrated = true;
         s.pswap_pool = Some(d.pool);
         self.pool_to_index.insert(d.pool, index);
+        true
     }
 
     fn handle_pa_buy(
@@ -309,22 +341,28 @@ impl SyncComponent {
         d: &PaBuyEvent,
         prices: &PricesComponent,
         assets: &mut AssetsComponent,
-    ) {
+    ) -> bool {
         // Single lookup to get index, then direct access to both sync and metas
         let Some(&index) = self.pool_to_index.get(&d.pool) else {
-            return;
+            return false;
         };
         let s = &mut self.syncs[index];
+
+        // Check if this sync is hidden
+        if HIDDEN_SYNCS.contains(&s.address) {
+            return false;
+        }
+
         let meta = &mut self.metas[index];
 
         // PA is active only post migration
         if !s.is_migrated {
-            return;
+            return false;
         }
 
         // Skip zero amounts
         if d.base_amount_out == 0 {
-            return;
+            return false;
         }
 
         // Store old market cap for asset update
@@ -338,11 +376,14 @@ impl SyncComponent {
         let price_usd =
             (from_sol_amount(d.quote_amount_in) * sol_usd) / from_token_amount(d.base_amount_out);
         if !price_usd.is_normal() || !volume_usd.is_normal() {
-            return;
+            return false;
         }
-        _ = meta.charts.append(timestamp, price_usd, volume_usd);
+        if let Err(e) = meta.charts.append(timestamp, price_usd, volume_usd) {
+            eprintln!("Failed to append chart data for pa buy: {:?}", e);
+        }
         s.last_price_usd = price_usd;
         s.mkt_cap_usd = price_usd * SYNC_MAX_SUPPLY_TOKENS;
+        s.change_pct_24h = meta.charts.get_change_pct_24h().unwrap_or(0.0);
 
         // Update pool reserves (these come from the PaBuyEvent)
         s.sol_reserves = d.pool_quote_token_reserves;
@@ -375,12 +416,21 @@ impl SyncComponent {
         if old_mkt_cap_usd != s.mkt_cap_usd {
             assets.on_sync_updated(index, old_mkt_cap_usd, s.mkt_cap_usd, s.create_timestamp);
         }
+
+        // Persist this event
+        true
     }
 
     fn handle_hydrate(&mut self, d: &HydrateEvent) {
         let Some(&index) = self.address_to_index.get(&d.asset) else {
             return;
         };
+
+        // Check if this sync is hidden
+        if HIDDEN_SYNCS.contains(&d.asset) {
+            return;
+        }
+
         if d.icon_url.is_empty() {
             // prevent asset spam
             return;
@@ -403,15 +453,21 @@ impl SyncComponent {
         d: &PaSellEvent,
         prices: &PricesComponent,
         assets: &mut AssetsComponent,
-    ) {
+    ) -> bool {
         let Some(&index) = self.pool_to_index.get(&d.pool) else {
-            return;
+            return false;
         };
         let s = &mut self.syncs[index];
+
+        // Check if this sync is hidden
+        if HIDDEN_SYNCS.contains(&s.address) {
+            return false;
+        }
+
         let meta = &mut self.metas[index];
 
         if !s.is_migrated {
-            return;
+            return false;
         }
 
         // Store old market cap for asset update
@@ -421,10 +477,9 @@ impl SyncComponent {
         // The migrated pools are always quote=WSOL, base=TOKEN.
         // Skip zero amounts
         if d.base_amount_in == 0 {
-            return;
+            return false;
         }
 
-        // Use the gold standard calculation method from handle_pa_buy
         let sol_usd = prices.sol();
         let volume_usd = from_sol_amount(d.quote_amount_out) * sol_usd;
         // how many USD per input token?
@@ -432,11 +487,14 @@ impl SyncComponent {
             (from_sol_amount(d.quote_amount_out) * sol_usd) / from_token_amount(d.base_amount_in);
 
         if !price_usd.is_normal() || !volume_usd.is_normal() {
-            return;
+            return false;
         }
-        _ = meta.charts.append(timestamp, price_usd, volume_usd);
+        if let Err(e) = meta.charts.append(timestamp, price_usd, volume_usd) {
+            eprintln!("Failed to append chart data for pa sell: {:?}", e);
+        }
         s.last_price_usd = price_usd;
         s.mkt_cap_usd = price_usd * SYNC_MAX_SUPPLY_TOKENS;
+        s.change_pct_24h = meta.charts.get_change_pct_24h().unwrap_or(0.0);
 
         // Update pool reserves (these come from the PaSellEvent)
         s.sol_reserves = d.pool_quote_token_reserves;
@@ -469,6 +527,8 @@ impl SyncComponent {
         if old_mkt_cap_usd != s.mkt_cap_usd {
             assets.on_sync_updated(index, old_mkt_cap_usd, s.mkt_cap_usd, s.create_timestamp);
         }
+
+        true
     }
 
     // --- Queries / helpers ---
@@ -483,10 +543,10 @@ impl SyncComponent {
         sync: Public,
         kind: ChartKind,
         count: usize,
-        until_inclusive: u64,
+        after_inclusive: u64,
     ) -> Vec<Candle> {
         match self.address_to_index.get(&sync) {
-            Some(&index) => self.metas[index].charts.query(kind, count, until_inclusive),
+            Some(&index) => self.metas[index].charts.query(kind, count, after_inclusive),
             None => Vec::new(),
         }
     }

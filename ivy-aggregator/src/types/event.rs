@@ -402,14 +402,6 @@ impl_event_type!(SyncCreateEvent, "syncCreateEvent", SyncCreate);
 pub struct SyncSwapEvent {
     pub sync: Public,
     pub user: Public,
-    #[serde(rename = "virtualSolReserves")]
-    #[serde(serialize_with = "serialize_u64_as_string")]
-    #[serde(deserialize_with = "deserialize_u64_from_string")]
-    pub virtual_sol_reserves: u64,
-    #[serde(rename = "virtualTokenReserves")]
-    #[serde(serialize_with = "serialize_u64_as_string")]
-    #[serde(deserialize_with = "deserialize_u64_from_string")]
-    pub virtual_token_reserves: u64,
     #[serde(rename = "solAmount")]
     #[serde(serialize_with = "serialize_u64_as_string")]
     #[serde(deserialize_with = "deserialize_u64_from_string")]

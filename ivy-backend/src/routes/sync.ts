@@ -12,12 +12,10 @@ import { parsePublicKey } from "../utils/requestHelpers";
 
 const createSyncSchema = z.object({
     pump_mint: z.string(),
-    seed: z.string().optional(), // Optional hex seed override
+    seed: z.string(),
     name: z.string(),
     symbol: z.string(),
-    short_desc: z.string(),
     metadata_url: z.string(),
-    icon_url: z.string(),
     game_url: z.string(),
 });
 
@@ -28,25 +26,25 @@ export const createSyncTx = (_deps: Deps) => async (req: Request) => {
     const pumpMint = parsePublicKey(data.pump_mint, "pump_mint");
 
     // Handle optional seed override
-    let seedBuffer: Buffer | undefined;
-    if (data.seed) {
-        seedBuffer = Buffer.from(data.seed, "hex");
-    }
+    const seed = Uint8Array.from(Buffer.from(data.seed, "hex"));
 
-    // Create Sync instance
-    const sync = await Sync.fromMint(pumpMint, seedBuffer);
+    // Derive the sync address
+    const sync = Sync.deriveAddress(seed);
+
+    // Derive the sync mint
+    const syncMint = Sync.deriveMint(sync);
 
     // Generate a user keypair for the transaction
     const user = Keypair.generate().publicKey;
 
     // Create the sync instruction
-    const instruction = await sync.create(
+    const instruction = await Sync.create(
         user,
+        seed,
+        pumpMint,
         data.name,
         data.symbol,
-        data.short_desc,
         data.metadata_url,
-        data.icon_url,
         data.game_url,
     );
 
@@ -57,7 +55,7 @@ export const createSyncTx = (_deps: Deps) => async (req: Request) => {
     const prepared = prepareTransaction("SyncCreate", tx, user, [
         // User's sync mint ATA
         {
-            seeds: [user, TOKEN_PROGRAM_ID, sync.syncMint],
+            seeds: [user, TOKEN_PROGRAM_ID, syncMint],
             program_id: ASSOCIATED_TOKEN_PROGRAM_ID,
         },
         // User's pump mint ATA (might be needed for future swaps)
@@ -68,9 +66,9 @@ export const createSyncTx = (_deps: Deps) => async (req: Request) => {
     ]);
 
     return {
-        sync_address: sync.sync.toString(),
-        sync_mint: sync.syncMint.toString(),
-        seed: sync.seed.toString("hex"),
+        sync_address: sync.toString(),
+        sync_mint: syncMint.toString(),
+        seed: Buffer.from(seed).toString("hex"),
         tx: prepared,
     };
 };

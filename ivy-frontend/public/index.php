@@ -94,6 +94,13 @@ require_once __DIR__ . "/../includes/header.php";
 
 .trade-ticker {
   position: relative;
+  color: #34d399;
+}
+
+.trade-ticker:hover {
+    color: #022c22 !important;
+    background-color: #34d399 !important;
+    border-color: #34d399 !important;
 }
 
 /* Active state - flashing emerald backgrounds */
@@ -217,7 +224,7 @@ require_once __DIR__ . "/../includes/header.php";
 
       <!-- Trade Ticker shell -->
       <div id="trade-ticker"
-           class="trade-ticker px-3 py-2 text-sm border-emerald-400 border-2 bg-zinc-900 text-emerald-400 hover:bg-emerald-400 hover:text-emerald-950 hidden"
+           class="trade-ticker px-3 py-2 text-sm border-emerald-400 border-2 bg-zinc-900 hidden"
            role="status" aria-live="polite">
       </div>
     </div>

@@ -4,10 +4,21 @@ Games are the central organizing resource in Ivy.
 
 ## Using the REST API
 
-The REST API provides an endpoint to retrieve a game's information by its address.
+The REST API provides endpoints to retrieve game information and receipt details.
+
+### Endpoints
 
 <small class="route-tag">GET</small> `/api/games/{address}`
 Retrieve a specific game by its address.
+
+<small class="route-tag">GET</small> `/api/games/{game}/burn/{id}`
+Get burn receipt information for a specific game.
+
+<small class="route-tag">GET</small> `/api/games/{game}/deposit/{id}`
+Get deposit receipt information for a specific game.
+
+<small class="route-tag">GET</small> `/api/games/{game}/withdraw/{id}`
+Get withdraw receipt information for a specific game.
 
 ### The Game object
 
@@ -25,9 +36,9 @@ The token symbol for the game's currency.
 
 ---
 
-**short_desc** `string`
+**description** `string`
 
-A brief description of the game.
+A full description of the game.
 
 ---
 
@@ -37,9 +48,27 @@ Unique identifier (Solana address) for the game object.
 
 ---
 
+**mint** `PublicKey`
+
+Address of the game's token mint.
+
+---
+
 **swap_alt** `PublicKey`
 
 Address of the Address Lookup Table (ALT) used for swaps within this game's AMM.
+
+---
+
+**owner** `PublicKey`
+
+Address of the game's owner account.
+
+---
+
+**withdraw_authority** `PublicKey`
+
+Address authorized to withdraw from the game's treasury.
 
 ---
 
@@ -49,9 +78,9 @@ URL link to the game's official website or playable location.
 
 ---
 
-**cover_url** `string`
+**icon_url** `string`
 
-URL of the game's cover image.
+URL of the game's icon/logo image.
 
 ---
 
@@ -67,21 +96,39 @@ Time at which the game object was created (Unix timestamp in seconds).
 
 ---
 
-**ivy_balance** `integer`
+**ivy_balance** `string`
 
-Current RAW balance of IVY tokens held in the game's bonding curve. This amount equals the game's IVY market cap.
-
----
-
-**game_balance** `integer`
-
-Current RAW balance of the game's token in the game's bonding curve.
+Current RAW balance of IVY tokens held in the game's bonding curve (serialized as string). This amount equals the game's IVY market cap.
 
 ---
 
-**starting_ivy_balance** `integer`
+**game_balance** `string`
 
-The initial amount of IVY tokens deposited into the AMM pool when the game was created (smallest unit). The total amount of IVY deposited into the game's curve is equal to `ivy_balance - starting_ivy_balance`.
+Current RAW balance of the game's token in the game's bonding curve (serialized as string).
+
+---
+
+**starting_ivy_balance** `string`
+
+The initial amount of IVY tokens deposited into the AMM pool when the game was created (serialized as string). The total amount of IVY deposited into the game's curve is equal to `ivy_balance - starting_ivy_balance`.
+
+---
+
+**last_price_usd** `number`
+
+The last traded price of the game token in USD.
+
+---
+
+**mkt_cap_usd** `number`
+
+The current market capitalization of the game in USD.
+
+---
+
+**change_pct_24h** `number`
+
+The percentage change in price over the last 24 hours.
 
 ### Example Request
 
@@ -97,20 +144,49 @@ curl https://ivypowered.com/api/games/GamePublicKey11111111111111111111111111111
     "data": {
         "name": "Pixel Warriors",
         "symbol": "PIXEL",
-        "short_desc": "A retro 2D battle arena.",
+        "description": "A retro 2D battle arena where players compete for glory.",
         "address": "GamePublicKey11111111111111111111111111111111",
+        "mint": "MintPublicKey11111111111111111111111111111111",
         "swap_alt": "SwapAltPublicKey11111111111111111111111111111",
+        "owner": "OwnerPublicKey11111111111111111111111111111111",
+        "withdraw_authority": "WithdrawAuthKey11111111111111111111111111111",
         "game_url": "https://pixelwarriors.example.com",
-        "cover_url": "https://ipfs.io/ipfs/bafybeihcover1...",
+        "icon_url": "https://ipfs.io/ipfs/bafybeihicon1...",
         "metadata_url": "https://ipfs.io/ipfs/bafkreihmetadata1...",
         "create_timestamp": 1678942624,
-        "ivy_balance": 150000000000,
-        "game_balance": 7500000000000,
-        "starting_ivy_balance": 100000000000,
-        "normalized_name": "pixelwarriors"
+        "ivy_balance": "150000000000",
+        "game_balance": "7500000000000",
+        "starting_ivy_balance": "100000000000",
+        "last_price_usd": 0.0042,
+        "mkt_cap_usd": 42000.5,
+        "change_pct_24h": 15.3
     }
 }
 ```
+
+### Receipt Endpoints
+
+The API also provides endpoints to query receipt information for burns, deposits, and withdrawals:
+
+#### Burn Receipt Example
+
+```bash
+curl https://ivypowered.com/api/games/GamePublicKey11111111111111111111111111111111/burn/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+```
+
+#### Deposit Receipt Example
+
+```bash
+curl https://ivypowered.com/api/games/GamePublicKey11111111111111111111111111111111/deposit/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+```
+
+#### Withdraw Receipt Example
+
+```bash
+curl https://ivypowered.com/api/games/GamePublicKey11111111111111111111111111111111/withdraw/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+```
+
+Note: The receipt ID must be a 32-byte value provided as a 64-character hexadecimal string.
 
 ## Using the JavaScript API
 

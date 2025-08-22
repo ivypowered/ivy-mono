@@ -15,9 +15,10 @@ import { useSyncStream } from "@/lib/useSyncStream";
 import { QuoteContext } from "@/components/swap/QuoteProvider";
 import Decimal from "decimal.js-light";
 import { fetchBalance } from "./util";
-import { SYNC_DECIMALS } from "@/import/ivy-sdk";
+import { Sync, SYNC_DECIMALS } from "@/import/ivy-sdk";
 import { Frame } from "../frame";
 import { Description } from "./Description";
+import { Comments } from "./Comments"; // Added import
 
 export interface SyncInfo {
     address: string;
@@ -26,9 +27,12 @@ export interface SyncInfo {
     icon_url: string;
     description: string;
     create_timestamp: number;
-    token_mint: string;
     game_url: string;
+    external_mint: string;
     decimals: number;
+    last_price_usd: number;
+    mkt_cap_usd: number;
+    change_pct_24h: number;
 }
 
 // Sync display component for pump.fun tokens
@@ -67,7 +71,7 @@ export function SyncDisplay({ syncInfo }: { syncInfo: SyncInfo }) {
             symbol: syncInfo.symbol,
             icon: syncInfo.icon_url || TRANSPARENT_1X1,
             decimals: SYNC_DECIMALS,
-            mint: syncInfo.token_mint,
+            mint: Sync.deriveMint(new PublicKey(syncInfo.address)).toBase58(),
         };
     }, [syncInfo]);
 
@@ -83,21 +87,24 @@ export function SyncDisplay({ syncInfo }: { syncInfo: SyncInfo }) {
                       solPrice: streamData.solPrice,
                   }
                 : null,
-            tokenMint: new PublicKey(syncInfo.token_mint),
+            tokenMint: new PublicKey(syncToken.mint),
             isSync: true,
+            pumpMint: new PublicKey(syncInfo.external_mint),
+            syncAddress: new PublicKey(syncInfo.address),
         };
-    }, [streamData, syncInfo.token_mint]);
+    }, [streamData, syncInfo.external_mint, syncToken.mint, syncInfo.address]);
 
     // Calculate price data from stream
     const priceUsd = useMemo(() => {
         if (streamData?.candles && streamData.candles.length > 0) {
             return streamData.candles[streamData.candles.length - 1].close;
         }
-        return 0;
-    }, [streamData?.candles]);
+        return syncInfo.last_price_usd;
+    }, [streamData?.candles, syncInfo.last_price_usd]);
 
-    const changePercentUsd = streamData?.changePct24h || 0;
-    const marketCap = streamData?.mktCapUsd || 0;
+    const changePercentUsd =
+        streamData?.changePct24h || syncInfo.change_pct_24h;
+    const marketCap = streamData?.mktCapUsd || syncInfo.mkt_cap_usd;
 
     // Created at from sync timestamp
     const createdAt = useMemo(() => {
@@ -156,6 +163,7 @@ export function SyncDisplay({ syncInfo }: { syncInfo: SyncInfo }) {
                                         setActiveTab={setActiveTab}
                                         withPlayButton={!!syncInfo.game_url}
                                         editHref=""
+                                        isSync={true}
                                     />
 
                                     <div className="flex-1 min-h-[400px] relative">
@@ -190,6 +198,22 @@ export function SyncDisplay({ syncInfo }: { syncInfo: SyncInfo }) {
                 <Description
                     className="mt-8"
                     description={syncInfo.description}
+                />
+
+                {/* Comments Section */}
+                <Comments
+                    gameAddress={syncInfo.address}
+                    userAddress={publicKey?.toBase58()}
+                    onConnectWallet={() => openModal()}
+                    signTransaction={
+                        signTransaction ||
+                        (() => {
+                            throw new Error("can't find signTransaction");
+                        })
+                    }
+                    comments={streamData?.comments}
+                    totalComments={streamData?.comments?.length || 0}
+                    className="mt-8"
                 />
             </div>
         </div>

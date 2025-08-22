@@ -113,7 +113,7 @@ impl Chart {
 
     /// Gets the change in 24h
     pub fn get_change_pct_24h(&self) -> Option<f32> {
-        let price_24h = self.candles[self.index_24h?].close;
+        let price_24h = self.candles[self.index_24h?].open;
         let price_now = self.candles.back()?.close;
         Some(match price_24h {
             0.0 => f32::INFINITY,

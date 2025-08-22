@@ -1,5 +1,6 @@
 "use client";
 
+import { Pyramid } from "lucide-react";
 import {
     CHART_INTERVALS,
     type ChartInterval,
@@ -129,9 +130,11 @@ const fromNow = (date: Date): string => {
 const TokenIdentity = ({
     token,
     editHref,
+    isSync,
 }: {
     token: ChartToken;
     editHref: string;
+    isSync: boolean;
 }) => {
     const [copied, setCopied] = useState(false);
     const copyRound = useRef(0);
@@ -177,6 +180,11 @@ const TokenIdentity = ({
                         <CopyIcon className="w-4 h-4" />
                     )}
                 </button>
+                {isSync && (
+                    <div title="Synced liquidity">
+                        <Pyramid className="text-zinc-500 w-4 h-4 ml-1" />
+                    </div>
+                )}
             </div>
             {editHref && (
                 <Link
@@ -199,7 +207,9 @@ const PriceInfo = ({
     changePercentUsd?: number;
 }) => (
     <div>
-        <div className="text-2xl font-bold">{formatCurrency(priceUsd)}</div>
+        <div className="flex items-center gap-2 justify-center">
+            <div className="text-2xl font-bold">{formatCurrency(priceUsd)}</div>
+        </div>
         {changePercentUsd != null && (
             <div
                 className={`text-sm ${changePercentUsd >= 0 ? "text-emerald-400" : "text-red-400"}`}
@@ -250,6 +260,7 @@ interface ChartHeaderProps {
     setActiveTab: (tab: ChartTab) => void;
     withPlayButton: boolean;
     editHref?: string;
+    isSync?: boolean;
 }
 
 export function ChartHeader({
@@ -264,13 +275,18 @@ export function ChartHeader({
     setActiveTab,
     withPlayButton,
     editHref = "",
+    isSync = false,
 }: ChartHeaderProps) {
     return (
         <div className="bg-zinc-900 text-white border-b-4 border-emerald-400 relative">
             <div className="p-4 space-y-4">
                 {/* Section 1: Token Info and Market Data */}
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                    <TokenIdentity token={token} editHref={editHref} />
+                    <TokenIdentity
+                        token={token}
+                        editHref={editHref}
+                        isSync={isSync}
+                    />
 
                     {/* Price Info (Mobile Only) */}
                     <div className="sm:hidden">

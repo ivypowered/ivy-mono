@@ -1,3 +1,4 @@
+// ivy-aggregator/src/state/mod.rs (UPDATED)
 use std::sync::{mpsc, RwLock};
 
 pub mod components;
@@ -8,9 +9,10 @@ pub mod types;
 use crate::types::public::Public;
 use crate::types::{asset::Asset, event::Event, trade::Trade};
 use components::{
-    assets::AssetsComponent, games::GamesComponent, hydrate::HydrateComponent, pnl::PnlComponent,
-    prices::PricesComponent, receipts::ReceiptsComponent, sync::SyncComponent,
-    volume::VolumeComponent, world::WorldComponent,
+    assets::AssetsComponent, comments::CommentsComponent, games::GamesComponent,
+    hydrate::HydrateComponent, pnl::PnlComponent, prices::PricesComponent,
+    receipts::ReceiptsComponent, sync::SyncComponent, volume::VolumeComponent,
+    world::WorldComponent,
 };
 use constants::MAX_CANDLES;
 use tokio::sync::{broadcast, watch};
@@ -23,6 +25,7 @@ pub type State = RwLock<StateData>;
 pub struct StateData {
     pub assets: AssetsComponent,
     pub assets_rx: broadcast::Receiver<Asset>,
+    pub comments: CommentsComponent,
     pub games: GamesComponent,
     pub hydrator: HydrateComponent,
     pub pnl: PnlComponent,
@@ -41,6 +44,7 @@ impl StateData {
         StateData {
             assets: AssetsComponent::new(),
             assets_rx,
+            comments: CommentsComponent::new(),
             games: GamesComponent::new(MAX_CANDLES, trades_tx.clone(), assets_tx.clone()),
             hydrator: HydrateComponent::new(hydrator_tx),
             pnl: PnlComponent::new(),
@@ -55,6 +59,7 @@ impl StateData {
 
     pub fn on_event(&mut self, event: &Event) -> bool {
         let mut used = false;
+        used |= self.comments.on_event(event);
         used |= self.games.on_event(event, &self.world, &mut self.assets);
         used |= self.hydrator.on_event(event);
         used |= self.pnl.on_event(event, &self.world, &self.prices);

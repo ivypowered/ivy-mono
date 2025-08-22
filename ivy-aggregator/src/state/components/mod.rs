@@ -1,4 +1,5 @@
 pub mod assets;
+pub mod comments;
 pub mod games;
 pub mod hydrate;
 pub mod pnl;

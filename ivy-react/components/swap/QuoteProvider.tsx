@@ -29,6 +29,8 @@ export type QuoteContext =
     | {
           syncInfo: SyncQuoteInfo | null;
           tokenMint: PublicKey;
+          pumpMint: PublicKey;
+          syncAddress: PublicKey;
           isSync: true;
       };
 
@@ -62,6 +64,8 @@ export function useQuoteResult(
             slippageBps,
             tokenMint: context.tokenMint,
             syncInfo: context.syncInfo,
+            syncAddress: context.syncAddress,
+            pumpMint: context.pumpMint,
         });
     } else {
         // eslint-disable-next-line react-hooks/rules-of-hooks

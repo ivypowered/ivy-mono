@@ -18,9 +18,7 @@ export function registerGameEditCommand(
             "New withdraw authority address",
         )
         .requiredOption("-u, --game-url <url>", "New game URL")
-        .requiredOption("-s, --short-desc <desc>", "New short description")
         .requiredOption("-m, --metadata-url <url>", "New metadata URL")
-        .requiredOption("-i, --icon-url <url>", "New icon URL")
         .option(
             "-k, --keypair <path>",
             "Path to keypair file for signing (must be current owner)",
@@ -83,9 +81,7 @@ export function registerGameEditCommand(
                     newOwner,
                     newWithdrawAuthority,
                     options.gameUrl,
-                    options.shortDesc,
                     options.metadataUrl,
-                    options.iconUrl,
                 );
 
                 const { lastValidBlockHeight, blockhash } =

@@ -71,7 +71,7 @@ require_once __DIR__ . "/../includes/header.php";
     <!-- Asset mount point -->
     <div
         id="<?= $asset_type === "game" ? "ivy-game" : "ivy-sync" ?>"
-        data-game="<?php echo htmlspecialchars($asset_base64); ?>"
+        data-info="<?php echo htmlspecialchars($asset_base64); ?>"
     >
         <!-- Skeleton -->
         <div id="asset-skeleton">

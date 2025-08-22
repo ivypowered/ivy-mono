@@ -104,17 +104,27 @@ export function ChartBase({
             priceFormat: {
                 type: "custom",
                 formatter: (price: number) => {
-                    return price.toFixed(
-                        Math.min(
-                            8, // Max 8 decimals
-                            Math.max(
-                                2, // Min 2 decimals
-                                price < 1
-                                    ? -Math.floor(Math.log10(price)) + 2 // Auto decimals for < 1
-                                    : 2, // Default 2 for >= 1
-                            ),
-                        ),
-                    );
+                    if (price < 0) price = 0;
+
+                    let decimals;
+                    if (price < 0.00001) {
+                        // 5 decimals isn't going to cut it...
+                        // this, my friend, is zero :)
+                        decimals = 2;
+                    } else if (price < 1) {
+                        // Small numbers need more precision
+                        decimals = -Math.floor(Math.log10(price)) + 2;
+                    } else {
+                        // Regular numbers use 2 decimals
+                        decimals = 2;
+                    }
+
+                    // Step 2: Keep it between 2 and 8 decimals
+                    if (decimals < 2) decimals = 2;
+                    if (decimals > 5) decimals = 5;
+
+                    // Step 3: Format the number
+                    return price.toFixed(decimals);
                 },
                 minMove: 1e-8,
             },

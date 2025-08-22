@@ -7,8 +7,8 @@ export const TRANSPARENT_1X1 =
     "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
 // API base URLs
-export const API_BASE = "/api";
-export const API_STREAM_BASE = "/api";
+export const API_BASE = "https://ivypowered.com/api";
+export const API_STREAM_BASE = "https://ivypowered.com/api";
 
 // Decimal configurations
 export const USDC_DECIMALS = 6;

@@ -6,8 +6,8 @@ use crate::types::{asset::Asset, public::Public};
 pub struct Sync {
     pub name: String,
     pub symbol: String,
-    pub address: Public,   // Sync PDA
-    pub pump_mint: Public, // Pump.fun mint being mirrored
+    pub address: Public, // Sync PDA
+    pub external_mint: Public,
     pub create_timestamp: u64,
     pub metadata_url: String,
     pub icon_url: String,
@@ -19,6 +19,7 @@ pub struct Sync {
 
     pub last_price_usd: f32,
     pub mkt_cap_usd: f32,
+    pub change_pct_24h: f32,
 
     pub sol_reserves: u64,
     pub token_reserves: u64,

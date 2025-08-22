@@ -179,9 +179,9 @@ impl WorldComponent {
         &self,
         kind: ChartKind,
         count: usize,
-        until_inclusive: u64,
+        after_inclusive: u64,
     ) -> Vec<Candle> {
-        self.ivy_charts.query(kind, count, until_inclusive)
+        self.ivy_charts.query(kind, count, after_inclusive)
     }
 
     pub fn ivy_change_24h(&self) -> f32 {

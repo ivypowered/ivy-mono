@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChartInterval } from "@/components/chart/chartTypes";
+import { CommentData } from "./api";
 import { API_STREAM_BASE } from "./constants";
 import { CandleData, parseCandle, updateCandles } from "./utils";
 
@@ -15,6 +16,9 @@ export interface SyncStreamData {
     mktCapUsd: number;
     changePct24h: number;
     solPrice: number;
+
+    // Comments (reverse chronological: newest first)
+    comments: CommentData[];
 }
 
 // Helper function to handle context event
@@ -36,6 +40,7 @@ const handleContextEvent = (
             mktCapUsd: context.mkt_cap_usd,
             changePct24h: context.change_pct_24h,
             solPrice: context.sol_price,
+            comments: context.comments || [],
         });
 
         setLoading(false);
@@ -67,6 +72,11 @@ const handleUpdateEvent = (
                     newData.mktCapUsd = update.mkt_cap_usd;
                     newData.changePct24h = update.change_pct_24h;
                     newData.solPrice = update.sol_price;
+                    break;
+
+                case "comment":
+                    // Unshift new comment (reverse chronological)
+                    newData.comments = [update.comment, ...prev.comments];
                     break;
 
                 case "candle": {
@@ -135,6 +145,7 @@ export function useSyncStream(syncAddress: string, chartKind: ChartInterval) {
                 const params = new URLSearchParams({
                     chart: chartKind,
                     chart_count: "500",
+                    comment_count: "1000",
                 });
                 const url = `${API_STREAM_BASE}/syncs/${syncAddress}/stream?${params}`;
 

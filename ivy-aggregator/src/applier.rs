@@ -11,14 +11,7 @@ use crate::types::event::{Event, EventData, InitializeEvent, SolPriceEvent}; // 
 use crate::types::jsonl::{JsonReader, JsonWriter};
 use crate::types::signature::Signature;
 use crate::types::source::Source;
-
-fn unix_ts() -> u64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
-}
+use crate::util::unix_timestamp;
 
 // Generic Cursor struct to handle file operations for any serializable type T
 pub struct Cursor<T> {
@@ -146,19 +139,15 @@ impl Applier {
         // Update hot game list
         let hl = sg.assets.calculate_hot_list(&sg.games, &sg.syncs);
         sg.assets.update_hot_list(hl);
-        drop(sg); // Release the lock
 
-        // Signal initialization complete to state components (not persisted to file)
-        {
-            let mut s = state.write().unwrap();
-            let init_event = Event {
-                data: EventData::Initialize(InitializeEvent {}),
-                signature: Signature::zero(),
-                timestamp: unix_ts(),
-            };
-            // HydratorComponent will switch modes on this
-            let _ = s.on_event(&init_event);
-        }
+        // Signal initialization complete to state components
+        sg.on_event(&Event {
+            data: EventData::Initialize(InitializeEvent {}),
+            signature: Signature::zero(),
+            timestamp: unix_timestamp(),
+        });
+
+        drop(sg); // Release the lock
 
         Ok(Self {
             state,

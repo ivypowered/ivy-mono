@@ -4,6 +4,7 @@ use std::io::Read;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
+use ureq::Agent;
 
 use crate::types::event::{Event, EventData};
 use crate::types::public::Public;
@@ -95,6 +96,7 @@ pub struct Retriever {
     rpc_url: String,
     rx: mpsc::Receiver<(Public, Vec<Signature>)>,
     tx: mpsc::Sender<Vec<Event>>,
+    agent: Agent,
 }
 
 impl Retriever {
@@ -102,11 +104,13 @@ impl Retriever {
         rpc_url: &str,
         rx: mpsc::Receiver<(Public, Vec<Signature>)>,
         tx: mpsc::Sender<Vec<Event>>,
+        agent: Agent,
     ) -> Self {
         Self {
             rpc_url: rpc_url.to_string(),
             rx,
             tx,
+            agent,
         }
     }
 
@@ -196,7 +200,7 @@ impl Retriever {
 
         let mut responses: Vec<GetTransactionResponse> = Vec::new();
         for _ in 0..10 {
-            let resp = ureq::post(&self.rpc_url).send_json(&requests)?;
+            let resp = self.agent.post(&self.rpc_url).send_json(&requests)?;
             if resp.status() != 200 {
                 return Err(format!(
                     "HTTP {}: {}",

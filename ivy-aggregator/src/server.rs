@@ -1,3 +1,8 @@
+use crate::routes::stream_assets::stream_assets;
+use crate::routes::stream_game::stream_game;
+use crate::routes::stream_ivy::stream_ivy;
+use crate::routes::stream_sync::stream_sync;
+use crate::routes::stream_trades::stream_trades;
 use crate::routes::sync::get_sync;
 use crate::state::State;
 use axum::extract::Request;
@@ -18,9 +23,6 @@ use crate::routes::games::{get_burn_info, get_deposit_info, get_game, get_withdr
 use crate::routes::info::{global_info, ivy_info};
 use crate::routes::misc::{root, validate_address};
 use crate::routes::price::ivy_price;
-use crate::routes::streaming::{
-    stream_assets, stream_game, stream_ivy, stream_sync, stream_trades,
-};
 use crate::routes::volume::{get_volume, volume_multiple};
 
 pub fn create_router(state: Arc<State>) -> Router {

@@ -31,6 +31,15 @@ static const u64 SYNC_DECIMALS = 9;
 // or 1 million tokens with 9 decimals (us!)
 static const u64 SYNC_MAX_SUPPLY = UINT64_C(1000000000000000);
 
+// Fee configuration
+static const u64 SYNC_FEE_BPS = 75; // 0.75% fee on all swaps
+static const address SYNC_BENEFICIARY = {
+    .x = {// EGTNw9v8SKJexnjGsiD6bRoGEAm2iMYAXjHrYU9SX1iP
+          197, 29,  119, 211, 64, 125, 168, 150, 225, 136, 9,   110, 250, 126, 213, 58,
+          133, 156, 183, 153, 69, 214, 36,  92,  205, 37,  130, 45,  41,  89,  20,  224
+    }
+};
+
 // === Events ===
 
 // #idl event declaration
@@ -50,8 +59,6 @@ typedef struct {
     u64 discriminator;
     address sync;
     address user;
-    u64 virtual_sol_reserves;
-    u64 virtual_token_reserves;
     u64 sol_amount;
     u64 token_amount;
     bool is_buy;
@@ -482,6 +489,13 @@ static void sync_swap(
 
     u64 output_amount = 0;
     if (data->is_buy) {
+        // Collect fee in SOL before swap
+        u64 fee_amount = safe_mul_div_64(data->amount, SYNC_FEE_BPS, 10000);
+        u64 amount_after_fee = safe_sub_64(data->amount, fee_amount);
+
+        // Transfer fee to beneficiary
+        system_transfer(ctx, *accounts->user.key, SYNC_BENEFICIARY, fee_amount);
+
         // Pump.fun `buy`s are denominated in ExactOut.
         // Since we want to use ExactIn, we have to back-calculate.
         // Pump.fun calculates like this:
@@ -507,7 +521,7 @@ static void sync_swap(
         u64 total_fee_bps = global->fee_basis_points + global->creator_fee_basis_points;
 
         // The "real" `sol_input` is guaranteed to be below this amount
-        u64 sol_input = safe_mul_div_64(data->amount, 10000, 10000 + total_fee_bps);
+        u64 sol_input = safe_mul_div_64(amount_after_fee, 10000, 10000 + total_fee_bps);
         while (true) {
             // This will not go on for more than a few iterations
             u64 protocol_fee =
@@ -516,7 +530,7 @@ static void sync_swap(
                 sol_input, global->creator_fee_basis_points, 10000
             );
             u64 amount = sol_input + protocol_fee + creator_fee;
-            if (amount > data->amount) {
+            if (amount > amount_after_fee) {
                 sol_input = safe_sub_64(sol_input, 1);
             } else {
                 break;
@@ -545,7 +559,7 @@ static void sync_swap(
             /* global_volume_accumulator */ *accounts->global_volume_accumulator.key,
             /* user_volume_accumulator */ *accounts->user_volume_accumulator.key,
             /* amount */ token_output,
-            /* max_sol_cost */ data->amount
+            /* max_sol_cost */ amount_after_fee
         );
 
         // Move received Pump.fun tokens to program custody
@@ -637,6 +651,11 @@ static void sync_swap(
 
         u64 sol_after = *accounts->user.lamports;
         output_amount = safe_sub_64(sol_after, sol_before);
+
+        // Collect fee from SOL output
+        u64 fee_amount = safe_mul_div_64(output_amount, SYNC_FEE_BPS, 10000);
+        system_transfer(ctx, *accounts->user.key, SYNC_BENEFICIARY, fee_amount);
+        output_amount = safe_sub_64(output_amount, fee_amount);
 
         // Get amount after
         u64 pump_after = token_get_balance(&accounts->associated_user);
@@ -766,6 +785,8 @@ typedef struct {
     SolAccountInfo event_authority;
     // #idl readonly
     SolAccountInfo this_program;
+    // #idl readonly
+    SolAccountInfo beneficiary;
 } SyncPswapAccounts;
 
 // #idl instruction data sync_pswap
@@ -894,9 +915,16 @@ static void sync_pswap(
     u64 swap_amount = data->amount;
 
     if (data->is_buy) {
+        // Collect fee in SOL before swap
+        u64 fee_amount = safe_mul_div_64(data->amount, SYNC_FEE_BPS, 10000);
+        swap_amount = safe_sub_64(data->amount, fee_amount);
+
+        // Transfer fee to beneficiary
+        system_transfer(ctx, *accounts->user.key, SYNC_BENEFICIARY, fee_amount);
+
         // BUY: Prepare WSOL for swap
         system_transfer(
-            ctx, *accounts->user.key, *accounts->user_wsol_account.key, data->amount
+            ctx, *accounts->user.key, *accounts->user_wsol_account.key, swap_amount
         );
         token_sync_native(ctx, *accounts->user_wsol_account.key);
     } else {
@@ -1031,13 +1059,15 @@ static void sync_pswap(
     u64 received = safe_sub_64(token_after, token_before);
 
     // Move received/leftover PF tokens to custody
-    token_transfer(
-        ctx,
-        /* source */ *accounts->user_pump_account.key,
-        /* destination */ s->pump_wallet,
-        /* owner */ *accounts->user.key,
-        /* amount */ received
-    );
+    if (received > 0) {
+        token_transfer(
+            ctx,
+            /* source */ *accounts->user_pump_account.key,
+            /* destination */ s->pump_wallet,
+            /* owner */ *accounts->user.key,
+            /* amount */ received
+        );
+    }
 
     if (data->is_buy) {
         require(received >= data->min_output, "Received less tokens than expected");
@@ -1079,6 +1109,15 @@ static void sync_pswap(
     token_close_account(
         ctx, *accounts->user_wsol_account.key, *accounts->user.key, *accounts->user.key
     );
+
+    if (!data->is_buy) {
+        // Collect fee in SOL after swap
+        u64 fee_amount = safe_mul_div_64(output_amount, SYNC_FEE_BPS, 10000);
+        output_amount = safe_sub_64(output_amount, fee_amount);
+
+        // Transfer fee to beneficiary
+        system_transfer(ctx, *accounts->user.key, SYNC_BENEFICIARY, fee_amount);
+    }
 
     // Close pump account if empty
     if (!token_get_balance(&accounts->user_pump_account)) {

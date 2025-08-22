@@ -110,6 +110,7 @@ async fn main() {
         scanner_tx.clone(),
         agent.clone(),
         ivy_last_signature,
+        true, // we need full history
     );
 
     let pf_scanner = Scanner::new(
@@ -118,6 +119,7 @@ async fn main() {
         scanner_tx.clone(),
         agent.clone(),
         pf_last_signature,
+        false, // PF, not really
     );
 
     let pa_scanner = Scanner::new(
@@ -126,6 +128,7 @@ async fn main() {
         scanner_tx.clone(),
         agent.clone(),
         pa_last_signature,
+        false, // PA, not really
     );
 
     // Run scanners in separate threads
@@ -142,7 +145,7 @@ async fn main() {
     });
 
     // Create and start retriever
-    let retriever = Retriever::new(&rpc_url, scanner_rx, retriever_tx.clone());
+    let retriever = Retriever::new(&rpc_url, scanner_rx, retriever_tx.clone(), agent.clone());
     thread::spawn(move || {
         retriever.run();
     });
@@ -162,7 +165,7 @@ async fn main() {
     });
 
     // Create and start the SOL price fetcher
-    let pricer = Pricer::new(api_url, retriever_tx);
+    let pricer = Pricer::new(api_url, retriever_tx, agent.clone());
     thread::spawn(move || {
         pricer.run();
     });

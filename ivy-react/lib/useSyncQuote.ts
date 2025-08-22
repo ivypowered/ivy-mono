@@ -14,7 +14,14 @@ import {
     PSWAP_GLOBAL_CONFIG,
 } from "@/import/ivy-sdk";
 
-const PF_FEE_BPS = 100; // 1% fee on trades
+// Sync protocol fee: 0.75% on all swaps
+const SYNC_FEE_BPS = 75; // 0.75% fee matching sync.h
+
+// Pump.fun fee: 1% (used in addition to Sync fees)
+const PF_FEE_BPS = 100;
+
+// Pump.fun AMM fee: 0.3%
+const PA_FEE_BPS = 30;
 
 // Use a subset of SyncStreamData for the sync info
 export interface SyncQuoteInfo {
@@ -28,7 +35,9 @@ export interface SyncQuoteInfo {
 interface SyncQuoteParams {
     user: PublicKey | undefined;
     syncInfo: SyncQuoteInfo | null;
+    syncAddress: PublicKey;
     tokenMint: PublicKey;
+    pumpMint: PublicKey;
     inputToken: SwapToken;
     outputToken: SwapToken;
     inputAmount: Decimal;
@@ -88,14 +97,15 @@ function useSyncGlobal() {
 }
 
 // Hook to fetch and cache SyncCurve
-function useSyncCurve(tokenMint: PublicKey | null) {
+function useSyncCurve(pumpMint: PublicKey | null) {
     const [syncCurve, setSyncCurve] = useState<SyncCurve | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
 
     useEffect(() => {
-        if (!tokenMint) {
+        if (!pumpMint) {
             setSyncCurve(null);
+            setLoading(false);
             return;
         }
 
@@ -105,7 +115,7 @@ function useSyncCurve(tokenMint: PublicKey | null) {
 
         const fetchCurve = async () => {
             try {
-                const bondingCurve = SyncCurve.deriveBondingCurve(tokenMint);
+                const bondingCurve = SyncCurve.deriveBondingCurve(pumpMint);
 
                 const [bondingCurveData] = await Api.getAccountsData([
                     bondingCurve,
@@ -121,7 +131,7 @@ function useSyncCurve(tokenMint: PublicKey | null) {
                 }
 
                 const curve = SyncCurve.create(
-                    tokenMint,
+                    pumpMint,
                     bondingCurve,
                     bondingCurveData,
                 );
@@ -145,7 +155,7 @@ function useSyncCurve(tokenMint: PublicKey | null) {
             cancelled = true;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tokenMint?.toBase58()]);
+    }, [pumpMint?.toBase58()]);
 
     return { syncCurve, loading, error };
 }
@@ -203,14 +213,16 @@ function useSyncPool(poolAddress: string | null) {
 }
 
 // Calculate swap with fees using the existing Curve.swapBaseInput
+// Note: Sync fee is applied on top of protocol fees
 function calculateSyncSwap(
     inputReserves: Decimal,
     outputReserves: Decimal,
     inputAmount: Decimal,
+    isBuy: boolean,
+    protocolFeeBps: number, // Pass in either PF_FEE_BPS or PA_FEE_BPS
 ): {
     outputAmount: Decimal;
     priceImpactBps: number;
-    amountAfterFee: Decimal;
 } | null {
     if (
         inputAmount.isZero() ||
@@ -220,24 +232,38 @@ function calculateSyncSwap(
         return {
             outputAmount: new Decimal(0),
             priceImpactBps: 0,
-            amountAfterFee: new Decimal(0),
         };
     }
 
     // Calculate initial price for price impact
     const initialPrice = inputReserves.div(outputReserves);
 
-    // Apply input fee
-    const feeAmount = inputAmount.mul(PF_FEE_BPS).div(10_000);
-    const amountAfterFee = inputAmount.sub(feeAmount);
+    let amountAfterAllFees: Decimal;
 
-    if (amountAfterFee.lte(0)) {
+    if (isBuy) {
+        // For buys: Sync fee is taken from SOL input first
+        const syncFeeAmount = inputAmount.mul(SYNC_FEE_BPS).div(10_000);
+        const amountAfterSyncFee = inputAmount.sub(syncFeeAmount);
+
+        // Then protocol fee is applied (Pump.fun or PumpSwap AMM)
+        const protocolFeeAmount = amountAfterSyncFee
+            .mul(protocolFeeBps)
+            .div(10_000);
+        amountAfterAllFees = amountAfterSyncFee.sub(protocolFeeAmount);
+    } else {
+        // For sells: Only protocol fee is applied to the swap
+        // Sync fee will be taken from the SOL output after the swap
+        const protocolFeeAmount = inputAmount.mul(protocolFeeBps).div(10_000);
+        amountAfterAllFees = inputAmount.sub(protocolFeeAmount);
+    }
+
+    if (amountAfterAllFees.lte(0)) {
         return null;
     }
 
     // Use Curve.swapBaseInput for the constant product calculation
     const outputAmount = Curve.swapBaseInput(
-        amountAfterFee,
+        amountAfterAllFees,
         inputReserves,
         outputReserves,
     );
@@ -246,8 +272,15 @@ function calculateSyncSwap(
         return null;
     }
 
+    // For sells, calculate Sync fee from SOL output
+    let finalOutputAmount = outputAmount;
+    if (!isBuy) {
+        const syncFeeAmount = outputAmount.mul(SYNC_FEE_BPS).div(10_000);
+        finalOutputAmount = outputAmount.sub(syncFeeAmount);
+    }
+
     // Calculate new reserves for price impact
-    const newInputReserves = inputReserves.add(amountAfterFee);
+    const newInputReserves = inputReserves.add(amountAfterAllFees);
     const newOutputReserves = outputReserves.sub(outputAmount);
 
     // Calculate price impact
@@ -271,9 +304,8 @@ function calculateSyncSwap(
         : 0;
 
     return {
-        outputAmount,
+        outputAmount: finalOutputAmount,
         priceImpactBps,
-        amountAfterFee,
     };
 }
 
@@ -281,6 +313,8 @@ export function useSyncQuote({
     user,
     syncInfo,
     tokenMint,
+    syncAddress,
+    pumpMint,
     inputToken,
     outputToken,
     inputAmount,
@@ -289,99 +323,84 @@ export function useSyncQuote({
 }: SyncQuoteParams): Quote | null {
     // Fetch blockchain state objects
     const { syncGlobal } = useSyncGlobal();
-    const { syncCurve } = useSyncCurve(
-        syncInfo && !syncInfo.isMigrated ? tokenMint : null,
-    );
+    const { syncCurve } = useSyncCurve(!syncInfo?.isMigrated ? pumpMint : null);
     const { syncPool } = useSyncPool(syncInfo?.pswapPool || null);
 
-    // Create Sync instance
-    const [sync, setSync] = useState<Sync | null>(null);
-
-    useEffect(() => {
-        if (!tokenMint) {
-            setSync(null);
-            return;
-        }
-
-        Sync.fromMint(tokenMint)
-            .then(setSync)
-            .catch((err) => {
-                console.error("Failed to create Sync instance:", err);
-                setSync(null);
-            });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tokenMint.toBase58()]);
-
     // Create transaction getter
-    const getTransaction = useCallback(async (): Promise<Transaction> => {
-        if (!syncInfo || !user || !sync || !syncGlobal) {
-            throw new Error("Missing required data for transaction");
-        }
-
-        const tx = new Transaction();
-
-        // Convert decimal amounts to bigint (assuming 9 decimals for both SOL and token)
-        const inputAmountRaw = BigInt(inputAmount.mul(1e9).toFixed(0));
-        const minOutputRaw = BigInt(
-            inputAmount
-                .mul(1 - slippageBps / 10_000)
-                .mul(1e9)
-                .toFixed(0),
-        );
-
-        const isInputSol = inputToken.mint === WSOL_MINT_B58;
-        const isBuy = isInputSol; // Buy = SOL -> Token, Sell = Token -> SOL
-
-        if (!syncInfo.isMigrated) {
-            // Use bonding curve swap
-            if (!syncCurve) {
-                throw new Error("Bonding curve data not available");
+    const getTransaction = useCallback(
+        async (minOutput: Decimal): Promise<Transaction> => {
+            if (!syncInfo || !user || !syncGlobal) {
+                throw new Error("Missing required data for transaction");
             }
 
-            const instruction = await sync.swap(
-                syncGlobal,
-                syncCurve,
-                user,
-                isBuy,
-                inputAmountRaw,
-                minOutputRaw,
+            const tx = new Transaction();
+
+            const inputAmountRaw = BigInt(
+                inputAmount.mul(Math.pow(10, inputToken.decimals)).toFixed(0),
             );
-            tx.add(instruction);
-        } else {
-            // Use PumpSwap AMM
-            if (!syncPool) {
-                throw new Error("Pool data not available");
+            const minOutputRaw = BigInt(
+                minOutput.mul(Math.pow(10, outputToken.decimals)).toFixed(0),
+            );
+
+            const isInputSol = inputToken.mint === WSOL_MINT_B58;
+            const isBuy = isInputSol; // Buy = SOL -> Token, Sell = Token -> SOL
+
+            if (!syncInfo.isMigrated) {
+                // Use bonding curve swap
+                if (!syncCurve) {
+                    throw new Error("Bonding curve data not available");
+                }
+
+                const instruction = await Sync.swap(
+                    syncAddress,
+                    syncGlobal,
+                    syncCurve,
+                    user,
+                    isBuy,
+                    inputAmountRaw,
+                    minOutputRaw,
+                );
+                tx.add(instruction);
+            } else {
+                // Use PumpSwap AMM
+                if (!syncPool) {
+                    throw new Error("Pool data not available");
+                }
+
+                const instruction = await Sync.pswap(
+                    syncAddress,
+                    syncGlobal,
+                    syncPool,
+                    user,
+                    isBuy,
+                    inputAmountRaw,
+                    minOutputRaw,
+                );
+                tx.add(instruction);
             }
 
-            const instruction = await sync.pswap(
-                syncGlobal,
-                syncPool,
-                user,
-                isBuy,
-                inputAmountRaw,
-                minOutputRaw,
-            );
-            tx.add(instruction);
-        }
-
-        return tx;
+            return tx;
+        },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [
-        user,
-        sync,
-        syncGlobal,
-        syncCurve,
-        syncPool,
-        syncInfo?.isMigrated,
-        inputToken.mint,
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        inputAmount.toString(),
-        slippageBps,
-    ]);
+        [
+            user,
+            syncAddress,
+            syncGlobal,
+            syncCurve,
+            syncPool,
+            syncInfo?.isMigrated,
+            inputToken.mint,
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            inputAmount.toString(),
+            inputToken.decimals,
+            outputToken.decimals,
+            slippageBps,
+        ],
+    );
 
     const quote = useMemo(() => {
         // Validate inputs
-        if (!syncInfo || !user || inputAmount.isZero() || !sync) {
+        if (!syncInfo || inputAmount.isZero() || !syncAddress) {
             return null;
         }
 
@@ -414,12 +433,17 @@ export function useSyncQuote({
         const tokenPriceInSol = solReserves.div(tokenReserves);
         const tokenPriceInUSD = tokenPriceInSol.mul(syncInfo.solPrice);
 
+        // Determine which protocol fee to use
+        const protocolFeeBps = syncInfo.isMigrated ? PA_FEE_BPS : PF_FEE_BPS;
+
         if (isInputSol && isOutputToken) {
-            // SOL -> TOKEN swap
+            // SOL -> TOKEN swap (Buy)
             swapResult = calculateSyncSwap(
                 solReserves,
                 tokenReserves,
                 inputAmount,
+                true, // isBuy
+                protocolFeeBps, // Pass the appropriate fee
             );
 
             if (!swapResult) {
@@ -430,11 +454,13 @@ export function useSyncQuote({
             inputUSD = inputAmount.mul(syncInfo.solPrice);
             outputUSD = swapResult.outputAmount.mul(tokenPriceInUSD);
         } else if (isInputToken && isOutputSol) {
-            // TOKEN -> SOL swap
+            // TOKEN -> SOL swap (Sell)
             swapResult = calculateSyncSwap(
                 tokenReserves,
                 solReserves,
                 inputAmount,
+                false, // isBuy (sell)
+                protocolFeeBps, // Pass the appropriate fee
             );
 
             if (!swapResult) {
@@ -461,7 +487,7 @@ export function useSyncQuote({
             outputUSD,
             minOutput,
             insName,
-            getTransaction,
+            getTransaction: () => getTransaction(minOutput),
             stops: [], // Single hop swap
             priceImpactBps: swapResult.priceImpactBps,
             slippageBps,
@@ -470,7 +496,7 @@ export function useSyncQuote({
     }, [
         syncInfo,
         user,
-        sync,
+        syncAddress,
         tokenMint,
         inputToken.mint,
         outputToken.mint,

@@ -17,40 +17,58 @@ import { SyncGlobal } from "./sync-global";
 import { SyncCurve } from "./sync-curve";
 import { SyncPool } from "./sync-pool";
 
-export class Sync {
-    public readonly pumpMint: PublicKey;
-    public readonly sync: PublicKey;
-    public readonly syncMint: PublicKey;
-    public readonly syncWallet: PublicKey;
-    public readonly pumpWallet: PublicKey;
-    public readonly seed: Buffer;
+const SYNC_BENEFICIARY = new PublicKey(
+    "EGTNw9v8SKJexnjGsiD6bRoGEAm2iMYAXjHrYU9SX1iP",
+);
 
-    constructor(
-        pumpMint: PublicKey,
-        sync: PublicKey,
-        syncMint: PublicKey,
-        syncWallet: PublicKey,
-        pumpWallet: PublicKey,
-        seed: Buffer,
-    ) {
-        this.pumpMint = pumpMint;
-        this.sync = sync;
-        this.syncMint = syncMint;
-        this.syncWallet = syncWallet;
-        this.pumpWallet = pumpWallet;
-        this.seed = seed;
+export class Sync {
+    /// Derive the sync address from the given seed
+    static deriveAddress(seed: Uint8Array): PublicKey {
+        return PublicKey.createProgramAddressSync(
+            [Buffer.from("sync"), seed],
+            IVY_PROGRAM_ID,
+        );
+    }
+
+    /// Derive the token mint from the sync address
+    static deriveMint(sync: PublicKey): PublicKey {
+        return PublicKey.createProgramAddressSync(
+            [Buffer.from("sync_mint"), sync.toBuffer()],
+            IVY_PROGRAM_ID,
+        );
+    }
+
+    /**
+     * Derive all sync addresses using createProgramAddress
+     */
+    private static deriveAuxiliary(sync: PublicKey) {
+        const syncMint = this.deriveMint(sync);
+        const syncWallet = PublicKey.createProgramAddressSync(
+            [Buffer.from("sync_sync_wallet"), sync.toBuffer()],
+            IVY_PROGRAM_ID,
+        );
+        const pumpWallet = PublicKey.createProgramAddressSync(
+            [Buffer.from("sync_pump_wallet"), sync.toBuffer()],
+            IVY_PROGRAM_ID,
+        );
+
+        return {
+            syncMint,
+            syncWallet,
+            pumpWallet,
+        };
     }
 
     /**
      * Generate a valid seed that works with createProgramAddress
      */
-    static generateSeed(): Buffer {
-        let seed: Buffer;
+    static generateSeed(): Uint8Array {
+        let seed: Uint8Array;
         while (true) {
-            seed = Buffer.from(Keypair.generate().secretKey.slice(0, 32));
+            seed = Keypair.generate().secretKey.slice(0, 32);
             try {
                 // Test if all required addresses can be derived with this seed
-                this.deriveSyncAddresses(seed);
+                this.deriveAuxiliary(this.deriveAddress(seed));
                 return seed;
             } catch (_) {
                 // Continue trying if address derivation fails
@@ -59,97 +77,38 @@ export class Sync {
     }
 
     /**
-     * Derive all sync addresses using createProgramAddress
-     */
-    static deriveSyncAddresses(seed: Buffer) {
-        // Derive sync address
-        const sync = PublicKey.createProgramAddressSync(
-            [Buffer.from("sync"), seed],
-            IVY_PROGRAM_ID,
-        );
-
-        // Derive sync mint
-        const syncMint = PublicKey.createProgramAddressSync(
-            [Buffer.from("sync_mint"), sync.toBuffer()],
-            IVY_PROGRAM_ID,
-        );
-
-        // Derive sync wallet
-        const syncWallet = PublicKey.createProgramAddressSync(
-            [Buffer.from("sync_sync_wallet"), sync.toBuffer()],
-            IVY_PROGRAM_ID,
-        );
-
-        // Derive pump wallet
-        const pumpWallet = PublicKey.createProgramAddressSync(
-            [Buffer.from("sync_pump_wallet"), sync.toBuffer()],
-            IVY_PROGRAM_ID,
-        );
-
-        return {
-            seed,
-            sync,
-            syncMint,
-            syncWallet,
-            pumpWallet,
-        };
-    }
-
-    static async fromMint(
-        pumpMint: PublicKey,
-        seedOverride?: Buffer | Uint8Array,
-    ): Promise<Sync> {
-        let seed: Buffer;
-
-        if (seedOverride) {
-            // Use provided seed
-            seed = Buffer.from(seedOverride);
-        } else {
-            // Generate a valid seed
-            seed = this.generateSeed();
-        }
-
-        const { sync, syncMint, syncWallet, pumpWallet } =
-            this.deriveSyncAddresses(seed);
-
-        return new Sync(pumpMint, sync, syncMint, syncWallet, pumpWallet, seed);
-    }
-
-    /**
      * Create a new sync token
      * @param user - The user creating the sync token
+     * @param seed - Seed used to derive the sync account
+     * @param pumpMint - The Pump.fun mint to sync with
      * @param name - Token name
      * @param symbol - Token symbol
-     * @param shortDesc - Short description of the token
      * @param metadataUrl - URL to token metadata JSON
-     * @param iconUrl - URL to token icon image
      * @param gameUrl - URL to token game
      */
-    async create(
+    static async create(
         user: PublicKey,
+        seed: Uint8Array,
+        pumpMint: PublicKey,
         name: string,
         symbol: string,
         metadataUrl: string,
         gameUrl: string,
     ): Promise<TransactionInstruction> {
-        const metadata = await deriveMetadataPda(this.syncMint);
+        const sync = this.deriveAddress(seed);
+        const { syncMint, syncWallet, pumpWallet } = this.deriveAuxiliary(sync);
+        const metadata = await deriveMetadataPda(syncMint);
 
         return await ivy_program.methods
-            .syncCreate(
-                Array.from(this.seed),
-                name,
-                symbol,
-                metadataUrl,
-                gameUrl,
-            )
+            .syncCreate(Array.from(seed), name, symbol, metadataUrl, gameUrl)
             .accounts({
-                sync: this.sync,
+                sync,
                 user,
-                pumpMint: this.pumpMint,
+                pumpMint, // assuming this is correct; adjust if not
                 metadata,
-                syncMint: this.syncMint,
-                syncWallet: this.syncWallet,
-                pumpWallet: this.pumpWallet,
+                syncMint,
+                syncWallet,
+                pumpWallet,
                 world: WORLD_ADDRESS,
             })
             .instruction();
@@ -158,7 +117,8 @@ export class Sync {
     /**
      * Swap through Pump.fun bonding curve
      */
-    async swap(
+    static async swap(
+        sync: PublicKey,
         global: SyncGlobal,
         curve: SyncCurve,
         user: PublicKey,
@@ -166,8 +126,9 @@ export class Sync {
         amount: bigint,
         minOutput: bigint,
     ): Promise<TransactionInstruction> {
+        const { syncMint, syncWallet, pumpWallet } = this.deriveAuxiliary(sync);
         const associatedUser = getAssociatedTokenAddressSync(curve.mint, user);
-        const userSyncAta = getAssociatedTokenAddressSync(this.syncMint, user);
+        const userSyncAta = getAssociatedTokenAddressSync(syncMint, user);
 
         const [userVolumeAccumulator] = PublicKey.findProgramAddressSync(
             [Buffer.from("user_volume_accumulator"), user.toBuffer()],
@@ -181,7 +142,7 @@ export class Sync {
                 isBuy,
             )
             .accounts({
-                sync: this.sync,
+                sync,
                 global: PUMP_GLOBAL,
                 feeRecipient: global.pumpFeeRecipient,
                 mint: curve.mint,
@@ -194,9 +155,9 @@ export class Sync {
                 globalVolumeAccumulator: global.pumpGlobalVolumeAccumulator,
                 userVolumeAccumulator,
                 user,
-                syncMint: this.syncMint,
-                syncTreasuryWallet: this.syncWallet,
-                pumpTreasuryWallet: this.pumpWallet,
+                syncMint,
+                syncTreasuryWallet: syncWallet,
+                pumpTreasuryWallet: pumpWallet,
                 userSyncAta,
                 world: WORLD_ADDRESS,
             })
@@ -206,7 +167,8 @@ export class Sync {
     /**
      * Swap through PumpSwap AMM pool
      */
-    async pswap(
+    static async pswap(
+        sync: PublicKey,
         global: SyncGlobal,
         pool: SyncPool,
         user: PublicKey,
@@ -214,15 +176,13 @@ export class Sync {
         amount: bigint,
         minOutput: bigint,
     ): Promise<TransactionInstruction> {
+        const { syncMint, syncWallet, pumpWallet } = this.deriveAuxiliary(sync);
         const userPumpAccount = getAssociatedTokenAddressSync(
             pool.tokenMint,
             user,
         );
         const userWsolAccount = getAssociatedTokenAddressSync(WSOL_MINT, user);
-        const userSyncAccount = getAssociatedTokenAddressSync(
-            this.syncMint,
-            user,
-        );
+        const userSyncAccount = getAssociatedTokenAddressSync(syncMint, user);
 
         const protocolFeeRecipient = global.getRandomProtocolFeeRecipient();
         const protocolFeeRecipientTokenAccount = getAssociatedTokenAddressSync(
@@ -242,7 +202,7 @@ export class Sync {
                 isBuy,
             )
             .accounts({
-                sync: this.sync,
+                sync,
                 user,
                 pswapPool: pool.poolAddress,
                 pswapGlobalConfig: PSWAP_GLOBAL_CONFIG,
@@ -259,11 +219,12 @@ export class Sync {
                 coinCreatorVaultAuthority: pool.coinCreatorVaultAuthority,
                 globalVolumeAccumulator: global.pswapGlobalVolumeAccumulator,
                 userVolumeAccumulator,
-                syncMint: this.syncMint,
-                syncTreasuryWallet: this.syncWallet,
-                pumpTreasuryWallet: this.pumpWallet,
+                syncMint,
+                syncTreasuryWallet: syncWallet,
+                pumpTreasuryWallet: pumpWallet,
                 userSyncAccount,
                 world: WORLD_ADDRESS,
+                beneficiary: SYNC_BENEFICIARY,
             })
             .instruction();
     }

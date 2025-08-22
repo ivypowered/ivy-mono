@@ -4,7 +4,7 @@ use crate::types::asset::Asset;
 use crate::types::chart::Candle;
 use crate::types::charts::{ChartKind, Charts};
 use crate::types::event::{
-    CommentEvent, Event, EventData, GameCreateEvent, GameEditEvent, GameSwapEvent, HydrateEvent,
+    Event, EventData, GameCreateEvent, GameEditEvent, GameSwapEvent, HydrateEvent,
 };
 use crate::types::game::Game;
 use crate::types::public::Public;
@@ -18,7 +18,6 @@ use super::assets::AssetsComponent;
 use super::world::WorldComponent;
 use crate::state::constants::HIDDEN_GAMES;
 use crate::state::helpers::normalize_string;
-use crate::state::types::Comment;
 
 // 512 updates before receiver is deemed lagged :)
 const CHANNEL_BUFFER_SIZE: usize = 512;
@@ -34,10 +33,8 @@ pub struct GameBalanceUpdate {
 struct GameMeta {
     index: usize,
     charts: Charts,
-    comments: Vec<Comment>,
-    // Broadcast channels for real-time updates
+    // Broadcast channel for real-time balance updates
     balance_update_tx: Option<broadcast::Sender<GameBalanceUpdate>>,
-    comment_update_tx: Option<broadcast::Sender<Comment>>,
 }
 
 impl GameMeta {
@@ -45,9 +42,7 @@ impl GameMeta {
         Self {
             index,
             charts,
-            comments: Vec::new(),
             balance_update_tx: None,
-            comment_update_tx: None,
         }
     }
 
@@ -63,34 +58,12 @@ impl GameMeta {
         }
     }
 
-    /// Subscribe to comment updates for this game
-    fn subscribe_to_comments(&mut self) -> broadcast::Receiver<Comment> {
-        match &self.comment_update_tx {
-            None => {
-                let (tx, rx) = broadcast::channel(CHANNEL_BUFFER_SIZE);
-                self.comment_update_tx = Some(tx);
-                rx
-            }
-            Some(tx) => tx.subscribe(),
-        }
-    }
-
     /// Broadcast a balance update, dropping the channel if there are no receivers
     fn broadcast_balance_update(&mut self, update: GameBalanceUpdate) {
         if let Some(tx) = &self.balance_update_tx {
             if tx.send(update).is_err() {
                 // No receivers, drop the channel to save memory
                 self.balance_update_tx = None;
-            }
-        }
-    }
-
-    /// Broadcast a new comment, dropping the channel if there are no receivers
-    fn broadcast_comment(&mut self, comment: Comment) {
-        if let Some(tx) = &self.comment_update_tx {
-            if tx.send(comment).is_err() {
-                // No receivers, drop the channel to save memory
-                self.comment_update_tx = None;
             }
         }
     }
@@ -132,17 +105,6 @@ impl GamesComponent {
             .map(|meta| meta.subscribe_to_balances())
     }
 
-    /// Subscribe to real-time comment updates for a specific game.
-    /// Returns a receiver that will receive new `Comment` entries as they are posted.
-    pub fn subscribe_to_game_comments(
-        &mut self,
-        game: &Public,
-    ) -> Option<broadcast::Receiver<Comment>> {
-        self.address_to_game_meta
-            .get_mut(game)
-            .map(|meta| meta.subscribe_to_comments())
-    }
-
     /// Subscribe to chart updates for a specific game.
     /// Returns a receiver that will receive candle updates for the specified chart kind.
     pub fn subscribe_to_game_chart(
@@ -166,11 +128,10 @@ impl GamesComponent {
                 self.process_game_create(event.timestamp, data, world, assets)
             }
             EventData::GameEdit(data) => self.process_game_edit(data),
-            EventData::Hydrate(data) => self.process_hydrate_event(data), // NEW
+            EventData::Hydrate(data) => self.process_hydrate_event(data),
             EventData::GameSwap(data) => {
                 self.process_game_swap(event.timestamp, &event.signature, data, world, assets)
             }
-            EventData::Comment(data) => self.process_comment_event(data),
             _ => return false,
         };
         true
@@ -391,35 +352,6 @@ impl GamesComponent {
         assets.on_game_updated(game_index, old_mkt_cap_usd, mkt_cap_usd, create_timestamp);
     }
 
-    fn process_comment_event(&mut self, comment_data: &CommentEvent) {
-        if HIDDEN_GAMES.contains(&comment_data.game) {
-            return;
-        }
-
-        let game_meta = match self.address_to_game_meta.get_mut(&comment_data.game) {
-            Some(meta) => meta,
-            None => {
-                eprintln!(
-                    "warning: Received CommentEvent for nonexistent game {}",
-                    comment_data.game
-                );
-                return;
-            }
-        };
-
-        let comment = Comment {
-            index: comment_data.comment_index,
-            user: comment_data.user,
-            timestamp: comment_data.timestamp,
-            text: comment_data.text.clone(),
-        };
-
-        // Broadcast the new comment
-        game_meta.broadcast_comment(comment.clone());
-
-        game_meta.comments.push(comment);
-    }
-
     fn update_game_tvl(
         &mut self,
         old_ivy_balance: u64,
@@ -451,47 +383,16 @@ impl GamesComponent {
         game: Public,
         kind: ChartKind,
         count: usize,
-        until_inclusive: u64,
+        after_inclusive: u64,
     ) -> (Vec<Candle>, f32, f32) {
         match self.address_to_game_meta.get(&game) {
             Some(m) => {
-                let candles = m.charts.query(kind, count, until_inclusive);
+                let candles = m.charts.query(kind, count, after_inclusive);
                 let g = &self.game_list[m.index];
                 (candles, g.mkt_cap_usd, g.change_pct_24h)
             }
             None => (Vec::new(), 0.0, 0.0),
         }
-    }
-
-    pub fn get_comment_info(
-        &self,
-        game: Public,
-        count: usize,
-        skip: usize,
-        reverse: bool,
-    ) -> (usize, Vec<Comment>) {
-        let meta = match self.address_to_game_meta.get(&game) {
-            Some(v) => v,
-            None => return (0, Vec::new()),
-        };
-        let comments = if reverse {
-            meta.comments
-                .iter()
-                .rev()
-                .skip(skip)
-                .take(count)
-                .cloned()
-                .collect()
-        } else {
-            meta.comments
-                .iter()
-                .skip(skip)
-                .take(count)
-                .cloned()
-                .collect()
-        };
-        let total = meta.comments.len();
-        (total, comments)
     }
 
     pub fn tvl_raw_ivy(&self) -> u64 {

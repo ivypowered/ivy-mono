@@ -9,8 +9,10 @@ import {
     Game,
     IVY_MINT_B58,
     IVY_PROGRAM_ID,
+    Sync,
     USDC_MINT_B58,
 } from "ivy-sdk";
+import { WSOL_MINT, WSOL_MINT_B58 } from "../constants";
 
 class Reader {
     private b: Buffer;
@@ -137,6 +139,12 @@ export async function getEffects(
                     const { usdcAmount, ivyAmount } = ivyEvt.data;
                     absDelta[IVY_MINT_B58] ||= ivyAmount.toString();
                     absDelta[USDC_MINT_B58] ||= usdcAmount.toString();
+                } else if (name == "syncSwapEvent") {
+                    // Synced liquidity
+                    const { sync, solAmount, tokenAmount } = ivyEvt.data;
+                    const syncMint = Sync.deriveMint(sync);
+                    absDelta[WSOL_MINT_B58] ||= solAmount.toString();
+                    absDelta[syncMint.toBase58()] ||= tokenAmount.toString();
                 }
                 continue;
             }

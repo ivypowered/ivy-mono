@@ -210,6 +210,12 @@ export function Comments({
     const [posting, setPosting] = useState(false);
     const [postError, setPostError] = useState<string | null>(null);
 
+    // Track pending comment to wait for it to appear
+    const [pendingComment, setPendingComment] = useState<{
+        text: string;
+        user: string;
+    } | null>(null);
+
     // State for interactivity
     const [replyTo, setReplyTo] = useState<number>(-1);
     const [hoveredCommentIndex, setHoveredCommentIndex] = useState<
@@ -224,6 +230,38 @@ export function Comments({
     useEffect(() => {
         commentRefs.current.clear();
     }, [comments]);
+
+    // Watch for pending comment to appear in the comments array
+    useEffect(() => {
+        if (!pendingComment || !comments) return;
+
+        // Check if the pending comment now appears in the comments array
+        const found = comments.some(
+            (comment) =>
+                comment.text.trim() === pendingComment.text &&
+                comment.user.trim() === pendingComment.user,
+        );
+
+        if (found) {
+            // Comment has appeared! Clean up posting state
+            setPosting(false);
+            setPendingComment(null);
+            setCommentText("");
+        }
+    }, [comments, pendingComment]);
+
+    // Clean up if posting takes too long (failsafe timeout)
+    useEffect(() => {
+        if (!pendingComment) return;
+
+        const timeout = setTimeout(() => {
+            // After 10 seconds, give up waiting
+            setPosting(false);
+            setPendingComment(null);
+        }, 10000);
+
+        return () => clearTimeout(timeout);
+    }, [pendingComment]);
 
     // Effect to handle "reply to" functionality
     useEffect(() => {
@@ -261,6 +299,7 @@ export function Comments({
 
         setPosting(true);
         setPostError(null);
+
         try {
             const gamePublicKey = new PublicKey(gameAddress);
             const userPublicKey = new PublicKey(userAddress);
@@ -273,14 +312,21 @@ export function Comments({
                 () => {},
             );
 
-            setCommentText("");
+            // Transaction succeeded, now wait for comment to appear
+            setPendingComment({
+                text: text.trim(),
+                user: userAddress.trim(),
+            });
+
+            // Don't clear commentText or posting state here -
+            // wait for the comment to actually appear
         } catch (err) {
             console.error("Failed to post comment:", err);
             setPostError(
                 err instanceof Error ? err.message : "Failed to post comment",
             );
-        } finally {
             setPosting(false);
+            setPendingComment(null);
         }
     };
 

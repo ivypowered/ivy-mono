@@ -3,9 +3,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-export const WSOL_MINT = new PublicKey(
-    "So11111111111111111111111111111111111111112",
-);
+export const WSOL_MINT_B58 = "So11111111111111111111111111111111111111112";
+export const WSOL_MINT = new PublicKey(WSOL_MINT_B58);
 export const LISTEN_PORT = process.env["LISTEN_PORT"] || 4000;
 export const RPC_URL = process.env["RPC_URL"] || "http://127.0.0.1:8899";
 export const PINATA_JWT = process.env["PINATA_JWT"] || "";
