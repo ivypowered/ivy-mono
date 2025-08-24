@@ -7,6 +7,7 @@ import { MessageCircle, User, Clock } from "lucide-react";
 import { processTransaction } from "@/lib/utils";
 import { Comment } from "@/import/ivy-sdk";
 import { CommentData } from "@/lib/api";
+import { Analytics } from "@/lib/analytics";
 
 /**
  * Parses comment text to find and separate ">>" references.
@@ -243,11 +244,16 @@ export function Comments({
         );
 
         if (found) {
-            // Comment has appeared! Clean up posting state
+            // Successful comment
+            Analytics.onAssetComment({
+                asset: gameAddress,
+                text: pendingComment.text,
+            });
             setPosting(false);
             setPendingComment(null);
             setCommentText("");
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [comments, pendingComment]);
 
     // Clean up if posting takes too long (failsafe timeout)

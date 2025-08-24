@@ -14,12 +14,30 @@ import { useWorldStream } from "@/lib/useWorldStream";
 import { QuoteContext } from "@/components/swap/QuoteProvider";
 import Decimal from "decimal.js-light";
 import { fetchBalance, fromRaw } from "./util";
+import { SwapToken } from "../swap/swapTypes";
+import { Analytics } from "@/lib/analytics";
 
 export interface IvyInfo {
     create_timestamp: number;
     ivy_price: number;
     ivy_mkt_cap: number;
     ivy_change_24h: number;
+}
+
+function onSuccessfulSwap(
+    inputToken: SwapToken,
+    outputToken: SwapToken,
+    inputAmount: number,
+    outputAmount: number,
+    usdValue: number,
+) {
+    Analytics.onIvySwap({
+        inputSymbol: inputToken.symbol,
+        outputSymbol: outputToken.symbol,
+        inputAmount,
+        outputAmount,
+        usdValue,
+    });
 }
 
 // World display component for IVY token
@@ -78,6 +96,7 @@ export function WorldDisplay({ ivyInfo }: { ivyInfo: IvyInfo }) {
                     connectWallet={openModal}
                     commonTokens={COMMON_TOKENS}
                     fetchBalance={fetchBalance}
+                    onSuccessfulSwap={onSuccessfulSwap}
                     quoteContext={quoteContext}
                     reloadBalances={reloadBalancesRef.current || (() => {})}
                     signTransaction={

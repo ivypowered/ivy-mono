@@ -43,6 +43,7 @@ impl Game {
             description: self.description.clone(),
             create_timestamp: self.create_timestamp,
             mkt_cap_usd: self.mkt_cap_usd,
+            price: self.last_price_usd,
         }
     }
 }

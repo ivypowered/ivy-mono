@@ -11,8 +11,8 @@ require_once __DIR__ . "/../includes/fmt.php";
 // Get global info from aggregator
 $global_info = call_aggregator("/global-info");
 
-// Game data for carousel
-$featured_games = $global_info["featured_games"];
+// Asset data for carousel
+$featured_assets = $global_info["featured_assets"];
 
 // Include header
 $title = "ivy | the gamecoin launchpad";
@@ -55,13 +55,13 @@ require_once __DIR__ . "/../includes/header.php";
             <div class="order-1 lg:order-2 relative w-full max-w-full overflow-hidden">
                 <div class="game-carousel relative overflow-hidden">
                     <div class="flex" id="carousel-track">
-                        <?php foreach ($featured_games as $index => $game): ?>
+                        <?php foreach ($featured_assets as $index => $asset): ?>
                         <div class="carousel-item w-full flex-shrink-0 px-2 box-border" data-index="<?= $index ?>">
                             <div class="block border-2 border-emerald-400 bg-zinc-900">
                                 <!-- LINKED IMAGE AND TITLE -->
                                 <a
                                     href="/game?address=<?= htmlspecialchars(
-                                        $game["address"],
+                                        $asset["address"],
                                     ) ?>"
                                     target="_blank"
                                     rel="noopener noreferrer"
@@ -70,13 +70,13 @@ require_once __DIR__ . "/../includes/header.php";
                                     <!-- IMAGE -->
                                     <div class="w-full h-48 bg-zinc-800 flex items-center justify-center overflow-hidden">
                                         <?php if (
-                                            !empty($game["cover_image"])
+                                            !empty($asset["icon_url"])
                                         ): ?>
                                             <img src="<?= htmlspecialchars(
-                                                $game["cover_image"],
+                                                $asset["icon_url"],
                                             ) ?>"
                                                  alt="<?= htmlspecialchars(
-                                                     $game["title"],
+                                                     $asset["name"],
                                                  ) ?>"
                                                  class="object-cover w-full h-full" />
                                         <?php else: ?>
@@ -86,7 +86,7 @@ require_once __DIR__ . "/../includes/header.php";
                                     </div>
                                     <!-- TITLE -->
                                     <h3 class="text-xl sm:text-2xl font-bold text-white px-4 sm:px-6 pt-4 sm:pt-6 pb-2 truncate group-hover:underline"><?= htmlspecialchars(
-                                        $game["title"],
+                                        $asset["name"],
                                     ) ?></h3>
                                 </a>
 
@@ -95,24 +95,24 @@ require_once __DIR__ . "/../includes/header.php";
                                     <div class="flex items-center justify-between gap-2">
                                         <div class="min-w-0">
                                             <div class="text-emerald-400 font-semibold text-base sm:text-lg truncate"><?= htmlspecialchars(
-                                                $game["symbol"],
+                                                $asset["symbol"],
                                             ) ?></div>
-                                            <div class="text-white text-xs sm:text-sm">$<?= $game[
+                                            <div class="text-white text-xs sm:text-sm">$<?= $asset[
                                                 "price"
                                             ] >= 0.0001
                                                 ? number_format(
-                                                    $game["price"],
+                                                    $asset["price"],
                                                     4,
                                                 )
                                                 : number_format(
-                                                    $game["price"],
+                                                    $asset["price"],
                                                     8,
                                                 ) ?></div>
                                         </div>
                                         <div class="text-right min-w-0">
                                             <div class="text-zinc-400 text-xs uppercase tracking-wide">Market Cap</div>
                                             <div class="text-white font-semibold text-sm sm:text-base">$<?= fmt_number_short(
-                                                $game["market_cap"],
+                                                $asset["mkt_cap_usd"],
                                             ) ?></div>
                                         </div>
                                     </div>
@@ -124,14 +124,14 @@ require_once __DIR__ . "/../includes/header.php";
 
                     <!-- Indicators (still overlayed at bottom of carousel) -->
                     <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-                        <?php foreach ($featured_games as $index => $game): ?>
+                        <?php foreach ($featured_assets as $index => $asset): ?>
                         <button
                             class="carousel-indicator w-2 h-2 rounded-none <?= $index ===
                             0
                                 ? "bg-emerald-400 w-6"
                                 : "bg-zinc-600" ?>"
                             data-index="<?= $index ?>"
-                            aria-label="Go to game <?= $index + 1 ?>"
+                            aria-label="Go to asset <?= $index + 1 ?>"
                         ></button>
                         <?php endforeach; ?>
                     </div>
@@ -142,7 +142,7 @@ require_once __DIR__ . "/../includes/header.php";
                     <button
                         id="carousel-prev"
                         class="bg-zinc-900/80 border border-emerald-400 text-emerald-400 p-2 hover:bg-emerald-400 hover:text-emerald-950"
-                        aria-label="Previous game"
+                        aria-label="Previous asset"
                     >
                         <?php echo icon(
                             "chevron-left",
@@ -152,7 +152,7 @@ require_once __DIR__ . "/../includes/header.php";
                     <button
                         id="carousel-next"
                         class="bg-zinc-900/80 border border-emerald-400 text-emerald-400 p-2 hover:bg-emerald-400 hover:text-emerald-950"
-                        aria-label="Next game"
+                        aria-label="Next asset"
                     >
                         <?php echo icon(
                             "chevron-right",

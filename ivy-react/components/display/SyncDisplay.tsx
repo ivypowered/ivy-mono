@@ -19,6 +19,7 @@ import { Sync, SYNC_DECIMALS } from "@/import/ivy-sdk";
 import { Frame } from "../frame";
 import { Description } from "./Description";
 import { Comments } from "./Comments"; // Added import
+import { Analytics } from "@/lib/analytics";
 
 export interface SyncInfo {
     address: string;
@@ -120,6 +121,24 @@ export function SyncDisplay({ syncInfo }: { syncInfo: SyncInfo }) {
         ((mint: string, amount: Decimal) => void) | null
     >(null);
 
+    const onSuccessfulSwap = useMemo(() => {
+        return (
+            inputToken: SwapToken,
+            outputToken: SwapToken,
+            inputAmount: number,
+            outputAmount: number,
+            usdValue: number,
+        ) =>
+            Analytics.onAssetSwap({
+                asset: syncInfo.address,
+                inputSymbol: inputToken.symbol,
+                outputSymbol: outputToken.symbol,
+                inputAmount,
+                outputAmount,
+                usdValue,
+            });
+    }, [syncInfo.address]);
+
     return (
         <div className="w-full flex flex-col items-center py-8">
             <div className="w-full max-w-[1080px] px-4">
@@ -127,6 +146,7 @@ export function SyncDisplay({ syncInfo }: { syncInfo: SyncInfo }) {
                     connectWallet={openModal}
                     commonTokens={COMMON_TOKENS}
                     fetchBalance={fetchBalance}
+                    onSuccessfulSwap={onSuccessfulSwap}
                     quoteContext={quoteContext}
                     reloadBalances={reloadBalancesRef.current || (() => {})}
                     signTransaction={

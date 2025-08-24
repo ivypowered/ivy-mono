@@ -11,4 +11,5 @@ pub struct Asset {
     pub description: String,
     pub create_timestamp: u64,
     pub mkt_cap_usd: f32,
+    pub price: f32,
 }

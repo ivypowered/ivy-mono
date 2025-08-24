@@ -47,6 +47,13 @@ interface SwapProviderProps {
     initialInputToken: SwapToken;
     initialOutputToken: SwapToken;
     isInputFixed?: boolean;
+    onSuccessfulSwap: (
+        inputToken: SwapToken,
+        outputToken: SwapToken,
+        inputAmount: number,
+        outputAmount: number,
+        usdValue: number,
+    ) => void;
     quoteContext: QuoteContext;
     reloadBalances: () => void;
     signTransaction: (
@@ -69,6 +76,7 @@ export function SwapProvider({
     initialInputToken,
     initialOutputToken,
     isInputFixed,
+    onSuccessfulSwap,
     quoteContext,
     reloadBalances,
     signTransaction,
@@ -421,8 +429,6 @@ export function SwapProvider({
             })),
         executeSwap: async () => {
             try {
-                const inputToken = state.inputToken;
-                const outputToken = state.outputToken;
                 if (!quote) throw new Error("No quote available");
                 if (!user) throw new Error("Wallet not connected");
                 const onStatus = (status: number) => {
@@ -443,6 +449,11 @@ export function SwapProvider({
                             break;
                     }
                 };
+                const inputToken = state.inputToken;
+                const outputToken = state.outputToken;
+                const inputAmount = quote.input;
+                const outputAmount = quote.output;
+                const usdValue = quote.inputUSD;
                 const start = new Date().getTime() / 1000;
                 let inputRaw: string = "";
                 let outputRaw: string = "";
@@ -472,6 +483,13 @@ export function SwapProvider({
                 const txOutput =
                     parseInt(outputRaw) / Math.pow(10, outputToken.decimals);
                 const end = new Date().getTime() / 1000;
+                onSuccessfulSwap(
+                    inputToken,
+                    outputToken,
+                    inputAmount.toNumber(),
+                    outputAmount.toNumber(),
+                    usdValue.toNumber(),
+                );
                 setState((prev) => ({
                     ...prev,
                     inputAmount: DECIMAL_ZERO,

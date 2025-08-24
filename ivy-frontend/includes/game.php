@@ -20,11 +20,28 @@ function game_render($game)
     $game_name = htmlspecialchars($game["name"] ?? "Untitled Game");
     $game_symbol = htmlspecialchars(strtoupper($game["symbol"] ?? "???"));
 
-    // Get description and cap at 280 chars
+    // Get description, limit to first sentence, then cap at 280 chars
     $description = $game["description"] ?? "";
-    if (strlen($description) > 280) {
-        $description = substr($description, 0, 277) . "...";
+
+    // First, limit to first sentence
+    if (!empty($description)) {
+        // Find the first sentence ending (. ! ? or newline)
+        // Exclude common abbreviations before periods
+        preg_match(
+            '/^.*?(?:(?<!Mr|Mrs|Ms|Dr|Prof|Sr|Jr|vs|etc|inc|ltd|co|Corp|Inc|Ltd|Co|Ph\.D|M\.D|B\.A|M\.A|D\.D\.S|Ph|St|Ave|Rd|Blvd|Dept|Univ|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.|[!?\n])/is',
+            $description,
+            $matches,
+        );
+        if (!empty($matches[0])) {
+            $description = trim($matches[0]);
+        }
+
+        // Then apply 280 character limit if still needed
+        if (strlen($description) > 280) {
+            $description = substr($description, 0, 277) . "...";
+        }
     }
+
     $description = htmlspecialchars($description);
 
     $image_url = !empty($game["icon_url"])

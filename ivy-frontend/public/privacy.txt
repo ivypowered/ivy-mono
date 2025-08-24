@@ -1,6 +1,6 @@
 Privacy Policy
 
-Last updated: 20 May 2025
+Last updated: 24 August 2025
 
 1. Data We Collect
 
@@ -8,6 +8,12 @@ We collect minimal data from users:
 
     IP Addresses: For analyzing traffic patterns and security purposes.
     Solana Network Data: Cached to optimize read calls and reduce compute costs.
+    Analytics Data: We use third-party analytics services to collect anonymized usage data including:
+        - Page views and navigation patterns
+        - Browser type and device information
+        - Referrer information
+        - Session duration and interactions
+        - Anonymous user identifiers (no personal information)
 
 2. How We Use Your Data
 
@@ -15,15 +21,41 @@ The data we collect is used only for:
 
     Analyzing traffic patterns and securing our servers.
     Optimizing read calls to the Solana network.
+    Understanding how users interact with our service to improve user experience.
+    Identifying and fixing technical issues.
 
-3. Your Rights
+3. Third-Party Services
 
-You have the right to request a copy, correction, or deletion of your personal data. Contact us at privacy@ivypowered.com to exercise these rights.
+We use GDPR-compliant analytics providers hosted in the EU. These providers process data on our behalf and are contractually prohibited from selling or sharing your data with other parties.
 
-4. Changes to This Policy
+4. Cookies and Tracking
+
+We use minimal cookies for:
+    - Analytics - to understand usage patterns
+    - Essential functionality - to maintain your session
+
+You can disable cookies in your browser settings, though this may affect site functionality.
+
+5. Your Rights
+
+You have the right to:
+    - Request a copy of your personal data
+    - Request correction or deletion of your personal data
+    - Opt out of analytics tracking
+    - Object to data processing
+
+Contact us at privacy@ivypowered.com to exercise these rights.
+
+6. Data Retention
+
+    Analytics data: Retained according to our analytics provider's policy
+    IP addresses: Retained for 30 days
+    Cached Solana data: Retained as needed for optimization
+
+7. Changes to This Policy
 
 We may update this Privacy Policy periodically. Check this page for the latest version.
 
-5. Contact Us
+8. Contact Us
 
 If you have any questions about this Privacy Policy, please contact us at privacy@ivypowered.com.

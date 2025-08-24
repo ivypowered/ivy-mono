@@ -20,6 +20,8 @@ import { QuoteContext } from "@/components/swap/QuoteProvider";
 import Decimal from "decimal.js-light";
 import { fetchBalance, fromRaw } from "./util";
 import { Description } from "./Description";
+import { SwapToken } from "../swap/swapTypes";
+import { Analytics } from "@/lib/analytics";
 
 // Main game display content
 export function GameDisplay({ game }: { game: GameObject }) {
@@ -43,6 +45,23 @@ export function GameDisplay({ game }: { game: GameObject }) {
     const [activeTab, setActiveTab] = useState<ChartTab>(
         game.game_url ? "Game" : "Chart",
     );
+    const onSuccessfulSwap = useMemo(() => {
+        return (
+            inputToken: SwapToken,
+            outputToken: SwapToken,
+            inputAmount: number,
+            outputAmount: number,
+            usdValue: number,
+        ) =>
+            Analytics.onAssetSwap({
+                asset: game.address,
+                inputSymbol: inputToken.symbol,
+                outputSymbol: outputToken.symbol,
+                inputAmount,
+                outputAmount,
+                usdValue,
+            });
+    }, [game.address]);
 
     // Use the new stream hook
     const { data: streamData, loading: isStreamLoading } = useGameStream(
@@ -129,6 +148,7 @@ export function GameDisplay({ game }: { game: GameObject }) {
                     connectWallet={openModal}
                     commonTokens={COMMON_TOKENS}
                     fetchBalance={fetchBalance}
+                    onSuccessfulSwap={onSuccessfulSwap}
                     quoteContext={quoteContext}
                     reloadBalances={reloadBalancesRef.current || (() => {})}
                     signTransaction={

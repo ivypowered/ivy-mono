@@ -91,12 +91,8 @@ const formatCurrency = (num: number | undefined): string => {
 };
 
 const fromNow = (date: Date): string => {
-    const timestamp = date.getTime();
-    const now = Date.now();
-    const diff = now - timestamp;
-    if (diff < 0) {
-        return "just now";
-    }
+    const diff = Date.now() - date.getTime();
+    if (diff < 0) return "just now";
 
     const seconds = Math.floor(diff / 1000);
     const minutes = Math.floor(seconds / 60);

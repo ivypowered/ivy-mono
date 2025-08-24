@@ -260,6 +260,7 @@ impl GamesComponent {
                 description: game.description.clone(),
                 create_timestamp: game.create_timestamp,
                 mkt_cap_usd: game.mkt_cap_usd,
+                price: game.last_price_usd,
             });
         }
     }
